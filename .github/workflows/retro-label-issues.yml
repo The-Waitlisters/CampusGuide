@@ -1,0 +1,123 @@
+name: Retro-label existing issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      state:
+        description: "Issue state to scan (open or all)"
+        required: true
+        default: "open"
+      limit:
+        description: "Max issues to scan (1-500)"
+        required: true
+        default: "200"
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  retro_label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan issues and apply labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const state = core.getInput("state") || "open";
+            const limit = Math.min(Math.max(parseInt(core.getInput("limit") || "200", 10), 1), 500);
+
+            // Keyword-based labeling rules
+            const rules = [
+              { label: "frontend", keywords: ["frontend", "ui", "screen", "toggle", "selector"] },
+              { label: "backend",  keywords: ["backend", "api", "fastapi", "sql", "database", "schema", "endpoint"] },
+              { label: "maps",     keywords: ["map", "maps", "campus map", "building", "poi", "points of interest"] },
+              { label: "navigation", keywords: ["directions", "route", "routing", "shortest path", "navigate"] },
+              { label: "indoor",   keywords: ["indoor", "room", "floor", "stairs", "elevator"] },
+              { label: "outdoor",  keywords: ["outdoor", "campus", "point of interest", "points of interest"] },
+              { label: "accessibility", keywords: ["disabilities", "accessible", "wheelchair", "accessibility"] },
+              { label: "calendar", keywords: ["calendar", "google calendar", "event", "next class", "schedule"] },
+              { label: "integration", keywords: ["open data", "api", "connect to"] }
+            ];
+
+            function getMatches(text) {
+              const t = (text || "").toLowerCase();
+              const out = [];
+              for (const r of rules) {
+                if (r.keywords.some(k => t.includes(k))) out.push(r.label);
+              }
+              return out;
+            }
+
+            async function ensureLabelExists(name) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name
+                });
+              } catch (err) {
+                if (err.status !== 404) throw err;
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                  color: "ededed",
+                  description: "Auto-created by retro-label workflow"
+                });
+              }
+            }
+
+            // List issues (paginated) using the Issues API
+            const issues = [];
+            const per_page = 100;
+            for (let page = 1; page <= 10; page++) {
+              if (issues.length >= limit) break;
+
+              const resp = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: state === "all" ? "all" : "open",
+                per_page,
+                page
+              });
+
+              // Filter out PRs (they appear in issues endpoint)
+              const onlyIssues = resp.data.filter(i => !i.pull_request);
+              issues.push(...onlyIssues);
+
+              if (resp.data.length < per_page) break;
+            }
+
+            const toProcess = issues.slice(0, limit);
+            core.info(`Scanning ${toProcess.length} issues (state=${state})`);
+
+            let updated = 0;
+
+            for (const issue of toProcess) {
+              const text = `${issue.title}\n${issue.body || ""}`;
+              const matches = getMatches(text);
+
+              if (matches.length === 0) continue;
+
+              const existing = new Set((issue.labels || []).map(l => l.name));
+              const add = matches.filter(l => !existing.has(l));
+
+              if (add.length === 0) continue;
+
+              for (const name of add) {
+                await ensureLabelExists(name);
+              }
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: add
+              });
+
+              updated++;
+              core.info(`#${issue.number} "${issue.title}" -> added: ${add.join(", ")}`);
+            }
+
+            core.info(`Done. Updated ${updated} issues.`);
