@@ -1,0 +1,61 @@
+# === Flutter / Dart ===
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# === IDEs ===
+.idea/
+.vscode/
+*.iml
+
+# === OS junk ===
+.DS_Store
+Thumbs.db
+
+# === Android ===
+android/.gradle/
+android/local.properties
+android/**/build/
+android/proj_android.iml
+
+# Keep Gradle wrapper (DO NOT IGNORE)
+!android/gradlew
+!android/gradlew.bat
+!android/gradle/wrapper/gradle-wrapper.jar
+
+# === iOS / macOS ===
+ios/.symlinks/
+ios/Pods/
+ios/Runner/GeneratedPluginRegistrant.*
+ios/Flutter/.last_build_id
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
+
+# === Linux / Windows ===
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# === Generated plugin files (Flutter auto-gen) ===
+**/GeneratedPluginRegistrant.*
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
+
+# === Web ===
+web/.dart_tool/
+web/build/
+
+# === Tooling / caches ===
+.ci-kondo/
+.lsp/
+.cache/
+
+# === Logs / reports ===
+*.log
+android/build/reports/
+
+# === Temporary / experiments ===
+web/map_test.html
