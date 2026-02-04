@@ -4,16 +4,16 @@ A new Flutter project.
 
 ## Team Members 
 
-### Malcom Arcand Laliberte - 26334792
-### Mohamed Ali Bahi - 40282763
-### Rim Charafeddine - 40282994
-### Yanis Djeridi - 40227313
-### Maximilian Grabowski - 40251210
-### Owen Jorgensen - 40227851
-### Joseph Keshishian - 40297447
-### M-Amar Kseibi - 40276594
-### Hugo Moslener - 40241091
-### Samuditha Wijenarayana - 40224895
+Malcom Arcand Laliberte - 26334792
+Mohamed Ali Bahi - 40282763
+Rim Charafeddine - 40282994
+Yanis Djeridi - 40227313
+Maximilian Grabowski - 40251210
+Owen Jorgensen - 40227851
+Joseph Keshishian - 40297447
+M-Amar Kseibi - 40276594
+Hugo Moslener - 40241091
+Samuditha Wijenarayana - 40224895
 
 
 ## Getting Started
