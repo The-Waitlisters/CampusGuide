@@ -3,3 +3,6 @@
 !/pubspec.yaml
 !/analysis_options.yaml
 !/README.md
+android/app/src/main/AndroidManifest.xml
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
