@@ -39,11 +39,11 @@ final List<CampusBuilding> campusBuildings = [
     description: null,
     campus: Campus.sgw,
     boundary: [
-      const LatLng(45.49491133678676, -73.57776501513339),
-      const LatLng(45.49380661985856, -73.57909089737437),
-      const LatLng(45.49352938424119, -73.57861070202297),
-      const LatLng(45.49463460703382, -73.57712690297591),
-      const LatLng(45.49491133678676, -73.57776501513339),
+      const LatLng(45.49354346222445, -73.57859859130102),
+      const LatLng(45.49437096394006, -73.57751817875581),
+      const LatLng(45.49472165924888, -73.57804563782115),
+      const LatLng(45.49383883851826, -73.57906835125799),
+      const LatLng(45.49354346222445, -73.57859859130102),
     ],
   ),
   CampusBuilding(
@@ -102,9 +102,40 @@ final List<CampusBuilding> campusBuildings = [
       const LatLng(45.49535972385937, -73.57947407245321),
       const LatLng(45.49492101893935, -73.57881076337864),
     ],
-  ),CampusBuilding(
+  ),
+  CampusBuilding(
+    id: '02DC42D49E3D69BB8F54',
+    name: 'GA',
+    fullName: 'Grey Nuns Annex',
+    description: null,
+    campus: Campus.sgw,
+    boundary: [
+      const LatLng(45.49385770939176, -73.57838874757492),
+      const LatLng(45.49374644689133, -73.57821772333885),
+      const LatLng(45.49430551832025, -73.57761620241787),
+      const LatLng(45.49437060631091, -73.57774009568382),
+      const LatLng(45.49385770939176, -73.57838874757492),
+    ],
+  ),
+  CampusBuilding(
+    id: '0329375FC13D69BC5E44',
+    name: 'GN',
+    fullName: 'Grey Nuns Building',
+    description: null,
+    campus: Campus.sgw,
+    boundary: [
+      const LatLng(45.49242862529509, -73.57662574095559),
+      const LatLng(45.49388310200209, -73.57526330839784),
+      const LatLng(45.49464731047383, -73.57711707843856),
+      const LatLng(45.49346995458547, -73.57856751574464),
+      const LatLng(45.49242862529509, -73.57662574095559),
+    ],
+  ),
+  CampusBuilding(
     id: '06FAF2AE3E3D5B55B328',
     name: 'LS',
+    fullName: 'Learning Square',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49655835455069, -73.57959383960515),
@@ -117,6 +148,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '074BEF01E53D5B585234',
     name: 'ER',
+    fullName: 'ER Building',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49671701926878, -73.57996442461871),
@@ -129,6 +162,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '00B3D9C2993D5B5DE62E',
     name: 'GS',
+    fullName: 'GS Building',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49678438271954, -73.5813030677151),
@@ -140,7 +175,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0538A861DB3D605887FE',
-    name: 'P Annex',
+    name: 'P',
+    fullName: 'P Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49662732638888, -73.57927529925639),
@@ -152,7 +189,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0FF92AB0EC3D605956BF',
-    name: 'T Annex',
+    name: 'T',
+    fullName: 'T Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49672786862637, -73.57915511906937),
@@ -164,7 +203,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0691777E283D605A247E',
-    name: 'Q Annex',
+    name: 'Q',
+    fullName: 'Q Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4965727818706, -73.57918134129275),
@@ -176,7 +217,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '028320D2673D605AEFAC',
-    name: 'RR Annex',
+    name: 'RR',
+    fullName: 'RR Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49665756710323, -73.57951259730287),
@@ -188,7 +231,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '03C56393033D6060CCEC',
-    name: 'CL Annex',
+    name: 'CL',
+    fullName: 'CL Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49323380638076, -73.58042492054079),
@@ -203,6 +248,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '03CB7219F03D6061FEF8',
     name: 'VA',
+    fullName: 'Visual Arts Building',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49620838996891, -73.5737969046972),
@@ -217,6 +264,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0F5C3EE9303D60634DEF',
     name: 'SB',
+    fullName: 'Samuel Bronfman Building',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49674998060311, -73.58618722936976),
@@ -228,6 +277,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '07AD0D264E3D60672854',
     name: 'LD',
+    fullName: 'LD Building',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4968778124917, -73.57717421931973),
@@ -239,7 +290,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '01DC2047F93D60691159',
-    name: 'MI Annex',
+    name: 'MI',
+    fullName: 'MI Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49783146575164, -73.57925140197356),
@@ -251,7 +304,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '027AAD4E703D606AAA94',
-    name: 'B Annex',
+    name: 'B',
+    fullName: 'B Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49775851706917, -73.57967449613786),
@@ -263,7 +318,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0CF9918BB83D60697408',
-    name: 'D Annex',
+    name: 'D',
+    fullName: 'D Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4978690114234, -73.57930937250022),
@@ -275,7 +332,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0B2944D6C63D6069B9CC',
-    name: 'K Annex',
+    name: 'K',
+    fullName: 'K Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49791564105391, -73.57939489545356),
@@ -287,7 +346,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0D4F11BAF83D606B78D9',
-    name: 'MU Annex',
+    name: 'MU',
+    fullName: 'MU Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49799328042021, -73.57953702074954),
@@ -299,7 +360,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '017BD089D13D606CA94F',
-    name: 'M Annex',
+    name: 'M',
+    fullName: 'M Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49744461028961, -73.57972295360648),
@@ -311,7 +374,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '021D76EA063D606CECB3',
-    name: 'S Annex',
+    name: 'S',
+    fullName: 'S Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49734553835403, -73.57996277054484),
@@ -323,7 +388,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0C6BD47A0D3D606D3E36',
-    name: 'CI Annex',
+    name: 'CI',
+    fullName: 'CI Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49760789046447, -73.57984791792974),
@@ -335,7 +402,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '072A87CEB73D60B48C5B',
-    name: 'R Annex',
+    name: 'R',
+    fullName: 'R Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49683197493204, -73.5793027626213),
@@ -347,7 +416,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0DEA98D5933D60B6320E',
-    name: 'FA Annex',
+    name: 'FA',
+    fullName: 'FA Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4968767073126, -73.57939692350492),
@@ -359,7 +430,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '01BC747CDA3D60B6DD31',
-    name: 'EN Annex',
+    name: 'EN',
+    fullName: 'EN Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49697735728394, -73.57955501130891),
@@ -371,7 +444,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '01BC0AA7893D60B75A10',
-    name: 'X Annex',
+    name: 'X',
+    fullName: 'X Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49680404081207, -73.57969831730642),
@@ -383,7 +458,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '03CECF78C53D60B7B9AF',
-    name: 'Z Annex',
+    name: 'Z',
+    fullName: 'Z Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49684655609713, -73.57978592712668),
@@ -395,7 +472,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '0AD8E46ABA3D60B835E0',
-    name: 'PR Annex',
+    name: 'PR',
+    fullName: 'PR Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49704024584023, -73.57973143957591),
@@ -407,7 +486,9 @@ final List<CampusBuilding> campusBuildings = [
   ),
   CampusBuilding(
     id: '08729269DF3D60B8BCB1',
-    name: 'V Annex',
+    name: 'V',
+    fullName: 'V Annex',
+    description: null,
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49708179842126, -73.57982177981953),
@@ -634,6 +715,20 @@ final List<CampusBuilding> campusBuildings = [
     ],
   ),
   CampusBuilding(
+    id: '0F5985E4763D60C09544',
+    name: 'GE',
+    fullName: 'Centre for Structural and Functional Genomics',
+    description: null,
+    campus: Campus.loyola,
+    boundary: [
+      const LatLng(45.45680202544237, -73.64035911860894),
+      const LatLng(45.45706454084389, -73.64016526974493),
+      const LatLng(45.45719719687026, -73.6405681950127),
+      const LatLng(45.4569440571742, -73.64077892637724),
+      const LatLng(45.45680202544237, -73.64035911860894),
+    ],
+  ),
+  CampusBuilding(
     id: '0078CB9CA33D60C9BE53',
     name: 'PY',
     fullName: 'Oscar Peterson Concert Hall',
@@ -677,9 +772,75 @@ final List<CampusBuilding> campusBuildings = [
     ],
   ),
   CampusBuilding(
+    id: '0789C151FA3D60C8E97F',
+    name: 'BH',
+    campus: Campus.loyola,
+    boundary: [
+      const LatLng(45.45966872876621, -73.63910424584647),
+      const LatLng(45.45978877363271, -73.63901122455385),
+      const LatLng(45.45982573613649, -73.63909787329762),
+      const LatLng(45.45970452920682, -73.63919031479129),
+      const LatLng(45.45966872876621, -73.63910424584647),
+    ],
+  ),
+  CampusBuilding(
+    id: '0A89B2ED543D60C92200',
+    name: 'BB',
+    campus: Campus.loyola,
+    boundary: [
+      const LatLng(45.45981969079476, -73.63909827266976),
+      const LatLng(45.45985287952514, -73.63918721316504),
+      const LatLng(45.45972941838741, -73.6392768498071),
+      const LatLng(45.4597017402704, -73.63918902763332),
+      const LatLng(45.45981969079476, -73.63909827266976),
+    ],
+  ),
+  CampusBuilding(
+    id: '08C07F2B0A3D60CD7EA8',
+    name: 'SC',
+    fullName: 'Student Center',
+    description: null,
+    campus: Campus.loyola,
+    boundary: [
+      const LatLng(45.45921329905048, -73.63898826993562),
+      const LatLng(45.45935960030876, -73.63929641794377),
+      const LatLng(45.4591399928084, -73.63946149354167),
+      const LatLng(45.45900127802198, -73.63911218693571),
+      const LatLng(45.45921329905048, -73.63898826993562),
+    ],
+  ),
+  CampusBuilding(
+    id: '04894B7D683D60C2DD14',
+    name: 'RF',
+    campus: Campus.loyola,
+    boundary: [
+      const LatLng(45.45833529406752, -73.64087235285538),
+      const LatLng(45.4584782748976, -73.64074896676132),
+      const LatLng(45.45852812664556, -73.64089975698938),
+      const LatLng(45.45875515777457, -73.64073047697218),
+      const LatLng(45.45887958755786, -73.64105965240181),
+      const LatLng(45.45842903423569, -73.64140863155603),
+      const LatLng(45.45830175406617, -73.641109502503),
+      const LatLng(45.45839776059774, -73.64103562163805),
+      const LatLng(45.45833529406752, -73.64087235285538),
+    ],
+  ),
+  CampusBuilding(
+    id: '0776007D223D60C67150',
+    name: 'SH',
+    campus: Campus.loyola,
+    boundary: [
+      const LatLng(45.45923105992547, -73.64241099255784),
+      const LatLng(45.4593383472906, -73.64238711938654),
+      const LatLng(45.45935437907901, -73.64267257580546),
+      const LatLng(45.45923656053212, -73.64265508543815),
+      const LatLng(45.45923105992547, -73.64241099255784),
+    ],
+  ),
+  CampusBuilding(
     id: '0B34EBE1773D60D26589',
-    name: 'VL',
-    fullName: 'Vanier Library',
+    name: 'VL/VE',
+    fullName: 'Vanier Library & Extension',
     description: null,
     campus: Campus.loyola,
     boundary: [
