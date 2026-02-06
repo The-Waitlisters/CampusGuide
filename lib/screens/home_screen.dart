@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../data/building_data.dart'; // Import building data
+import '../data/building_data.dart';
 import '../models/campus.dart';
 import '../widgets/campus_toggle.dart';
 
@@ -17,33 +17,38 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
   Campus _campus = Campus.sgw;
+  late Future<Set<Polygon>> _polygonsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start loading polygons for the initial campus
+    _polygonsFuture = _buildPolygonsForCampus(_campus);
+  }
 
   CameraPosition get _initialCamera {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
   }
 
-  // This method creates the set of polygons to display on the map.
-  // It filters the buildings based on the currently selected campus.
-  Set<Polygon> _buildPolygons() {
+  Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async {
+
+    await Future.delayed(const Duration(milliseconds: 100));
+
     return campusBuildings
-        .where((building) => building.campus == _campus) // Filter by campus
+        .where((building) => building.campus == campus)
         .map((building) {
       return Polygon(
         polygonId: PolygonId(building.id),
         points: building.boundary,
-        fillColor: const Color(0x80912338), // Corrected fill color with alpha
-        strokeColor: const Color(0xFF741C2C), // Corrected stroke color with alpha
+        fillColor: const Color(0x80912338),
+        strokeColor: const Color(0xFF741C2C),
         strokeWidth: 2,
       );
     }).toSet();
   }
 
   Future<void> _goToCampus(Campus campus) async {
-    setState(() {
-      _campus = campus;
-    });
-
     final controller = await _controller.future;
     final info = campusInfo[campus]!;
     await controller.animateCamera(
@@ -51,6 +56,11 @@ class _HomeScreenState extends State<HomeScreen> {
         CameraPosition(target: info.center, zoom: info.zoom),
       ),
     );
+    // When campus changes, start loading the new set of polygons
+    setState(() {
+      _campus = campus;
+      _polygonsFuture = _buildPolygonsForCampus(campus);
+    });
   }
 
   @override
@@ -61,16 +71,38 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: _initialCamera,
-            onMapCreated: (GoogleMapController controller) {
-              if (!_controller.isCompleted) {
-                _controller.complete(controller);
+          FutureBuilder<Set<Polygon>>(
+            future: _polygonsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                // Show map without polygons while loading
+                return GoogleMap(
+                  initialCameraPosition: _initialCamera,
+                  onMapCreated: (GoogleMapController controller) {
+                    if (!_controller.isCompleted) {
+                      _controller.complete(controller);
+                    }
+                  },
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                );
               }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error loading polygons: ${snapshot.error}'));
+              }
+              // When polygons are loaded, show them on the map
+              return GoogleMap(
+                initialCameraPosition: _initialCamera,
+                onMapCreated: (GoogleMapController controller) {
+                  if (!_controller.isCompleted) {
+                    _controller.complete(controller);
+                  }
+                },
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                polygons: snapshot.data ?? {},
+              );
             },
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            polygons: _buildPolygons(), // Add the polygons to the map
           ),
           SafeArea(
             child: Padding(
