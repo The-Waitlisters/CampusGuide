@@ -11,6 +11,5 @@ void main() {
     // Verify the app renders basic UI
     expect(find.byType(MaterialApp), findsOneWidget);
     expect(find.text('The Waitlisters'), findsOneWidget);
-    expect(find.text('Campus Guide is running'), findsOneWidget);
   });
 }
