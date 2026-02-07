@@ -5,6 +5,7 @@ import '../data/building_data.dart';
 import '../models/campus.dart';
 import '../widgets/campus_toggle.dart';
 import '../models/campus_building.dart';
+import 'package:geocoding/geocoding.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   CampusBuilding? _cursorBuilding;
+  String? addy;
   late Future<Set<Polygon>> _polygonsFuture;
 
   @override
@@ -32,6 +34,43 @@ class _HomeScreenState extends State<HomeScreen> {
   CameraPosition get _initialCamera {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
+  }
+
+  Future<String> getPlaceMarks(LatLng coords) async {
+    try {
+
+      double x = coords.latitude;
+      double y = coords.longitude;
+      List<Placemark> placemarks = await placemarkFromCoordinates(x, y);
+
+      var address = '';
+
+      if(placemarks.isNotEmpty) {
+
+        var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
+
+        streets = streets.where((street) => street!.toLowerCase() != placemarks.reversed.last.locality!.toLowerCase());
+
+        streets = streets.where((street) => !street!.contains('+'));
+
+        address += streets.first!;
+
+        address += ', ${placemarks.reversed.last.subAdministrativeArea ?? ''}';
+        address += ', ${placemarks.reversed.last.administrativeArea ?? ''}';
+        address += ', ${placemarks.reversed.last.postalCode ?? ''}';
+      }
+
+      debugPrint("Your Address for ($x , $y) is: $address");
+
+      return address;
+
+    } catch (e) {
+
+      debugPrint("Error getting placemarks: $e");
+      return "No Address";
+      
+    }
+    
   }
 
   Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
@@ -143,6 +182,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     {
                       _cursorPoint = point;
                       _cursorBuilding = building;
+                      getPlaceMarks(_cursorPoint!).then((onValue) {
+                        addy = onValue;
+                      }
+                      ); 
                     });
                   },
                 );
@@ -176,6 +219,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       position: _cursorPoint!,
                       infoWindow: InfoWindow(
                         title: _cursorBuilding?.name ?? 'No building',
+                        snippet: addy ?? ''
+                        
                       ),
                     ),
                 },
@@ -197,6 +242,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   {
                     _cursorPoint = point;
                     _cursorBuilding = building;
+                    getPlaceMarks(_cursorPoint!).then((onValue) {
+                        addy = onValue;
+                      }
+                      ); 
                   });
                 },
               );

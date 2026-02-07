@@ -39,6 +39,7 @@ dependencies:
   geolocator: ^12.0.0 # For getting user's GPS location
   # A helper for checking if a point is inside a polygon
   google_maps_utils: ^1.5.0+0
+  geocoding: ^4.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
