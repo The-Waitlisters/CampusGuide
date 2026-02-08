@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/building_data.dart';
 import '../models/campus.dart';
@@ -16,12 +17,13 @@ class HomeScreen extends StatefulWidget {
   }
 }
 
+
 class _HomeScreenState extends State<HomeScreen> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   CampusBuilding? _cursorBuilding;
-  String? addy;
+  String? _addresses = '';
   late Future<Set<Polygon>> _polygonsFuture;
 
   @override
@@ -36,18 +38,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return CameraPosition(target: info.center, zoom: info.zoom);
   }
 
-  Future<String> getPlaceMarks(LatLng coords) async {
+  Future<String> getPlaceMarks(LatLng coords) async { /// To be fixed in sprint 2
     try {
 
       double x = coords.latitude;
       double y = coords.longitude;
-      List<Placemark> placemarks = await placemarkFromCoordinates(x, y);
+      List<Placemark> placemarks = [];
+      List<Location> loc = [];
 
-      var address = '';
+      if(_isPointInPolygon(coords, _cursorBuilding!.boundary)) {
+        placemarks = await placemarkFromCoordinates(x, y);
+      }
+
+      String address = '';
 
       if(placemarks.isNotEmpty) {
 
-        var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
+        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ?? ''}, ' '${placemarks[0].postalCode ?? ''}';
+
+        /* var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
 
         streets = streets.where((street) => street!.toLowerCase() != placemarks.reversed.last.locality!.toLowerCase());
 
@@ -57,10 +66,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
         address += ', ${placemarks.reversed.last.subAdministrativeArea ?? ''}';
         address += ', ${placemarks.reversed.last.administrativeArea ?? ''}';
-        address += ', ${placemarks.reversed.last.postalCode ?? ''}';
+        address += ', ${placemarks.reversed.last.postalCode ?? ''}'; */
       }
 
-      debugPrint("Your Address for ($x , $y) is: $address");
+      //debugPrint("Your Address for ($x , $y) is: $address");
 
       return address;
 
@@ -160,7 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         markerId: const MarkerId('cursor'),
                         position: _cursorPoint!,
                         infoWindow: InfoWindow(
-                          title: _cursorBuilding?.name ?? 'No building',
+                          title: _cursorBuilding?.fullName ?? 'No building',
+                          snippet: _cursorBuilding?.description ?? 'No address'
                         ),
                       ),
                   },
@@ -172,20 +182,57 @@ class _HomeScreenState extends State<HomeScreen> {
                       _campus,
                     );
 
+                    
+
+                  
+                  //Creates bottom sheet upon tapping polygon
+                  //hardcoded to ignore non-campus buildings for now, will be further expanded on next sprint
+                    if(building != null) {
+                      showBottomSheet(
+                      context: context,
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 8),
+                            Text('${_cursorBuilding?.description}'),
+                          ],
+                        ),
+                      ),
+                    );
+                  } else {
+                    showBottomSheet(
+                      context: context,
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 8),
+                            Text('Please select a shaded building'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
                     debugPrint(
                       building != null
                           ? 'Selected building: ${building.name} (id=${building.id})'
                           : 'Selected building: none',
                     );
 
+                    
+
                     setState(()
                     {
                       _cursorPoint = point;
-                      _cursorBuilding = building;
-                      getPlaceMarks(_cursorPoint!).then((onValue) {
-                        addy = onValue;
-                      }
-                      ); 
+                      _cursorBuilding = building;                     
                     });
                   },
                 );
@@ -218,8 +265,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       markerId: const MarkerId('cursor'),
                       position: _cursorPoint!,
                       infoWindow: InfoWindow(
-                        title: _cursorBuilding?.name ?? 'No building',
-                        snippet: addy ?? ''
+                        title: _cursorBuilding?.fullName ?? 'No building',
+                        snippet: _cursorBuilding?.description ?? 'No address'
                         
                       ),
                     ),
@@ -232,6 +279,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     _campus,
                   );
 
+                  //Creates bottom sheet upon tapping polygon
+
+                  if(building != null) {
+                    showBottomSheet(
+                    context: context,
+                    builder: (_) => Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 8),
+                          Text('${_cursorBuilding?.description}'),
+                        ],
+                      ),
+                    ),
+                  );
+                  }  else {
+                    showBottomSheet(
+                      context: context,
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 8),
+                            Text('Please select a shaded building'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  
                   debugPrint(
                     building != null
                         ? 'Selected building: ${building.name} (id=${building.id})'
@@ -242,10 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   {
                     _cursorPoint = point;
                     _cursorBuilding = building;
-                    getPlaceMarks(_cursorPoint!).then((onValue) {
-                        addy = onValue;
-                      }
-                      ); 
                   });
                 },
               );
