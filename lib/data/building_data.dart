@@ -8,7 +8,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '08CDF1C7203D5ADF48E3',
     name: 'EV',
     fullName: 'Engineering, Computer Science and Visual Arts Integrated Complex',
-    description: null,
+    description: "1515 Rue Sainte-Catherine O, Montreal, Quebec H3G 1S6",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4955060022484, -73.57755625902337),
@@ -22,7 +22,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0C4397CB2A3D5B2C23CC',
     name: 'FB',
     fullName: 'Faubourg Building',
-    description: null,
+    description: "1600 Rue Sainte-Catherine O, Montréal, QC H3H 2S7",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49491133678676, -73.57776501513339),
@@ -36,7 +36,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0C4397CB2A3D5B2C23CC',
     name: 'FG',
     fullName: 'Faubourg Ste-Catherine Building',
-    description: null,
+    description:"1610 Rue Sainte-Catherine O, Montréal, QC H3H 1L7",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49354346222445, -73.57859859130102),
@@ -50,7 +50,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '017E9EC7C83D5B2D799F',
     name: 'H',
     fullName: 'Henry F. Hall Building',
-    description: null,
+    description: "1455 Blvd. De Maisonneuve Ouest, Montreal, Quebec H3G 1M8",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49783015502715, -73.57902021993395),
@@ -64,7 +64,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '034DC16D2C3D5B2EB8D7',
     name: 'LB',
     fullName: 'J.W. McConnell Building',
-    description: null,
+    description: "1400 Blvd. De Maisonneuve Ouest, Montreal, Quebec H3G 1M8",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49730051023374, -73.57801731886344),
@@ -79,7 +79,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '07A0D020A53D5B5458DF',
     name: 'GM',
     fullName: 'Guy-De Maisonneuve Building',
-    description: null,
+    description: "1550 Blvd. De Maisonneuve Ouest, Montreal, QC H3G 1N1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49574181545399, -73.5792009237588),
@@ -93,7 +93,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0BA7CDEA253D605DA5AC',
     name: 'MB',
     fullName: 'John Molson Building',
-    description: null,
+    description: "1450 Guy St, Montreal, Quebec H3H 0A1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49492101893935, -73.57881076337864),
@@ -107,7 +107,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '02DC42D49E3D69BB8F54',
     name: 'GA',
     fullName: 'Grey Nuns Annex',
-    description: null,
+    description: "1211 Rue St Mathieu, Montréal, QC H3H 2S2",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49385770939176, -73.57838874757492),
@@ -121,7 +121,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0329375FC13D69BC5E44',
     name: 'GN',
     fullName: 'Grey Nuns Building',
-    description: null,
+    description: "1190 Guy St, Montreal, Quebec H3H 2L4",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49242862529509, -73.57662574095559),
@@ -135,7 +135,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '06FAF2AE3E3D5B55B328',
     name: 'LS',
     fullName: 'Learning Square',
-    description: null,
+    description: "1535 Blvd. De Maisonneuve Ouest, Montreal, Quebec H3G 1M9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49655835455069, -73.57959383960515),
@@ -149,7 +149,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '074BEF01E53D5B585234',
     name: 'ER',
     fullName: 'ER Building',
-    description: null,
+    description: "2155 Guy St, Montreal, Quebec H3H 2L9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49671701926878, -73.57996442461871),
@@ -163,7 +163,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '00B3D9C2993D5B5DE62E',
     name: 'GS',
     fullName: 'GS Building',
-    description: null,
+    description: "1538 Sherbrooke St W, Montreal, QC H3G 1L3",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49678438271954, -73.5813030677151),
@@ -177,7 +177,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0538A861DB3D605887FE',
     name: 'P',
     fullName: 'P Annex',
-    description: null,
+    description: "2020 Mackay St, Montreal, QC H3G 2M2",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49662732638888, -73.57927529925639),
@@ -191,7 +191,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0FF92AB0EC3D605956BF',
     name: 'T',
     fullName: 'T Annex',
-    description: null,
+    description: "2030 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49672786862637, -73.57915511906937),
@@ -205,7 +205,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0691777E283D605A247E',
     name: 'Q',
     fullName: 'Q Annex',
-    description: null,
+    description: "2010 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4965727818706, -73.57918134129275),
@@ -219,7 +219,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '028320D2673D605AEFAC',
     name: 'RR',
     fullName: 'RR Annex',
-    description: null,
+    description: "2040 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49665756710323, -73.57951259730287),
@@ -233,7 +233,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '03C56393033D6060CCEC',
     name: 'CL',
     fullName: 'CL Annex',
-    description: null,
+    description: "1665 Rue Sainte-Catherine O, Montréal, QC H3H 1L9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49323380638076, -73.58042492054079),
@@ -249,7 +249,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '03CB7219F03D6061FEF8',
     name: 'VA',
     fullName: 'Visual Arts Building',
-    description: null,
+    description: "1395 René-Lévesque Blvd W, Montreal, Quebec H3G 2M5",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49620838996891, -73.5737969046972),
@@ -265,7 +265,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0F5C3EE9303D60634DEF',
     name: 'SB',
     fullName: 'Samuel Bronfman Building',
-    description: null,
+    description: "1590 Av. du Docteur-Penfield, Montréal, QC H3G 1C5",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49674998060311, -73.58618722936976),
@@ -278,7 +278,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '07AD0D264E3D60672854',
     name: 'LD',
     fullName: 'LD Building',
-    description: null,
+    description: "1424 Bishop St, Montreal, Quebec H3G 2E6",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4968778124917, -73.57717421931973),
@@ -292,7 +292,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '01DC2047F93D60691159',
     name: 'MI',
     fullName: 'MI Annex',
-    description: null,
+    description: "2130 Bishop St, Montreal, QC H3G 2E9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49783146575164, -73.57925140197356),
@@ -306,7 +306,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '027AAD4E703D606AAA94',
     name: 'B',
     fullName: 'B Annex',
-    description: null,
+    description: "2160 Bishop St #B02, Bishop St, Montreal, Quebec H3G 2E9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49775851706917, -73.57967449613786),
@@ -320,7 +320,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0CF9918BB83D60697408',
     name: 'D',
     fullName: 'D Annex',
-    description: null,
+    description: "2140 Bishop St, Montreal, QC H3G 2E9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4978690114234, -73.57930937250022),
@@ -334,7 +334,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0B2944D6C63D6069B9CC',
     name: 'K',
     fullName: 'K Annex',
-    description: null,
+    description: "2150 Bishop St, Montreal, Quebec H3G 2E9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49791564105391, -73.57939489545356),
@@ -348,7 +348,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0D4F11BAF83D606B78D9',
     name: 'MU',
     fullName: 'MU Annex',
-    description: null,
+    description: "2170 Bishop St, Montreal, Quebec H3G 2E9",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49799328042021, -73.57953702074954),
@@ -362,7 +362,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '017BD089D13D606CA94F',
     name: 'M',
     fullName: 'M Annex',
-    description: null,
+    description: "2135 Mackay St, Montreal, QC H3G 2J2",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49744461028961, -73.57972295360648),
@@ -376,7 +376,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '021D76EA063D606CECB3',
     name: 'S',
     fullName: 'S Annex',
-    description: null,
+    description: '2145 Mackay St, Montreal, QC H3G 2J2',
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49734553835403, -73.57996277054484),
@@ -390,7 +390,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0C6BD47A0D3D606D3E36',
     name: 'CI',
     fullName: 'CI Annex',
-    description: null,
+    description: "2149 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49760789046447, -73.57984791792974),
@@ -418,7 +418,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0DEA98D5933D60B6320E',
     name: 'FA',
     fullName: 'FA Annex',
-    description: null,
+    description: "2060 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.4968767073126, -73.57939692350492),
@@ -432,7 +432,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '01BC747CDA3D60B6DD31',
     name: 'EN',
     fullName: 'EN Annex',
-    description: null,
+    description: "2070 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49697735728394, -73.57955501130891),
@@ -446,7 +446,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '01BC0AA7893D60B75A10',
     name: 'X',
     fullName: 'X Annex',
-    description: null,
+    description: "2080 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49680404081207, -73.57969831730642),
@@ -460,7 +460,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '03CECF78C53D60B7B9AF',
     name: 'Z',
     fullName: 'Z Annex',
-    description: null,
+    description: "2090 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49684655609713, -73.57978592712668),
@@ -474,7 +474,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0AD8E46ABA3D60B835E0',
     name: 'PR',
     fullName: 'PR Annex',
-    description: null,
+    description: "2100 Mackay St, Montreal, QC H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49704024584023, -73.57973143957591),
@@ -488,7 +488,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '08729269DF3D60B8BCB1',
     name: 'V',
     fullName: 'V Annex',
-    description: null,
+    description: "2110 Mackay St, Montreal, Quebec H3G 2J1",
     campus: Campus.sgw,
     boundary: [
       const LatLng(45.49708179842126, -73.57982177981953),
@@ -502,8 +502,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0EA82851093D60BEFD44',
     name: 'PC',
-    fullName: 'Psychology Building',
-    description: null,
+    fullName: 'PERFORM Centre',
+    description: "7200 Sherbrooke St W, Montreal, Quebec H4B 2A4",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45666441099228, -73.63702181216138),
@@ -516,8 +516,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0D3C9D08783D60BF7908',
     name: 'RA',
-    fullName: 'Administration Building',
-    description: null,
+    fullName: 'Recreation and Atheltics Complex',
+    description: "7200 Sherbrooke St W, Montreal, Quebec H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45638098727643, -73.63740091063367),
@@ -530,8 +530,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '08EA07E73E3D60BFF427',
     name: 'DO',
-    fullName: 'St. Ignatius of Loyola Chapel',
-    description: null,
+    fullName: 'Stinger Dome (seasonal)',
+    description: "7200 Sherbrooke St W, Montreal, Quebec H4B 1R3",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45693244355486, -73.6363442047128),
@@ -545,7 +545,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '050D9217293D60C16918',
     name: 'CJ',
     fullName: 'Communication Studies and Journalism Building',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, Quebec H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45717914320223, -73.64041822298326),
@@ -561,8 +561,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0295786F163D60C20B8F',
     name: 'AD',
-    fullName: 'F.C. Smith Building',
-    description: null,
+    fullName: 'Administration Building',
+    description: "7141 Sherbrooke St W, Montreal, Quebec H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45772218245258, -73.63985036920458),
@@ -576,7 +576,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0B85CD3FDE3D60C256C3',
     name: 'CC',
     fullName: 'Central Building',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, Quebec H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45817037932016, -73.63992997619091),
@@ -590,7 +590,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '015AF01DB33D60C3AE23',
     name: 'SP',
     fullName: 'Richard J. Renaud Science Complex',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, Quebec H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45832970427022, -73.64085889730946),
@@ -605,8 +605,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0E4604F8933D60C439AB',
     name: 'SI',
-    fullName: 'Stinger Dome',
-    description: null,
+    fullName: 'St. Ignatius of Loyola Church',
+    description: "4455 Rue West Broadway, Montréal, QC H4B 2A7",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45747056578237, -73.64229187051046),
@@ -620,7 +620,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0ECB592A2B3D60C48FA4',
     name: 'JR',
     fullName: 'Jesuit Residence',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45830098726066, -73.64318260665218),
@@ -634,7 +634,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0EBF4C22413D60C50A1F',
     name: 'HU',
     fullName: 'Applied Science Hub',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45826284554411, -73.64175004954545),
@@ -648,7 +648,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0F3D7B0ECC3D60C5F3EE',
     name: 'HB',
     fullName: 'Hingston Hall, Block B',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45893677635549, -73.6418643642309),
@@ -662,7 +662,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0A85D47FD43D60C6362C',
     name: 'HC',
     fullName: 'Hingston Hall, Block C',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45953317866805, -73.64203286212459),
@@ -676,7 +676,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '070ED120443D60C6B59C',
     name: 'HA',
     fullName: 'Hingston Hall, Block A',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45923937028346, -73.64108402653761),
@@ -690,7 +690,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '064E69F2FE3D60C734C6',
     name: 'TA',
     fullName: 'Terrebonne Annex',
-    description: null,
+    description: "7079 Rue de Terrebonne, Montréal, QC H4B 1E1",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.4599512453489, -73.64088553214943),
@@ -704,7 +704,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '07C15A34FA3D60C7C196',
     name: 'PS',
     fullName: 'Physical Services Building',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45929008756401, -73.63943771928729),
@@ -718,7 +718,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0F5985E4763D60C09544',
     name: 'GE',
     fullName: 'Centre for Structural and Functional Genomics',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45680202544237, -73.64035911860894),
@@ -731,8 +731,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0078CB9CA33D60C9BE53',
     name: 'PY',
-    fullName: 'Oscar Peterson Concert Hall',
-    description: null,
+    fullName: 'Psychology Building',
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45865173898312, -73.64046242840617),
@@ -746,7 +746,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '079B133B013D60CC249C',
     name: 'FC',
     fullName: 'F.C. Smith Building',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45828385028102, -73.63906005362354),
@@ -759,8 +759,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '06E4A9D1893D60D21E64',
     name: 'PT',
-    fullName: 'Power Plant',
-    description: null,
+    fullName: 'Oscar Peterson Concert Hall',
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45952422400509, -73.63915750072),
@@ -774,6 +774,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0789C151FA3D60C8E97F',
     name: 'BH',
+    fullName: 'BH Annex',
+    description: "3500 Av. Belmore, Montréal, QC H4B 2B9",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45966872876621, -73.63910424584647),
@@ -786,6 +788,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0A89B2ED543D60C92200',
     name: 'BB',
+    fullName: 'BB Annex',
+    description: "3502 Av. Belmore, Montréal, QC H4B 2B9",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45981969079476, -73.63909827266976),
@@ -799,7 +803,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '08C07F2B0A3D60CD7EA8',
     name: 'SC',
     fullName: 'Student Center',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45921329905048, -73.63898826993562),
@@ -812,6 +816,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '04894B7D683D60C2DD14',
     name: 'RF',
+    fullName: 'Loyola Jesuit Hall and Conference Centre',
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45833529406752, -73.64087235285538),
@@ -828,6 +834,8 @@ final List<CampusBuilding> campusBuildings = [
   CampusBuilding(
     id: '0776007D223D60C67150',
     name: 'SH',
+    fullName: 'Future Buildings Laboratory',
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45923105992547, -73.64241099255784),
@@ -841,7 +849,7 @@ final List<CampusBuilding> campusBuildings = [
     id: '0B34EBE1773D60D26589',
     name: 'VL/VE',
     fullName: 'Vanier Library & Extension',
-    description: null,
+    description: "7141 Sherbrooke St W, Montreal, QC H4B 1R6",
     campus: Campus.loyola,
     boundary: [
       const LatLng(45.45912900909934, -73.6378464146603),
