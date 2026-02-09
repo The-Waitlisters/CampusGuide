@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/building_data.dart';
 import '../models/campus.dart';
@@ -7,6 +8,7 @@ import '../widgets/campus_toggle.dart';
 import '../models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/building_locator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,11 +19,13 @@ class HomeScreen extends StatefulWidget {
   }
 }
 
+
 class _HomeScreenState extends State<HomeScreen> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   CampusBuilding? _cursorBuilding;
+  //String? _addresses;
   late Future<Set<Polygon>> _polygonsFuture;
 
   // US-1.4: Current building from device location (keep existing tap/cursor logic)
@@ -48,6 +52,50 @@ class _HomeScreenState extends State<HomeScreen> {
   CameraPosition get _initialCamera {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
+  }
+
+  Future<String> getPlaceMarks(LatLng coords) async { /// To be fixed in sprint 2
+    try {
+
+      double x = coords.latitude;
+      double y = coords.longitude;
+      List<Placemark> placemarks = [];
+      //List<Location> loc = [];
+
+      if(_isPointInPolygon(coords, _cursorBuilding!.boundary)) {
+        placemarks = await placemarkFromCoordinates(x, y);
+      }
+
+      String address = '';
+
+      if(placemarks.isNotEmpty) {
+
+        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ?? ''}, ' '${placemarks[0].postalCode ?? ''}';
+
+        /* var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
+
+        streets = streets.where((street) => street!.toLowerCase() != placemarks.reversed.last.locality!.toLowerCase());
+
+        streets = streets.where((street) => !street!.contains('+'));
+
+        address += streets.first!;
+
+        address += ', ${placemarks.reversed.last.subAdministrativeArea ?? ''}';
+        address += ', ${placemarks.reversed.last.administrativeArea ?? ''}';
+        address += ', ${placemarks.reversed.last.postalCode ?? ''}'; */
+      }
+
+      //debugPrint("Your Address for ($x , $y) is: $address");
+
+      return address;
+
+    } catch (e) {
+
+      debugPrint("Error getting placemarks: $e");
+      return "No Address";
+      
+    }
+    
   }
 
   Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
@@ -196,7 +244,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         markerId: const MarkerId('cursor'),
                         position: _cursorPoint!,
                         infoWindow: InfoWindow(
-                          title: _cursorBuilding?.name ?? 'No building',
+                          title: _cursorBuilding?.fullName ?? 'No building',
+                          snippet: _cursorBuilding?.description ?? 'No address'
                         ),
                       ),
                   },
@@ -208,16 +257,57 @@ class _HomeScreenState extends State<HomeScreen> {
                       _campus,
                     );
 
+                    
+
+                  
+                  //Creates bottom sheet upon tapping polygon
+                  //hardcoded to ignore non-campus buildings for now, will be further expanded on next sprint
+                    if(building != null) {
+                      showBottomSheet(
+                      context: context,
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 8),
+                            Text('${_cursorBuilding?.description}'),
+                          ],
+                        ),
+                      ),
+                    );
+                  } else {
+                    showBottomSheet(
+                      context: context,
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 8),
+                            Text('Please select a shaded building'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
                     debugPrint(
                       building != null
                           ? 'Selected building: ${building.name} (id=${building.id})'
                           : 'Selected building: none',
                     );
 
+                    
+
                     setState(()
                     {
                       _cursorPoint = point;
-                      _cursorBuilding = building;
+                      _cursorBuilding = building;                     
                     });
                   },
                 );
@@ -250,7 +340,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       markerId: const MarkerId('cursor'),
                       position: _cursorPoint!,
                       infoWindow: InfoWindow(
-                        title: _cursorBuilding?.name ?? 'No building',
+                        title: _cursorBuilding?.fullName ?? 'No building',
+                        snippet: _cursorBuilding?.description ?? 'No address'
+                        
                       ),
                     ),
                 },
@@ -262,6 +354,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     _campus,
                   );
 
+                  //Creates bottom sheet upon tapping polygon
+
+                  if(building != null) {
+                    showBottomSheet(
+                    context: context,
+                    builder: (_) => Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 8),
+                          Text('${_cursorBuilding?.description}'),
+                        ],
+                      ),
+                    ),
+                  );
+                  }  else {
+                    showBottomSheet(
+                      context: context,
+                      builder: (_) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 8),
+                            Text('Please select a shaded building'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  
                   debugPrint(
                     building != null
                         ? 'Selected building: ${building.name} (id=${building.id})'
