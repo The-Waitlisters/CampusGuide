@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   CampusBuilding? _cursorBuilding;
-  String? _addresses = '';
+  //String? _addresses;
   late Future<Set<Polygon>> _polygonsFuture;
 
   @override
@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
       double x = coords.latitude;
       double y = coords.longitude;
       List<Placemark> placemarks = [];
-      List<Location> loc = [];
+      //List<Location> loc = [];
 
       if(_isPointInPolygon(coords, _cursorBuilding!.boundary)) {
         placemarks = await placemarkFromCoordinates(x, y);
