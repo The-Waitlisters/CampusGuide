@@ -5,7 +5,6 @@ import '../data/building_data.dart';
 import '../models/campus.dart';
 import '../widgets/campus_toggle.dart';
 import '../models/campus_building.dart';
-import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import '../services/building_locator.dart';
 
