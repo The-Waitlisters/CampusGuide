@@ -11,6 +11,7 @@ class CampusBuilding {
   final String? openingHours;
   final bool isWheelchairAccessible;
   final bool hasBikeParking;
+  final bool hasCarParking;
   final List<String> departments;
   final List<String> services;
 
@@ -24,6 +25,7 @@ class CampusBuilding {
     this.openingHours,
     this.isWheelchairAccessible = false,
     this.hasBikeParking = false,
+    this.hasCarParking = false,
     this.departments = const [],
     this.services = const [],
   });

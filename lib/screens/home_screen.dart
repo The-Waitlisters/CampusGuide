@@ -394,6 +394,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
 
                                 const SizedBox(height: 8),
+                                if(_cursorBuilding?.isWheelchairAccessible == true || _cursorBuilding?.hasBikeParking == true || _cursorBuilding?.hasCarParking == true) 
+                                  (Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if(_cursorBuilding?.isWheelchairAccessible == true) (Icon(Icons.accessible)), 
+                                      if(_cursorBuilding?.hasBikeParking == true) (Icon(Icons.pedal_bike)), 
+                                      if(_cursorBuilding?.hasCarParking == true) (Icon(Icons.local_parking)), 
+                                      
+                                      ],
+                                      )
+                                      ),
+                                
+                                const SizedBox(height:12),
 
                                 Text(_cursorBuilding?.description ?? ''),
 
@@ -406,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                                 const SizedBox(height: 6),
 
-                                ..._cursorBuilding!.departments.map((e) => Text((e == "a") ? ("None") : (e))),
+                                ..._cursorBuilding!.departments.map((e) => Text((e == "-") ? ("None") : (e))),
 
                                 const SizedBox(height: 12),
 
@@ -417,7 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                                 const SizedBox(height: 6),
 
-                                ..._cursorBuilding!.services.map((e) => Text(e)),
+                                ..._cursorBuilding!.services.map((e) => Text((e == "-") ? ("None") : (e))),
                               ],
                             ),
                           ),
