@@ -238,6 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
                   markers: <Marker>
                   {
                     if (_cursorPoint != null)
@@ -335,6 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 polygons: snapshot.data ?? <Polygon>{},
+                mapToolbarEnabled: false,
                 markers: <Marker>
                 {
                   if (_cursorPoint != null)
