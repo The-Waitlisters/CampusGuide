@@ -13,6 +13,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Art Education','Art History','Building, Civil and Environmental Engineering','Centre of Composites','Centre for Pattern Recognition and Machine Intelligence','Centre for Zero Energy Building Studies'
       ,'Chemical and Materials Engineering','Contemporary Dance','Design and Computation Arts','Electrical and Computer Engineering'
       ,'Studio Arts',
@@ -39,6 +40,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: true,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Classics, Modern Languages & Linguistics','Concordia Continuing Education','Mel Hoppenheim School of Cinema','Theological Studies'],
     services: ['Enrolment Services / Office of the Registrar / Student Recruitment', 'Environmental Health and Safety','Examinations Office','Human Resources','Office of Sustainability','Records Management and Archives Office','Senior non-credit program','Study Hub'],
     boundary: [
@@ -58,6 +60,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Education'],
     services: ['RMA Research Room and Vault'],
     boundary: [
@@ -77,6 +80,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: true,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Economics','Geography, Planning and Environment','Political Science','School of Community and Public Affairs','School of Irish Studies','Sociology and Anthropology'],
     services: ['Campus Safety and Prevention Services','Concordia Student Union','Espace Franco','First Stop','IT Service Desk','NouLa Black Student Centre','Office of Student Life and Engagement','Office of Student Life and Engagement','Otsenhákta Student Centre','Sexual Assault Resource Centre','Student Success Centre','Welcome Crew Office','Zen Den'],
     boundary: [
@@ -96,6 +100,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: true,
     hasCarParking: true,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Centre for Interdisciplinary Studies in Society and Culture','Centre for the Study of Learning and Performance','Education','English','Études françaises','History','Mathematics and Statistics'],
     services: ['Birks Student Service Centre','Concordia Book Stop','First Stop','Concordia Print Services','Instructional & Information Technology Services','J.A. De Sève Cinema','R. Howard Webster Library','SHIFT Centre for Social Transformation','Welcome Centre'],
     boundary: [
@@ -116,6 +121,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: true,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Contemporary Dance','Music','Theatre'],
     services: ['Access Centre for Students with Disabilities','Facilities Management','Financial Aid & Awards Office','Financial Services','Graduate Studies','Health Services','Institute for Co-Operative Education'
       ,'International Students Office','Office of the President & Vice-Chancellor','Office of the Provost & VP Academic','Office of Rights and Responsibilities','Office of the VP Research, Innovation and Impact','Office of the VP Services and Sustainability'
@@ -138,6 +144,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Accountancy','Contemporary Dance','Executive MBA Program','Finance','Goodman Institute of Investment Management','Management','Marketing','Music','Supply Chain & Business Technology Management','Theatre'],
     services: ['Career Management Services','First Stop','John Molson Executive Centre','Performing Arts Facilities','Zen Den'],
     boundary: [
@@ -157,6 +164,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: None','Restricted Access: 24/7'],
     departments: ['Department of Education'],
     services: ["-"],
     boundary: [
@@ -176,6 +184,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: None','Restricted Access: 24/7'],
     departments: ['Philosophy'],
     services: ['Concordia Daycare','Concordia University Student Parents Centre', 'Grey Nuns Reading Room and Group Study Rooms','Residences','Summer accommodations'],
     boundary: [
@@ -194,6 +203,7 @@ final List<CampusBuilding> campusBuildings = [
     campus: Campus.sgw,
     isWheelchairAccessible: true,
     hasBikeParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -213,6 +223,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Applied AI Institute','Centre for Engineering in Society','Computer Science and Software Engineering'],
     services: ["-"],
     boundary: [
@@ -232,6 +243,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['CUPFA'],
     boundary: [
@@ -251,6 +263,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -270,6 +283,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Graduate Students Association'],
     boundary: [
@@ -289,6 +303,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -308,6 +323,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Liberal Arts College'],
     services: ["-"],
     boundary: [
@@ -327,6 +343,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -348,6 +365,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: true,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Art Education', 'Art History', 'Studio Arts'],
     services: ['VAV Gallery'],
     boundary: [
@@ -369,6 +387,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Arts and Science Research Groups'],
     boundary: [
@@ -387,6 +406,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['CSU Daycare & Nursery'],
     boundary: [
@@ -406,6 +426,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['ACUMAE','CUCEPTFU','CUPEU','CUSSU'],
     boundary: [
@@ -425,6 +446,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Engineering and Computer Science Association'],
     boundary: [
@@ -444,6 +466,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -463,6 +486,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -482,6 +506,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -501,6 +526,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -520,6 +546,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Philosophy'],
     services: ["-"],
     boundary: [
@@ -539,6 +566,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -558,6 +586,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -577,6 +606,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: true,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Faculty of Arts and Science'],
     services: ["-"],
     boundary: [
@@ -596,6 +626,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Research on Gambling'],
     services: ["-"],
     boundary: [
@@ -615,6 +646,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Concordia International'],
     boundary: [
@@ -634,6 +666,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Multi-Faith and Spirituality Centre', 'Sustainable Concordia'],
     boundary: [
@@ -653,6 +686,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['CULEU'],
     boundary: [
@@ -672,6 +706,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Centre for Gender Advocacy','CUTV'],
     boundary: [
@@ -692,6 +727,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: true,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Athletic Therapy Clinic','Nutrition Centre','PERFORM Gym','School of Health'],
     boundary: [
@@ -711,6 +747,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: true,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Concordia Stadium','Ed Meagher Arena','Gymnasium'],
     boundary: [
@@ -730,6 +767,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Stingers.ca'],
     services: ["-"],
     boundary: [
@@ -749,6 +787,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Communication Studies','Journalism'],
     services: ['Book Stop'],
     boundary: [
@@ -771,6 +810,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: true,
     hasCarParking: true,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Faculty of Arts & Science'],
     services: ['Access Centre for Studies with Disabilities','Centre for Teaching & Learning','Counselling and Psychological Services','Health Services','Loyola College for Diversity and Sustainability','Loyola Landing','Office of Student Life and Engagement','Provost and VP Academic','Welcome Crew Office'],
     boundary: [
@@ -790,6 +830,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: true,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Concordia Student Union','Loyola College for Diversity and Sustainability','Zen Den'],
     boundary: [
@@ -809,6 +850,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Biology','Centre for Biological Applications of Mass Spectrometry','Centre for NanoScience Research','Centre for Research in Molecular Modeling','Centre for Studies in Behavioral Neurobiology','Chemistry and Biochemistry','Health, Kinesiology & Applied Physiology','Physics','Psychology'],
     services: ['Cafe','Campus Safety and Prevention Services','First Stop','Science College'],
     boundary: [
@@ -830,6 +872,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['https://www.stig.ca/schedule'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -849,6 +892,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: true,
+    openingHours: ['Regular Access: None ','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Student Residence'],
     boundary: [
@@ -865,6 +909,12 @@ final List<CampusBuilding> campusBuildings = [
     fullName: 'Applied Science Hub',
     description: "7141 Sherbrooke St W H4B 1R6",
     campus: Campus.loyola,
+    isWheelchairAccessible: false,
+    hasBikeParking: false,
+    hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
+    departments: ["-"],
+    services: ["-"],
     boundary: [
       const LatLng(45.45826284554411, -73.64175004954545),
       const LatLng(45.4585933777343, -73.64148703202615),
@@ -881,9 +931,10 @@ final List<CampusBuilding> campusBuildings = [
     campus: Campus.loyola,
     isWheelchairAccessible: true,
     hasBikeParking: false,
-    hasCarParking: false,
+    hasCarParking: true,
+    openingHours: ['Regular Access: None','Restricted Access: 24/7'],
     departments: ["-"],
-    services: ["-"],
+    services: ["Concordia University Faculty Association", "Student Residence"],
     boundary: [
       const LatLng(45.45893677635549, -73.6418643642309),
       const LatLng(45.45938126724948, -73.64150525003221),
@@ -901,6 +952,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: true,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Student Residence'],
     boundary: [
@@ -920,6 +972,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: true,
+    openingHours: ['Regular Access: None','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Student Residence'],
     boundary: [
@@ -939,6 +992,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: true,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Centre for the Arts in Human Development'],
     services: ["-"],
     boundary: [
@@ -958,6 +1012,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Environmental Health and Safety','Facilities Management'],
     boundary: [
@@ -977,6 +1032,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Centre for Structural and Functional Genomics'],
     boundary: [
@@ -996,6 +1052,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Centre for Clinical Research in Health','Psychology'],
     services: ["-"],
     boundary: [
@@ -1015,6 +1072,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Concordia Multi-Faith and Spirituality Centre'],
     boundary: [
@@ -1034,6 +1092,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Oscar Peterson Concert Hall'],
     services: ['Concert Hall'],
     boundary: [
@@ -1054,6 +1113,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['CPE Les Ptits Profs Daycare'],
     boundary: [
@@ -1073,6 +1133,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['CPE Les Ptits Profs Daycare'],
     boundary: [
@@ -1092,6 +1153,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Cafeteria','Cafe','Food Services'],
     boundary: [
@@ -1111,6 +1173,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ['Conference services','Loyola Jesuit Hall and Conference Centre'],
     boundary: [
@@ -1134,6 +1197,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: false,
     hasBikeParking: false,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ["-"],
     services: ["-"],
     boundary: [
@@ -1153,6 +1217,7 @@ final List<CampusBuilding> campusBuildings = [
     isWheelchairAccessible: true,
     hasBikeParking: true,
     hasCarParking: false,
+    openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Applied Human Sciences'],
     services: ['First Stop','Georges P.Vanier Library'],
     boundary: [
