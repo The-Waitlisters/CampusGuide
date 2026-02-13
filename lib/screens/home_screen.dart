@@ -113,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       final bool isActiveGps = _currentBuildingFromGPS?.id == b.id;
+      
 
       polys.add(
         Polygon(
@@ -244,8 +245,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         markerId: const MarkerId('cursor'),
                         position: _cursorPoint!,
                         infoWindow: InfoWindow(
-                          title: _cursorBuilding?.fullName ?? 'No building',
-                          snippet: _cursorBuilding?.description ?? 'No address'
+                          title: _cursorBuilding?.name ?? 'No building',
+                          //snippet: _cursorBuilding?.description ?? 'No address'
                         ),
                       ),
                   },
@@ -256,8 +257,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       campusBuildings,
                       _campus,
                     );
-
                     
+                    
+                  
 
                   
                   //Creates bottom sheet upon tapping polygon
@@ -271,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text('${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                             SizedBox(height: 8),
                             Text('${_cursorBuilding?.description}'),
                           ],
@@ -340,8 +342,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       markerId: const MarkerId('cursor'),
                       position: _cursorPoint!,
                       infoWindow: InfoWindow(
-                        title: _cursorBuilding?.fullName ?? 'No building',
-                        snippet: _cursorBuilding?.description ?? 'No address'
+                        title: _cursorBuilding?.name ?? 'No building',
+                        //snippet: _cursorBuilding?.description ?? 'No address'
                         
                       ),
                     ),
@@ -356,6 +358,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   //Creates bottom sheet upon tapping polygon
 
+
+                  
+
                   if(building != null) {
                     showBottomSheet(
                     context: context,
@@ -365,7 +370,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          
+                          Text('${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           SizedBox(height: 8),
                           Text('${_cursorBuilding?.description}'),
                         ],
@@ -495,6 +501,8 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
   return inside;
 }
 
+bool? isAnnex;
+
 CampusBuilding? _findBuildingAtPoint(
     LatLng point,
     List<CampusBuilding> buildings,
@@ -510,6 +518,7 @@ CampusBuilding? _findBuildingAtPoint(
 
     if (_isPointInPolygon(point, b.boundary))
     {
+       isAnnex = b.fullName!.contains("Annex");
       return b;
     }
   }
