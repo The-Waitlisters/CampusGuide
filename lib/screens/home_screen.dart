@@ -358,7 +358,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   //Creates bottom sheet upon tapping polygon
 
-
                   
 
                   if(building != null) {
