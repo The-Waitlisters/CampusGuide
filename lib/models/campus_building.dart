@@ -9,8 +9,8 @@ class CampusBuilding {
   final Campus campus;
   final List<LatLng> boundary;
   final String? openingHours;
-  final bool wheelchairAccessibility;
-  final bool bikeParking;
+  final bool isWheelchairAccessible;
+  final bool hasBikeParking;
   final List<String> departments;
   final List<String> services;
 
@@ -22,8 +22,8 @@ class CampusBuilding {
     this.fullName,
     this.description,
     this.openingHours,
-    this.wheelchairAccessibility = false,
-    this.bikeParking = false,
+    this.isWheelchairAccessible = false,
+    this.hasBikeParking = false,
     this.departments = const [],
     this.services = const [],
   });

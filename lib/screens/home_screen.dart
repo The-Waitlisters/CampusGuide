@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   CampusBuilding? _cursorBuilding;
   //String? _addresses;
   late Future<Set<Polygon>> _polygonsFuture;
+  //bool isSelected = false;
 
   // US-1.4: Current building from device location (keep existing tap/cursor logic)
 
@@ -119,9 +120,10 @@ class _HomeScreenState extends State<HomeScreen> {
         Polygon(
           polygonId: PolygonId(b.id),
           points: b.boundary,
-          fillColor: isActiveGps
+          fillColor: //isSelected ? Colors.yellow : 
+              (isActiveGps
               ? const Color(0x803197F6) // highlighted fill
-              : const Color(0x80912338), // default fill
+              : const Color(0x80912338)), // default fill
           strokeColor: isActiveGps
               ? Colors.blue
               : const Color(0xFF741C2C),
@@ -130,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: ()
           {
             debugPrint('Polygon tapped: ${b.name} (id=${b.id})');
+            
             setState(()
             {
               _cursorBuilding = b;
@@ -260,8 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                     
                     
-                  
-
+                  //isSelected = true;
                   
                   //Creates bottom sheet upon tapping polygon
                   //hardcoded to ignore non-campus buildings for now, will be further expanded on next sprint
@@ -276,6 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text('${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                             SizedBox(height: 8),
+                            Text('${_cursorBuilding?.description}'),
                             Text('${_cursorBuilding?.description}'),
                           ],
                         ),
@@ -359,26 +362,70 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
 
                   //Creates bottom sheet upon tapping polygon
-
                   
+                  
+                  //isSelected = true;
 
                   if(building != null) {
                     showBottomSheet(
                     context: context,
-                    builder: (_) => Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          
-                          Text('${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 8),
-                          Text('${_cursorBuilding?.description}'),
-                        ],
-                      ),
+                    
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => DraggableScrollableSheet(
+                      initialChildSize: 0.25,
+                      minChildSize: 0.15,
+                      maxChildSize: 0.6,
+                      expand: false,
+                      builder: (context, scrollController) {
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          ),
+                          child: SingleChildScrollView(
+                            controller: scrollController,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', 
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+
+                                const SizedBox(height: 8),
+
+                                Text(_cursorBuilding?.description ?? ''),
+
+                                const SizedBox(height: 12),
+
+                                const Text(
+                                  'Departments:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+
+                                const SizedBox(height: 6),
+
+                                ..._cursorBuilding!.departments.map((e) => Text((e == "a") ? ("None") : (e))),
+
+                                const SizedBox(height: 12),
+
+                                const Text(
+                                  'Services:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+
+                                const SizedBox(height: 6),
+
+                                ..._cursorBuilding!.services.map((e) => Text(e)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   );
+
                   }  else {
                     showBottomSheet(
                       context: context,
@@ -501,6 +548,8 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
 
   return inside;
 }
+
+  
 
 bool? isAnnex;
 
