@@ -9,6 +9,8 @@ void main() {
     final mockBuilding = CampusBuilding(
       id: 'EV',
       name: 'EV Building',
+      fullName: "Engineering, Computer Science and Visual Arts Integrated Complex",
+      description: "1515 Rue Sainte-Catherine O H3G 1S6",
       campus: Campus.sgw,
       boundary: const [
         LatLng(45.4950, -73.5790),

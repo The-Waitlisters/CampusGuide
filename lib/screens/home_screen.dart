@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../data/building_data.dart';
 import '../models/campus.dart';
 import '../widgets/campus_toggle.dart';
 import '../models/campus_building.dart';
@@ -20,18 +19,23 @@ class HomeScreen extends StatefulWidget {
   }
 }
 
-
 class _HomeScreenState extends State<HomeScreen> {
-  final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
+  final Completer<GoogleMapController> _controller =
+      Completer<GoogleMapController>();
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
+  LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
-  late Future<List<CampusBuilding>> _polygonsFuture;
+  late Future<List<CampusBuilding>> _buildingsFuture;
+  List<CampusBuilding>? buildingsPresent;
   Set<Polygon> _polygons = {};
   PolygonId? _selectedId;
   final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
   bool campusChange = false;
-  
+  final GlobalKey _mapKey = GlobalKey();
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  PersistentBottomSheetController? _sheetController;
 
   // US-1.4: Current building from device location (keep existing tap/cursor logic)
 
@@ -47,35 +51,36 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Start loading polygons for the initial campus
-    _polygonsFuture = _getPolygonPointsFromJSON(_campus, campusChange);
+    _buildingsFuture = _getBuildingInfoFromJSON(_campus, campusChange);
 
     // US-1.4: start listening to device location
     _startLocationTracking();
   }
-
 
   CameraPosition get _initialCamera {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
   }
 
-  Future<String> getPlaceMarks(LatLng coords) async { /// To be fixed in sprint 2
+  Future<String> getPlaceMarks(LatLng coords) async {
+    /// To be fixed in sprint 3
     try {
-
       double x = coords.latitude;
       double y = coords.longitude;
       List<Placemark> placemarks = [];
       //List<Location> loc = [];
 
-      if(_isPointInPolygon(coords, _cursorBuilding!.boundary)) {
+      if (_isPointInPolygon(coords, _cursorBuilding!.boundary)) {
         placemarks = await placemarkFromCoordinates(x, y);
       }
 
       String address = '';
 
-      if(placemarks.isNotEmpty) {
-
-        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ?? ''}, ' '${placemarks[0].postalCode ?? ''}';
+      if (placemarks.isNotEmpty) {
+        address =
+            '${placemarks[0].street ?? ''}, '
+            '${placemarks[0].locality ?? ''}, '
+            '${placemarks[0].postalCode ?? ''}';
 
         /* var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
 
@@ -93,81 +98,87 @@ class _HomeScreenState extends State<HomeScreen> {
       //debugPrint("Your Address for ($x , $y) is: $address");
 
       return address;
-
     } catch (e) {
-
       debugPrint("Error getting placemarks: $e");
       return "No Address";
-      
     }
-    
   }
 
-  Future<List<CampusBuilding>> _getPolygonPointsFromJSON(Campus campus, bool campusChange) async
-  {
+  Future<List<CampusBuilding>> _getBuildingInfoFromJSON(
+    Campus campus,
+    bool campusChange,
+  ) async {
     // Optional delay if they were using this to simulate async loading
     await Future.delayed(const Duration(milliseconds: 100));
-      
-    final String rawData = await rootBundle.loadString('assets/building_data.geojson');
+
+    final String rawData = await rootBundle.loadString(
+      'assets/building_data.geojson',
+    );
 
     final Map<String, dynamic> jsonFile = jsonDecode(rawData);
-      
+
     final List features = jsonFile['features'] ?? [];
-    debugPrint("aaaaaa");
     final List<CampusBuilding> buildings = [];
 
-    
-    for (final f in features)
-    {
-      
-      //if(f['properties']['campus'] == campus.name) {
-        final geometry = (f['geometry'] ?? {}) as Map<String, dynamic>;
-        final properties = (f['properties'] ?? {}) as Map<String, dynamic>;
+    for (final f in features) {
+      final geometry = (f['geometry'] ?? {}) as Map<String, dynamic>;
+      final properties = (f['properties'] ?? {}) as Map<String, dynamic>;
 
-        final id = (properties['id'] ?? '').toString();
+      final id = (properties['id'] ?? '').toString();
 
-        //if(id.isEmpty) continue;
+      final name = properties['name'].toString();
+      final description = properties['description'].toString();
+      final fullName = properties['fullName'].toString();
+      final isWheelchairAccessible = properties['isWheelchairAccessible'];
+      final hasBikeParking = properties['hasBikeParking'];
+      final hasCarParking = properties['hasCarParking'];
 
-        final name = properties['name'].toString(); 
-        final description = properties['description'].toString();
-        final fullName = properties['fullName'].toString();
-        final isWheelchairAccessible = properties['isWheelchairAccessible'];
-        final hasBikeParking = properties['hasBikeParking'];
-        final hasCarParking = properties['hasCarParking'];
-        
+      final openingHoursRaw = properties['openingHours'];
+      final departmentsRaw = properties['departments'];
+      final servicesRaw = properties['services'];
 
-        final openingHoursRaw = properties['openingHours'];
-        final departmentsRaw = properties['departments'];
-        final servicesRaw = properties['services'];
+      final openingHours = (openingHoursRaw is List)
+          ? openingHoursRaw.map((e) => e.toString()).toList()
+          : <String>[];
+      final departments = (departmentsRaw is List)
+          ? departmentsRaw.map((e) => e.toString()).toList()
+          : <String>[];
+      final services = (servicesRaw is List)
+          ? servicesRaw.map((e) => e.toString()).toList()
+          : <String>[];
 
-        final openingHours = (openingHoursRaw is List) ? openingHoursRaw.map((e) => e.toString()).toList() : <String>[];
-        final departments = (departmentsRaw is List) ? departmentsRaw.map((e) => e.toString()).toList() : <String>[];
-        final services = (servicesRaw is List) ? servicesRaw.map((e) => e.toString()).toList() : <String>[];
+      final type = geometry['type'].toString();
+      final coords = geometry['coordinates'];
 
-        final type = geometry['type'].toString();
-        final coords = geometry['coordinates'];
+      List<LatLng> polyPoints = [];
 
-        List<LatLng> polyPoints = [];
+      if (type == 'Polygon') {
+        final ring = coords[0] as List;
+        polyPoints = ring.map<LatLng>((e) => LatLng(e[1], e[0])).toList();
+      } else {
+        continue;
+      }
 
-        if(type == 'Polygon') {
-          final ring = coords[0] as List;
-          polyPoints = ring.map<LatLng>((e) => LatLng(e[1], e[0])).toList();
-        } else {
-          continue;
-        }
-        
-        buildings.add(CampusBuilding(id: id, name: name, campus: campus, boundary: polyPoints, fullName: fullName, description: description, openingHours: openingHours, isWheelchairAccessible: isWheelchairAccessible, hasBikeParking: hasBikeParking, hasCarParking: hasCarParking, departments: departments, services: services));
-        
-
-      //}
-      
-      
+      buildings.add(
+        CampusBuilding(
+          id: id,
+          name: name,
+          campus: campus,
+          boundary: polyPoints,
+          fullName: fullName,
+          description: description,
+          openingHours: openingHours,
+          isWheelchairAccessible: isWheelchairAccessible,
+          hasBikeParking: hasBikeParking,
+          hasCarParking: hasCarParking,
+          departments: departments,
+          services: services,
+        ),
+      );
+      buildingsPresent = buildings;
     }
-
-
     return buildings;
   }
-
 
   Future<void> _goToCampus(Campus campus) async {
     final controller = await _controller.future;
@@ -177,17 +188,13 @@ class _HomeScreenState extends State<HomeScreen> {
         CameraPosition(target: info.center, zoom: info.zoom),
       ),
     );
-    // When campus changes, start loading the new set of polygons
+    // When campus changes, change camera
 
     setState(() {
       _campus = campus;
       // Reset GPS building on campus change (prevents stale highlight)
       _buildingLocator.reset();
       _currentBuildingFromGPS = null;
-      //campusChange = true;
-      //_polygonsFuture = _getPolygonPointsFromJSON(campus, campusChange);
-      
-      
     });
   }
 
@@ -209,39 +216,42 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    _gpsSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      ),
-    ).listen((Position pos) {
-      final userPoint = LatLng(pos.latitude, pos.longitude);
+    _gpsSub =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+          ),
+        ).listen((Position pos) {
+          final userPoint = LatLng(pos.latitude, pos.longitude);
 
-      final result = _buildingLocator.update(
-        userPoint: userPoint,
-        campus: _campus,
-        buildings: campusBuildings,
-      );
+          final result = _buildingLocator.update(
+            userPoint: userPoint,
+            campus: _campus,
+            buildings: buildingsPresent!,
+          );
 
-      if (!mounted) return;
+          if (!mounted) return;
 
-      // Only rebuild polygons when the active building changes (avoid heavy redraw)
-      final oldId = _currentBuildingFromGPS?.id;
-      final newId = result.building?.id;
+          // Only rebuild polygons when the active building changes (avoid heavy redraw)
+          final oldId = _currentBuildingFromGPS?.id;
+          final newId = result.building?.id;
 
-      setState(() {
-        _currentBuildingFromGPS = result.building;
+          setState(() {
+            _currentBuildingFromGPS = result.building;
 
-        if (oldId != newId) {
-          _polygonsFuture = _getPolygonPointsFromJSON(_campus, campusChange);
-        }
-      });
-    });
+            if (oldId != newId) {
+              _buildingsFuture = _getBuildingInfoFromJSON(
+                _campus,
+                campusChange,
+              );
+            }
+          });
+        });
   }
 
   Set<Polygon> _buildPolygons(List<CampusBuilding> buildings) {
     _polygonToBuilding.clear();
-
 
     return buildings.map((e) {
       final pid = PolygonId(e.id);
@@ -252,254 +262,287 @@ class _HomeScreenState extends State<HomeScreen> {
         polygonId: pid,
         points: e.boundary,
         consumeTapEvents: true,
-        fillColor: isActiveGps ? const Color(0x803197F6) : const Color(0x80912338),
-        strokeColor: isActiveGps
-              ? Colors.blue
-              : const Color(0xFF741C2C),
+        fillColor: isActiveGps
+            ? const Color(0x803197F6)
+            : const Color(0x80912338),
+        strokeColor: isActiveGps ? Colors.blue : const Color(0xFF741C2C),
         strokeWidth: isActiveGps ? 3 : 2,
         onTap: () {
           _cursorBuilding = e;
-          _updateOnTap(pid);} 
-        ,);
-
+          _updateOnTap(pid);
+        },
+      );
     }).toSet();
   }
 
-  void _updateOnTap(PolygonId id) {
+  void _handleMapTap(LatLng point) {
+    setState(() {
+      _cursorPoint = point;
+      _cursorBuilding = _findBuildingAtPoint(point, buildingsPresent!, _campus);
+    });
+  }
 
+  void _updateOnTap(PolygonId id) {
     final building = _polygonToBuilding[id];
     if (building == null) return;
     isAnnex = building.fullName!.contains("Annex");
+    final tap = lastTap;
+    if (tap == null) return;
 
+    _handleMapTap(tap);
     setState(() {
-    _selectedId = id;
-    _cursorBuilding = building;
-    _polygons = _polygons.map((p) {
-      final isSelected = (p.polygonId == _selectedId);
-      return p.copyWith(
-        fillColorParam: isSelected ? const Color.fromARGB(255, 124, 115, 29) : const Color(0x80912338),
-        strokeColorParam: isSelected ? Colors.yellow : const Color(0xFF741C2C),
-      );
+      _selectedId = id;
+      _cursorBuilding = building;
+
+      _polygons = _polygons.map((p) {
+        final isSelected = (p.polygonId == _selectedId);
+        return p.copyWith(
+          fillColorParam: isSelected
+              ? const Color.fromARGB(255, 124, 115, 29)
+              : const Color(0x80912338),
+          strokeColorParam: isSelected
+              ? Colors.yellow
+              : const Color(0xFF741C2C),
+        );
       }).toSet();
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      
-      showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      //backgroundColor: const Color.fromARGB(0, 0, 0, 0),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.25,
-        minChildSize: 0.15,
-        maxChildSize: 0.6,
-        expand: false,
-        builder: (context, scrollController) {
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: SingleChildScrollView(
-              controller: scrollController,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', 
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
+      final scaffoldState = _scaffoldKey.currentState;
+      if (scaffoldState == null) return;
+      _sheetController?.close();
+      _sheetController = null;
 
-                  const SizedBox(height: 8),
-                  if(_cursorBuilding?.isWheelchairAccessible == true || _cursorBuilding?.hasBikeParking == true || _cursorBuilding?.hasCarParking == true) 
-                    (Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if(_cursorBuilding?.isWheelchairAccessible == true) (Icon(Icons.accessible)), 
-                        if(_cursorBuilding?.hasBikeParking == true) (Icon(Icons.pedal_bike)), 
-                        if(_cursorBuilding?.hasCarParking == true) (Icon(Icons.local_parking)), 
-                        
-                        ],
-                        )
-                        ),
-                  
-                  const SizedBox(height:12),
-
-                  Text(_cursorBuilding?.description ?? ''),
-
-                  const SizedBox(height: 12),
-
-                  const Text(
-                    'Departments:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  ..._cursorBuilding!.departments.map((e) => Text((e == "-") ? ("None") : (e))),
-
-                  const SizedBox(height: 12),
-
-                  const Text(
-                    'Services:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  ..._cursorBuilding!.services.map((e) => Text((e == "-") ? ("None") : (e))),
-                ],
+      _sheetController = scaffoldState.showBottomSheet((context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.25,
+          minChildSize: 0.15,
+          maxChildSize: 0.8,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-            ),
-          );
-        },
-      ),
-    );
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
 
-                  
-  });
+                    const SizedBox(height: 8),
+                    if (_cursorBuilding?.isWheelchairAccessible == true ||
+                        _cursorBuilding?.hasBikeParking == true ||
+                        _cursorBuilding?.hasCarParking == true)
+                      (Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_cursorBuilding?.isWheelchairAccessible == true)
+                            (Icon(Icons.accessible)),
+                          if (_cursorBuilding?.hasBikeParking == true)
+                            (Icon(Icons.pedal_bike)),
+                          if (_cursorBuilding?.hasCarParking == true)
+                            (Icon(Icons.local_parking)),
+                        ],
+                      )),
+
+                    const SizedBox(height: 12),
+
+                    Text(_cursorBuilding?.description ?? ''),
+
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'Opening Hours:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    ..._cursorBuilding!.openingHours.map(
+                      (e) => Text((e == "-") ? ("None") : (e)),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'Departments:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    ..._cursorBuilding!.departments.map(
+                      (e) => Text((e == "-") ? ("None") : (e)),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'Services:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    ..._cursorBuilding!.services.map(
+                      (e) => Text((e == "-") ? ("None") : (e)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      });
+
+      _sheetController!.closed.then((_) {
+        if (mounted) _sheetController = null;
+      });
+    });
   }
-
-  Set<Marker> _buildMarker(CampusBuilding building) {
-    return {
-    Marker(
-      markerId: MarkerId('selected_${building.id}'),
-      position: _cursorPoint!,
-      infoWindow: InfoWindow(
-        title: building.name,
-      ),
-    )
-  };
-  }
-
 
   @override
-  Widget build(BuildContext context)
-  {
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('The Waitlisters'),
-      ),
+      key: _scaffoldKey,
+      appBar: AppBar(title: const Text('The Waitlisters')),
       body: Stack(
         children: [
           FutureBuilder<List<CampusBuilding>>(
-            future: _polygonsFuture,
-            builder: (context, snapshot)
-            {
-              if (snapshot.connectionState == ConnectionState.waiting)
-              {
-                // Map without polygons while loading
-                return GoogleMap(
-                  initialCameraPosition: _initialCamera,
-                  onMapCreated: (GoogleMapController controller)
-                  {
-                    if (!_controller.isCompleted)
-                    {
-                      _controller.complete(controller);
-                    }
-                  },
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  markers: <Marker>
-                  {
-                    if (_cursorPoint != null)
-                      Marker(
-                        markerId: const MarkerId('cursor'),
-                        position: _cursorPoint!,
-                        infoWindow: InfoWindow(
-                          title: _cursorBuilding?.fullName ?? 'No building',
-                          snippet: _cursorBuilding?.description ?? 'No address'
-                        ),
-                      ),
-                  },
-                  onTap: (LatLng point)
-                  {
-                  }
-                );
+            future: _buildingsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
               }
 
-              if(_polygons.isEmpty) {
+              if (_polygons.isEmpty) {
                 _polygons = _buildPolygons(snapshot.data!);
               }
 
-              if (snapshot.hasError)
-              {
+              if (snapshot.hasError) {
                 return Center(
                   child: Text('Error loading polygons: ${snapshot.error}'),
                 );
               }
 
-              // Polygons loaded
-              return GoogleMap(
-                initialCameraPosition: _initialCamera,
-                onMapCreated: (GoogleMapController controller)
-                {
-                  if (!_controller.isCompleted)
-                  {
-                    _controller.complete(controller);
-                  }
-                },
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                polygons: _polygons,
-                mapToolbarEnabled: false,
-                markers: <Marker>
-                {
-                  if (_cursorPoint != null)
-                    Marker(
-                      markerId: const MarkerId('cursor'),
-                      position: _cursorPoint!,
-                      infoWindow: InfoWindow(
-                        title: _cursorBuilding?.name ?? 'No building',
-                        //snippet: _cursorBuilding?.description ?? 'No address'
-                        
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  return Listener(
+                    //Listener required for getting tap coordinates w/o relying on GoogleMap
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (event) async {
+                      final controller = await _controller.future;
+                      final box =
+                          _mapKey.currentContext?.findRenderObject()
+                              as RenderBox?;
+                      if (box == null) return;
+
+                      final local = box.globalToLocal(event.position);
+
+                      if (context.mounted) {
+                        final pixelRatio = MediaQuery.of(
+                          context,
+                        ).devicePixelRatio;
+
+                        final screenCoordinate = ScreenCoordinate(
+                          x: (local.dx * pixelRatio).round(),
+                          y: (local.dy * pixelRatio).round(),
+                        );
+                        final latLng = await controller.getLatLng(
+                          screenCoordinate,
+                        );
+                        lastTap = latLng;
+                      }
+                    },
+                    child: SizedBox(
+                      key: _mapKey,
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: GoogleMap(
+                        initialCameraPosition: _initialCamera,
+                        onMapCreated: (GoogleMapController controller) {
+                          if (!_controller.isCompleted) {
+                            _controller.complete(controller);
+                          }
+                        },
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                        polygons: _polygons,
+                        mapToolbarEnabled: false,
+                        markers: <Marker>{
+                          if (_cursorPoint != null)
+                            Marker(
+                              markerId: const MarkerId('cursor'),
+                              position: _cursorPoint!,
+                              infoWindow: InfoWindow(
+                                title: _cursorBuilding?.name ?? 'No building',
+
+                                //snippet: _cursorBuilding?.description ?? 'No address'
+                              ),
+                            ),
+                        },
+                        onTap: (LatLng point) {
+                          if (_sheetController != null) {
+                            _sheetController?.close();
+                            _sheetController = null;
+                          } else {
+                            final CampusBuilding? building =
+                                _findBuildingAtPoint(
+                                  point,
+                                  buildingsPresent!,
+                                  _campus,
+                                );
+                            debugPrint(
+                              building != null
+                                  ? 'Selected building: ${building.name} (id=${building.id})'
+                                  : 'Selected building: none',
+                            );
+
+                            lastTap = point;
+
+                            //Creates bottom sheet for when we tap on a non-shaded building (FOR NOW, WILL FURTHER DEVELOP FOR FUTURE SPRINTS WHERE FETCHING ADDRESS IS REQUIRED)
+
+                            showBottomSheet(
+                              context: context,
+                              builder: (_) => Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Not part of campus',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text('Please select a shaded building'),
+                                  ],
+                                ),
+                              ),
+                            );
+
+                            setState(() {
+                              _cursorPoint = point;
+                              _cursorBuilding = building;
+                            });
+                          }
+                        },
                       ),
                     ),
-                },
-                onTap: (LatLng point)
-                {
-                  final CampusBuilding? building = _findBuildingAtPoint(
-                    point,
-                    campusBuildings,
-                    _campus,
                   );
-
-                  //Creates bottom sheet upon tapping polygon
-                  
-                  
-                  //isSelected = true;
-
-                    
-                    showBottomSheet(
-                      context: context,
-                      builder: (_) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            SizedBox(height: 8),
-                            Text('Please select a shaded building'),
-                          ],
-                        ),
-                      ),
-                    );
-                  
-                  
-                  debugPrint(
-                    building != null
-                        ? 'Selected building: ${building.name} (id=${building.id})'
-                        : 'Selected building: none',
-                  );
-
-                  setState(()
-                  {
-                    _cursorPoint = point;
-                    _cursorBuilding = building;
-                  });
                 },
               );
             },
@@ -514,7 +557,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Card(
                   elevation: 4,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     child: Text(
                       _currentBuildingFromGPS?.fullName ??
                           _currentBuildingFromGPS?.name ??
@@ -529,7 +575,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
 
           // Pushed Campus toggle a bit lower to avoid overlap
           SafeArea(
@@ -554,19 +599,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  @override void dispose() { _gpsSub?.cancel(); super.dispose(); }
+  @override
+  void dispose() {
+    _gpsSub?.cancel();
+    super.dispose();
+  }
 }
 
-bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
-{
+bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
   double x = point.longitude;
   double y = point.latitude;
 
   bool inside = false;
   int j = polygon.length - 1;
 
-  for (int i = 0; i < polygon.length; i++)
-  {
+  for (int i = 0; i < polygon.length; i++) {
     double xi = polygon[i].longitude;
     double yi = polygon[i].latitude;
 
@@ -574,17 +621,14 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
     double yj = polygon[j].latitude;
 
     double denom = (yj - yi);
-    if (denom == 0.0)
-    {
+    if (denom == 0.0) {
       denom = 1e-12;
     }
 
     bool intersect =
-        ((yi > y) != (yj > y)) &&
-            (x < (xj - xi) * (y - yi) / denom + xi);
+        ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / denom + xi);
 
-    if (intersect)
-    {
+    if (intersect) {
       inside = !inside;
     }
 
@@ -594,30 +638,23 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
   return inside;
 }
 
-  
-
 bool? isAnnex;
 
 CampusBuilding? _findBuildingAtPoint(
-    LatLng point,
-    List<CampusBuilding> buildings,
-    Campus campus,
-    )
-{
-  for (CampusBuilding b in buildings)
-  {
-    if (b.campus != campus)
-    {
+  LatLng point,
+  List<CampusBuilding> buildings,
+  Campus campus,
+) {
+  for (CampusBuilding b in buildings) {
+    if (b.campus != campus) {
       continue;
     }
 
-    if (_isPointInPolygon(point, b.boundary))
-    {
-       isAnnex = b.fullName!.contains("Annex");
+    if (_isPointInPolygon(point, b.boundary)) {
+      isAnnex = b.fullName!.contains("Annex");
       return b;
     }
   }
 
   return null;
 }
-
