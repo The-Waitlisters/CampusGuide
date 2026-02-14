@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/building_data.dart';
 import '../models/campus.dart';
@@ -25,9 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   CampusBuilding? _cursorBuilding;
-  //String? _addresses;
-  late Future<Set<Polygon>> _polygonsFuture;
-  //bool isSelected = false;
+  late Future<List<CampusBuilding>> _polygonsFuture;
+  Set<Polygon> _polygons = {};
+  PolygonId? _selectedId;
+  final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
+  bool campusChange = false;
+  
 
   // US-1.4: Current building from device location (keep existing tap/cursor logic)
 
@@ -43,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Start loading polygons for the initial campus
-    _polygonsFuture = _buildPolygonsForCampus(_campus);
+    _polygonsFuture = _getPolygonPointsFromJSON(_campus, campusChange);
 
     // US-1.4: start listening to device location
     _startLocationTracking();
@@ -99,50 +103,69 @@ class _HomeScreenState extends State<HomeScreen> {
     
   }
 
-  Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
+  Future<List<CampusBuilding>> _getPolygonPointsFromJSON(Campus campus, bool campusChange) async
   {
     // Optional delay if they were using this to simulate async loading
     await Future.delayed(const Duration(milliseconds: 100));
-
-    final Set<Polygon> polys = <Polygon>{};
-
-    for (final CampusBuilding b in campusBuildings)
-    {
-      if (b.campus != campus)
-      {
-        continue;
-      }
-
-      final bool isActiveGps = _currentBuildingFromGPS?.id == b.id;
       
+    final String rawData = await rootBundle.loadString('assets/building_data.geojson');
 
-      polys.add(
-        Polygon(
-          polygonId: PolygonId(b.id),
-          points: b.boundary,
-          fillColor: //isSelected ? Colors.yellow : 
-              (isActiveGps
-              ? const Color(0x803197F6) // highlighted fill
-              : const Color(0x80912338)), // default fill
-          strokeColor: isActiveGps
-              ? Colors.blue
-              : const Color(0xFF741C2C),
-          strokeWidth: isActiveGps ? 3 : 2,
-          consumeTapEvents: false,
-          onTap: ()
-          {
-            debugPrint('Polygon tapped: ${b.name} (id=${b.id})');
-            
-            setState(()
-            {
-              _cursorBuilding = b;
-            });
-          },
-        ),
-      );
+    final Map<String, dynamic> jsonFile = jsonDecode(rawData);
+      
+    final List features = jsonFile['features'] ?? [];
+    debugPrint("aaaaaa");
+    final List<CampusBuilding> buildings = [];
+
+    
+    for (final f in features)
+    {
+      
+      //if(f['properties']['campus'] == campus.name) {
+        final geometry = (f['geometry'] ?? {}) as Map<String, dynamic>;
+        final properties = (f['properties'] ?? {}) as Map<String, dynamic>;
+
+        final id = (properties['id'] ?? '').toString();
+
+        //if(id.isEmpty) continue;
+
+        final name = properties['name'].toString(); 
+        final description = properties['description'].toString();
+        final fullName = properties['fullName'].toString();
+        final isWheelchairAccessible = properties['isWheelchairAccessible'];
+        final hasBikeParking = properties['hasBikeParking'];
+        final hasCarParking = properties['hasCarParking'];
+        
+
+        final openingHoursRaw = properties['openingHours'];
+        final departmentsRaw = properties['departments'];
+        final servicesRaw = properties['services'];
+
+        final openingHours = (openingHoursRaw is List) ? openingHoursRaw.map((e) => e.toString()).toList() : <String>[];
+        final departments = (departmentsRaw is List) ? departmentsRaw.map((e) => e.toString()).toList() : <String>[];
+        final services = (servicesRaw is List) ? servicesRaw.map((e) => e.toString()).toList() : <String>[];
+
+        final type = geometry['type'].toString();
+        final coords = geometry['coordinates'];
+
+        List<LatLng> polyPoints = [];
+
+        if(type == 'Polygon') {
+          final ring = coords[0] as List;
+          polyPoints = ring.map<LatLng>((e) => LatLng(e[1], e[0])).toList();
+        } else {
+          continue;
+        }
+        
+        buildings.add(CampusBuilding(id: id, name: name, campus: campus, boundary: polyPoints, fullName: fullName, description: description, openingHours: openingHours, isWheelchairAccessible: isWheelchairAccessible, hasBikeParking: hasBikeParking, hasCarParking: hasCarParking, departments: departments, services: services));
+        
+
+      //}
+      
+      
     }
 
-    return polys;
+
+    return buildings;
   }
 
 
@@ -161,7 +184,10 @@ class _HomeScreenState extends State<HomeScreen> {
       // Reset GPS building on campus change (prevents stale highlight)
       _buildingLocator.reset();
       _currentBuildingFromGPS = null;
-      _polygonsFuture = _buildPolygonsForCampus(campus);
+      //campusChange = true;
+      //_polygonsFuture = _getPolygonPointsFromJSON(campus, campusChange);
+      
+      
     });
   }
 
@@ -207,10 +233,145 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentBuildingFromGPS = result.building;
 
         if (oldId != newId) {
-          _polygonsFuture = _buildPolygonsForCampus(_campus);
+          _polygonsFuture = _getPolygonPointsFromJSON(_campus, campusChange);
         }
       });
     });
+  }
+
+  Set<Polygon> _buildPolygons(List<CampusBuilding> buildings) {
+    _polygonToBuilding.clear();
+
+
+    return buildings.map((e) {
+      final pid = PolygonId(e.id);
+      _polygonToBuilding[pid] = e;
+      final bool isActiveGps = _currentBuildingFromGPS?.id == e.id;
+
+      return Polygon(
+        polygonId: pid,
+        points: e.boundary,
+        consumeTapEvents: true,
+        fillColor: isActiveGps ? const Color(0x803197F6) : const Color(0x80912338),
+        strokeColor: isActiveGps
+              ? Colors.blue
+              : const Color(0xFF741C2C),
+        strokeWidth: isActiveGps ? 3 : 2,
+        onTap: () {
+          _cursorBuilding = e;
+          _updateOnTap(pid);} 
+        ,);
+
+    }).toSet();
+  }
+
+  void _updateOnTap(PolygonId id) {
+
+    final building = _polygonToBuilding[id];
+    if (building == null) return;
+    isAnnex = building.fullName!.contains("Annex");
+
+    setState(() {
+    _selectedId = id;
+    _cursorBuilding = building;
+    _polygons = _polygons.map((p) {
+      final isSelected = (p.polygonId == _selectedId);
+      return p.copyWith(
+        fillColorParam: isSelected ? const Color.fromARGB(255, 124, 115, 29) : const Color(0x80912338),
+        strokeColorParam: isSelected ? Colors.yellow : const Color(0xFF741C2C),
+      );
+      }).toSet();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      
+      showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      //backgroundColor: const Color.fromARGB(0, 0, 0, 0),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.25,
+        minChildSize: 0.15,
+        maxChildSize: 0.6,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', 
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 8),
+                  if(_cursorBuilding?.isWheelchairAccessible == true || _cursorBuilding?.hasBikeParking == true || _cursorBuilding?.hasCarParking == true) 
+                    (Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if(_cursorBuilding?.isWheelchairAccessible == true) (Icon(Icons.accessible)), 
+                        if(_cursorBuilding?.hasBikeParking == true) (Icon(Icons.pedal_bike)), 
+                        if(_cursorBuilding?.hasCarParking == true) (Icon(Icons.local_parking)), 
+                        
+                        ],
+                        )
+                        ),
+                  
+                  const SizedBox(height:12),
+
+                  Text(_cursorBuilding?.description ?? ''),
+
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    'Departments:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  ..._cursorBuilding!.departments.map((e) => Text((e == "-") ? ("None") : (e))),
+
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    'Services:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  ..._cursorBuilding!.services.map((e) => Text((e == "-") ? ("None") : (e))),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+                  
+  });
+  }
+
+  Set<Marker> _buildMarker(CampusBuilding building) {
+    return {
+    Marker(
+      markerId: MarkerId('selected_${building.id}'),
+      position: _cursorPoint!,
+      infoWindow: InfoWindow(
+        title: building.name,
+      ),
+    )
+  };
   }
 
 
@@ -223,9 +384,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Stack(
         children: [
-          FutureBuilder<Set<Polygon>>(
+          FutureBuilder<List<CampusBuilding>>(
             future: _polygonsFuture,
-            builder: (BuildContext context, AsyncSnapshot<Set<Polygon>> snapshot)
+            builder: (context, snapshot)
             {
               if (snapshot.connectionState == ConnectionState.waiting)
               {
@@ -241,7 +402,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
-                  mapToolbarEnabled: false,
                   markers: <Marker>
                   {
                     if (_cursorPoint != null)
@@ -249,74 +409,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         markerId: const MarkerId('cursor'),
                         position: _cursorPoint!,
                         infoWindow: InfoWindow(
-                          title: _cursorBuilding?.name ?? 'No building',
-                          //snippet: _cursorBuilding?.description ?? 'No address'
+                          title: _cursorBuilding?.fullName ?? 'No building',
+                          snippet: _cursorBuilding?.description ?? 'No address'
                         ),
                       ),
                   },
                   onTap: (LatLng point)
                   {
-                    final CampusBuilding? building = _findBuildingAtPoint(
-                      point,
-                      campusBuildings,
-                      _campus,
-                    );
-                    
-                    
-                  //isSelected = true;
-                  
-                  //Creates bottom sheet upon tapping polygon
-                  //hardcoded to ignore non-campus buildings for now, will be further expanded on next sprint
-                    if(building != null) {
-                      showBottomSheet(
-                      context: context,
-                      builder: (_) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            SizedBox(height: 8),
-                            Text('${_cursorBuilding?.description}'),
-                            Text('${_cursorBuilding?.description}'),
-                          ],
-                        ),
-                      ),
-                    );
-                  } else {
-                    showBottomSheet(
-                      context: context,
-                      builder: (_) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            SizedBox(height: 8),
-                            Text('Please select a shaded building'),
-                          ],
-                        ),
-                      ),
-                    );
                   }
-
-                    debugPrint(
-                      building != null
-                          ? 'Selected building: ${building.name} (id=${building.id})'
-                          : 'Selected building: none',
-                    );
-
-                    
-
-                    setState(()
-                    {
-                      _cursorPoint = point;
-                      _cursorBuilding = building;                     
-                    });
-                  },
                 );
+              }
+
+              if(_polygons.isEmpty) {
+                _polygons = _buildPolygons(snapshot.data!);
               }
 
               if (snapshot.hasError)
@@ -338,7 +443,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
-                polygons: snapshot.data ?? <Polygon>{},
+                polygons: _polygons,
                 mapToolbarEnabled: false,
                 markers: <Marker>
                 {
@@ -366,80 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   
                   //isSelected = true;
 
-                  if(building != null) {
-                    showBottomSheet(
-                    context: context,
                     
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => DraggableScrollableSheet(
-                      initialChildSize: 0.25,
-                      minChildSize: 0.15,
-                      maxChildSize: 0.6,
-                      expand: false,
-                      builder: (context, scrollController) {
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                          ),
-                          child: SingleChildScrollView(
-                            controller: scrollController,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}', 
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
-
-                                const SizedBox(height: 8),
-                                if(_cursorBuilding?.isWheelchairAccessible == true || _cursorBuilding?.hasBikeParking == true || _cursorBuilding?.hasCarParking == true) 
-                                  (Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if(_cursorBuilding?.isWheelchairAccessible == true) (Icon(Icons.accessible)), 
-                                      if(_cursorBuilding?.hasBikeParking == true) (Icon(Icons.pedal_bike)), 
-                                      if(_cursorBuilding?.hasCarParking == true) (Icon(Icons.local_parking)), 
-                                      
-                                      ],
-                                      )
-                                      ),
-                                
-                                const SizedBox(height:12),
-
-                                Text(_cursorBuilding?.description ?? ''),
-
-                                const SizedBox(height: 12),
-
-                                const Text(
-                                  'Departments:',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-
-                                const SizedBox(height: 6),
-
-                                ..._cursorBuilding!.departments.map((e) => Text((e == "-") ? ("None") : (e))),
-
-                                const SizedBox(height: 12),
-
-                                const Text(
-                                  'Services:',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-
-                                const SizedBox(height: 6),
-
-                                ..._cursorBuilding!.services.map((e) => Text((e == "-") ? ("None") : (e))),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-
-                  }  else {
                     showBottomSheet(
                       context: context,
                       builder: (_) => Padding(
@@ -455,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     );
-                  }
+                  
                   
                   debugPrint(
                     building != null
