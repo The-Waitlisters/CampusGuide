@@ -38,7 +38,7 @@ final List<CampusBuilding> campusBuildings = [
     description: "1600 Rue Sainte-Catherine O H3H 2S7",
     campus: Campus.sgw,
     isWheelchairAccessible: true,
-    hasBikeParking: false,
+    hasBikeParking: true,
     hasCarParking: true,
     openingHours: ['Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm','Restricted Access: 24/7'],
     departments: ['Classics, Modern Languages & Linguistics','Concordia Continuing Education','Mel Hoppenheim School of Cinema','Theological Studies'],
