@@ -235,8 +235,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       _controller.complete(controller);
                     }
                   },
-                  myLocationButtonEnabled: false,
+                  myLocationButtonEnabled: true,
                   zoomControlsEnabled: false,
+                  myLocationEnabled: true,
                   markers: <Marker>
                   {
                     if (_cursorPoint != null)
@@ -330,8 +331,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     _controller.complete(controller);
                   }
                 },
-                myLocationButtonEnabled: false,
+                myLocationButtonEnabled: true,
                 zoomControlsEnabled: false,
+                myLocationEnabled:true,
                 polygons: snapshot.data ?? <Polygon>{},
                 markers: <Marker>
                 {
