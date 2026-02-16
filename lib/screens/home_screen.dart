@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final result = _buildingLocator.update(
             userPoint: userPoint,
             campus: _campus,
-            buildings: buildingsPresent!,
+            buildings: buildingsPresent,
           );
 
           if (!mounted) return;
@@ -204,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleMapTap(LatLng point) {
     setState(() {
       _cursorPoint = point;
-      _cursorBuilding = _findBuildingAtPoint(point, buildingsPresent!, _campus);
+      _cursorBuilding = _findBuildingAtPoint(point, buildingsPresent, _campus);
     });
   }
 
@@ -425,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             final CampusBuilding? building =
                                 _findBuildingAtPoint(
                                   point,
-                                  buildingsPresent!,
+                                  buildingsPresent,
                                   _campus,
                                 );
                             debugPrint(
