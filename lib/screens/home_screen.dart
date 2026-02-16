@@ -87,6 +87,29 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // Hugo - added a method to remove the need for code duplication
+  void _handleMapTap(
+      LatLng point,
+      List<CampusBuilding> campusBuildings,
+      ) {
+    final CampusBuilding? building = _findBuildingAtPoint(
+      point,
+      campusBuildings,
+      _campus,
+    );
+
+    debugPrint(
+      building != null
+          ? 'Selected building: ${building.name} (id=${building.id})'
+          : 'Selected building: none',
+    );
+
+    setState(() {
+      _cursorPoint = point;
+      _cursorBuilding = building;
+    });
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -125,26 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                   },
-                  onTap: (LatLng point)
-                  {
-                    final CampusBuilding? building = _findBuildingAtPoint(
-                      point,
-                      campusBuildings,
-                      _campus,
-                    );
-
-                    debugPrint(
-                      building != null
-                          ? 'Selected building: ${building.name} (id=${building.id})'
-                          : 'Selected building: none',
-                    );
-
-                    setState(()
-                    {
-                      _cursorPoint = point;
-                      _cursorBuilding = building;
-                    });
-                  },
+                  onTap: (point) => _handleMapTap(point, campusBuildings), // hugo - call to method (fix)
                 );
               }
 
@@ -179,26 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                 },
-                onTap: (LatLng point)
-                {
-                  final CampusBuilding? building = _findBuildingAtPoint(
-                    point,
-                    campusBuildings,
-                    _campus,
-                  );
-
-                  debugPrint(
-                    building != null
-                        ? 'Selected building: ${building.name} (id=${building.id})'
-                        : 'Selected building: none',
-                  );
-
-                  setState(()
-                  {
-                    _cursorPoint = point;
-                    _cursorBuilding = building;
-                  });
-                },
+                onTap: (point) => _handleMapTap(point, campusBuildings), // hugo - call to method (fix)
               );
             },
           ),
