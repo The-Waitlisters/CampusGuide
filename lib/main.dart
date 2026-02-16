@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
+const bool isE2EMode = bool.fromEnvironment('E2E');
+
 void main() {
   runApp(const CampusGuideApp());
 }
