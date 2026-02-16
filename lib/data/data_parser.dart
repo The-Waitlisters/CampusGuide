@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DataParser {
-  List<CampusBuilding>? buildingsPresent;
+  List<CampusBuilding> buildingsPresent = [];
   
   Future<List<CampusBuilding>> getBuildingInfoFromJSON(
     Campus campus,
@@ -78,9 +78,15 @@ class DataParser {
           services: services,
         ),
       );
-      buildingsPresent = buildings;
+      buildingsPresent = setPresentBuilding(buildings);
     }
     return buildings;
+  }
+
+  List<CampusBuilding> setPresentBuilding(List<CampusBuilding> buildings) {
+    buildingsPresent = buildings;
+
+    return buildingsPresent;
   }
 
 

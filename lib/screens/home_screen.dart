@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
   late Future<List<CampusBuilding>> _buildingsFuture;
-  List<CampusBuilding>? buildingsPresent;
+  List<CampusBuilding> buildingsPresent = [];
   Set<Polygon> _polygons = {};
   PolygonId? _selectedId;
   final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
@@ -53,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Start loading polygons for the initial campus
     _buildingsFuture = data.getBuildingInfoFromJSON(_campus, campusChange);
+    buildingsPresent = data.buildingsPresent;
 
     // US-1.4: start listening to device location
     _startLocationTracking();
@@ -149,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ).listen((Position pos) {
           final userPoint = LatLng(pos.latitude, pos.longitude);
-
           final result = _buildingLocator.update(
             userPoint: userPoint,
             campus: _campus,
@@ -170,6 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _campus,
                 campusChange,
               );
+              buildingsPresent = data.buildingsPresent;
             }
           });
         });
