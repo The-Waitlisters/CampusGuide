@@ -401,8 +401,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             _controller.complete(controller);
                           }
                         },
-                        myLocationButtonEnabled: false,
+                        myLocationButtonEnabled: true,
                         zoomControlsEnabled: false,
+                        myLocationEnabled: true,
                         polygons: _polygons,
                         mapToolbarEnabled: false,
                         markers: <Marker>{
