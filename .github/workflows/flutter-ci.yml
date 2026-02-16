@@ -1,5 +1,8 @@
 name: Flutter CI
 
+permissions:
+  contents: write
+  
 on:
   push:
     branches: [main, develop]
@@ -33,10 +36,11 @@ jobs:
         run: sudo apt-get install lcov
 
       - name: Generate coverage report
+        if: github.event_name == 'push'
         run: |
-              genhtml coverage/lcov.info -o ./test_coverage
-              git config user.name github-actions
-              git config user.email github-actions@github.com
-              git add ./test_coverage
-              git commit -m "generated coverage information"
-              git push
+          genhtml coverage/lcov.info -o ./test_coverage
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ./test_coverage
+          git commit -m "generated coverage information" || echo "No changes to commit"
+          git push
