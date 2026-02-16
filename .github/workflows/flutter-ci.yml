@@ -28,3 +28,6 @@ jobs:
 
       - name: Run tests with coverage
         run: flutter test --coverage
+
+      - name: Generate coverage report
+        run: genhtml coverage/lcov.info -o ./test_coverage
