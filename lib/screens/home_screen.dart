@@ -7,7 +7,6 @@ import '../widgets/campus_toggle.dart';
 import '../models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/building_locator.dart';
-import 'package:geocoding/geocoding.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
