@@ -8,8 +8,6 @@ class DataParser {
   List<CampusBuilding> buildingsPresent = [];
   
   Future<List<CampusBuilding>> getBuildingInfoFromJSON(
-    Campus campus,
-    bool campusChange,
   ) async {
     // Optional delay if they were using this to simulate async loading
     await Future.delayed(const Duration(milliseconds: 100));
@@ -30,6 +28,14 @@ class DataParser {
       final id = (properties['id'] ?? '').toString();
 
       final name = properties['name'].toString();
+      final campusStr = properties['campus'].toString();
+      final Campus campusEnum;
+      if(campusStr == Campus.sgw.name) {
+        campusEnum = Campus.sgw;
+      } else {
+        campusEnum = Campus.loyola;
+      }
+      
       final description = properties['description'].toString();
       final fullName = properties['fullName'].toString();
       final isWheelchairAccessible = properties['isWheelchairAccessible'];
@@ -66,7 +72,7 @@ class DataParser {
         CampusBuilding(
           id: id,
           name: name,
-          campus: campus,
+          campus: campusEnum,
           boundary: polyPoints,
           fullName: fullName,
           description: description,
@@ -78,15 +84,10 @@ class DataParser {
           services: services,
         ),
       );
-      buildingsPresent = setPresentBuilding(buildings);
+      
     }
+
     return buildings;
-  }
-
-  List<CampusBuilding> setPresentBuilding(List<CampusBuilding> buildings) {
-    buildingsPresent = buildings;
-
-    return buildingsPresent;
   }
 
 

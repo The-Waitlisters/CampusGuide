@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Start loading polygons for the initial campus
-    _buildingsFuture = data.getBuildingInfoFromJSON(_campus, campusChange);
+    _buildingsFuture = data.getBuildingInfoFromJSON();
     buildingsPresent = data.buildingsPresent;
 
     // US-1.4: start listening to device location
@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return CameraPosition(target: info.center, zoom: info.zoom);
   }
 
-  Future<String> getPlaceMarks(LatLng coords) async {
+/*  Future<String> getPlaceMarks(LatLng coords) async {
     /// To be fixed in sprint 3
     try {
       double x = coords.latitude;
@@ -84,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
             '${placemarks[0].locality ?? ''}, '
             '${placemarks[0].postalCode ?? ''}';
 
-        /* var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
+         var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
 
         streets = streets.where((street) => street!.toLowerCase() != placemarks.reversed.last.locality!.toLowerCase());
 
@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         address += ', ${placemarks.reversed.last.subAdministrativeArea ?? ''}';
         address += ', ${placemarks.reversed.last.administrativeArea ?? ''}';
-        address += ', ${placemarks.reversed.last.postalCode ?? ''}'; */
+        address += ', ${placemarks.reversed.last.postalCode ?? ''}'; 
       }
 
       //debugPrint("Your Address for ($x , $y) is: $address");
@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint("Error getting placemarks: $e");
       return "No Address";
     }
-  }
+  }*/
 
   Future<void> _goToCampus(Campus campus) async {
     final controller = await _controller.future;
@@ -167,8 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
             if (oldId != newId) {
               _buildingsFuture = data.getBuildingInfoFromJSON(
-                _campus,
-                campusChange,
               );
               buildingsPresent = data.buildingsPresent;
             }
