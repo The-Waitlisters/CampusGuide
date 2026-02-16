@@ -183,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                 },
-                onTap: (point) => _handleMapTap(point, campusBuildings), // hugo - call to method (fix)
+                onTap: (point) => _handleMapTap(point, campusBuildings), // hugo - call to method (fix)/
               );
             },
           ),
