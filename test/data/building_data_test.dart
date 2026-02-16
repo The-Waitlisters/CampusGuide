@@ -1,29 +1,49 @@
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:proj/data/building_data.dart';
 import 'package:proj/models/campus.dart';
+import 'package:proj/data/data_parser.dart';
 
 void main() {
-  test('Building data contains SGW campus buildings', () {
-    final sgwBuildings = campusBuildings
-        .where((b) => b.campus == Campus.sgw)
-        .toList();
+  test('Building data contains SGW campus buildings', () async {
+    
 
-    expect(sgwBuildings.isNotEmpty, true);
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    final result = allBuildings
+            .where((b) => b.campus == Campus.sgw)
+            .toList();
+    
+
+    expect(result.length == 36, true);
   });
 
-  test('Building data contains Loyola campus buildings', () {
-    final loyolaBuildings = campusBuildings
-        .where((b) => b.campus == Campus.loyola)
-        .toList();
+  test('Building data contains Loyola campus buildings', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
 
-    expect(loyolaBuildings.isNotEmpty, true);
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    final result = allBuildings
+            .where((b) => b.campus == Campus.loyola)
+            .toList();
+    
+
+    expect(result.length == 26, true);
   });
 
-  test('SGW and Loyola buildings are distinct', () {
-    final sgwBuildings = campusBuildings
+  test('SGW and Loyola buildings are distinct', () async {
+
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+
+
+    final sgwBuildings = allBuildings
         .where((b) => b.campus == Campus.sgw)
         .toList();
-    final loyolaBuildings = campusBuildings
+    final loyolaBuildings = allBuildings
         .where((b) => b.campus == Campus.loyola)
         .toList();
 
