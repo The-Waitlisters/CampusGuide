@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/campus.dart';
 import '../widgets/campus_toggle.dart';
@@ -20,6 +19,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool? isAnnex;
+  DataParser data = DataParser();
   final Completer<GoogleMapController> _controller =
       Completer<GoogleMapController>();
   Campus _campus = Campus.sgw;
@@ -51,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     // Start loading polygons for the initial campus
-    _buildingsFuture = _getBuildingInfoFromJSON(_campus, campusChange);
+    _buildingsFuture = data.getBuildingInfoFromJSON(_campus, campusChange);
 
     // US-1.4: start listening to device location
     _startLocationTracking();
@@ -102,82 +103,6 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint("Error getting placemarks: $e");
       return "No Address";
     }
-  }
-
-  Future<List<CampusBuilding>> _getBuildingInfoFromJSON(
-    Campus campus,
-    bool campusChange,
-  ) async {
-    // Optional delay if they were using this to simulate async loading
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    final String rawData = await rootBundle.loadString(
-      'assets/building_data.geojson',
-    );
-
-    final Map<String, dynamic> jsonFile = jsonDecode(rawData);
-
-    final List features = jsonFile['features'] ?? [];
-    final List<CampusBuilding> buildings = [];
-
-    for (final f in features) {
-      final geometry = (f['geometry'] ?? {}) as Map<String, dynamic>;
-      final properties = (f['properties'] ?? {}) as Map<String, dynamic>;
-
-      final id = (properties['id'] ?? '').toString();
-
-      final name = properties['name'].toString();
-      final description = properties['description'].toString();
-      final fullName = properties['fullName'].toString();
-      final isWheelchairAccessible = properties['isWheelchairAccessible'];
-      final hasBikeParking = properties['hasBikeParking'];
-      final hasCarParking = properties['hasCarParking'];
-
-      final openingHoursRaw = properties['openingHours'];
-      final departmentsRaw = properties['departments'];
-      final servicesRaw = properties['services'];
-
-      final openingHours = (openingHoursRaw is List)
-          ? openingHoursRaw.map((e) => e.toString()).toList()
-          : <String>[];
-      final departments = (departmentsRaw is List)
-          ? departmentsRaw.map((e) => e.toString()).toList()
-          : <String>[];
-      final services = (servicesRaw is List)
-          ? servicesRaw.map((e) => e.toString()).toList()
-          : <String>[];
-
-      final type = geometry['type'].toString();
-      final coords = geometry['coordinates'];
-
-      List<LatLng> polyPoints = [];
-
-      if (type == 'Polygon') {
-        final ring = coords[0] as List;
-        polyPoints = ring.map<LatLng>((e) => LatLng(e[1], e[0])).toList();
-      } else {
-        continue;
-      }
-
-      buildings.add(
-        CampusBuilding(
-          id: id,
-          name: name,
-          campus: campus,
-          boundary: polyPoints,
-          fullName: fullName,
-          description: description,
-          openingHours: openingHours,
-          isWheelchairAccessible: isWheelchairAccessible,
-          hasBikeParking: hasBikeParking,
-          hasCarParking: hasCarParking,
-          departments: departments,
-          services: services,
-        ),
-      );
-      buildingsPresent = buildings;
-    }
-    return buildings;
   }
 
   Future<void> _goToCampus(Campus campus) async {
@@ -241,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _currentBuildingFromGPS = result.building;
 
             if (oldId != newId) {
-              _buildingsFuture = _getBuildingInfoFromJSON(
+              _buildingsFuture = data.getBuildingInfoFromJSON(
                 _campus,
                 campusChange,
               );
@@ -638,7 +563,7 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
   return inside;
 }
 
-bool? isAnnex;
+
 
 CampusBuilding? _findBuildingAtPoint(
   LatLng point,
@@ -651,7 +576,6 @@ CampusBuilding? _findBuildingAtPoint(
     }
 
     if (_isPointInPolygon(point, b.boundary)) {
-      isAnnex = b.fullName!.contains("Annex");
       return b;
     }
   }
