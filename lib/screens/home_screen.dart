@@ -1,15 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../data/data_parser.dart';
+import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../models/campus.dart';
-import '../widgets/campus_toggle.dart';
-import '../models/campus_building.dart';
+import 'package:proj/models/campus.dart';
+import 'package:proj/widgets/campus_toggle.dart';
+import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/building_locator.dart';
+import 'package:proj/services/building_locator.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final DataParser? dataParser;
+  final BuildingLocator? buildingLocator;
+
+  const HomeScreen({
+    super.key,
+    this.dataParser,
+    this.buildingLocator,
+  });
 
   @override
   State<HomeScreen> createState() {
@@ -19,7 +26,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool? isAnnex;
-  DataParser data = DataParser();
+  late DataParser data;
   final Completer<GoogleMapController> _controller =
       Completer<GoogleMapController>();
   Campus _campus = Campus.sgw;
@@ -37,12 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
 
-  // US-1.4: Current building from device location (keep existing tap/cursor logic)
-
-  final BuildingLocator _buildingLocator = BuildingLocator(
-    enterThresholdMeters: 15,
-    exitThresholdMeters: 25,
-  );
+  late BuildingLocator _buildingLocator;
 
   StreamSubscription<Position>? _gpsSub;
   CampusBuilding? _currentBuildingFromGPS;
@@ -50,11 +52,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Start loading polygons for the initial campus
+    data = widget.dataParser ?? DataParser();
+    _buildingLocator = widget.buildingLocator ?? BuildingLocator(
+      enterThresholdMeters: 15,
+      exitThresholdMeters: 25,
+    );
+
     _buildingsFuture = data.getBuildingInfoFromJSON();
     buildingsPresent = data.buildingsPresent;
 
-    // US-1.4: start listening to device location
     _startLocationTracking();
   }
 
@@ -62,48 +68,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
   }
-
-/*  Future<String> getPlaceMarks(LatLng coords) async {
-    /// To be fixed in sprint 3
-    try {
-      double x = coords.latitude;
-      double y = coords.longitude;
-      List<Placemark> placemarks = [];
-      //List<Location> loc = [];
-
-      if (_isPointInPolygon(coords, _cursorBuilding!.boundary)) {
-        placemarks = await placemarkFromCoordinates(x, y);
-      }
-
-      String address = '';
-
-      if (placemarks.isNotEmpty) {
-        address =
-            '${placemarks[0].street ?? ''}, '
-            '${placemarks[0].locality ?? ''}, '
-            '${placemarks[0].postalCode ?? ''}';
-
-         var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
-
-        streets = streets.where((street) => street!.toLowerCase() != placemarks.reversed.last.locality!.toLowerCase());
-
-        streets = streets.where((street) => !street!.contains('+'));
-
-        address += streets.first!;
-
-        address += ', ${placemarks.reversed.last.subAdministrativeArea ?? ''}';
-        address += ', ${placemarks.reversed.last.administrativeArea ?? ''}';
-        address += ', ${placemarks.reversed.last.postalCode ?? ''}'; 
-      }
-
-      //debugPrint("Your Address for ($x , $y) is: $address");
-
-      return address;
-    } catch (e) {
-      debugPrint("Error getting placemarks: $e");
-      return "No Address";
-    }
-  }*/
 
   Future<void> _goToCampus(Campus campus) async {
     final controller = await _controller.future;
@@ -113,11 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
         CameraPosition(target: info.center, zoom: info.zoom),
       ),
     );
-    // When campus changes, change camera
 
     setState(() {
       _campus = campus;
-      // Reset GPS building on campus change (prevents stale highlight)
       _buildingLocator.reset();
       _currentBuildingFromGPS = null;
     });
@@ -157,7 +119,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (!mounted) return;
 
-          // Only rebuild polygons when the active building changes (avoid heavy redraw)
           final oldId = _currentBuildingFromGPS?.id;
           final newId = result.building?.id;
 
@@ -201,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleMapTap(LatLng point) {
     setState(() {
       _cursorPoint = point;
-      _cursorBuilding = _findBuildingAtPoint(point, buildingsPresent, _campus);
+      _cursorBuilding = findBuildingAtPoint(point, buildingsPresent, _campus);
     });
   }
 
@@ -270,11 +231,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (_cursorBuilding?.isWheelchairAccessible == true)
-                            (Icon(Icons.accessible)),
+                            (const Icon(Icons.accessible)),
                           if (_cursorBuilding?.hasBikeParking == true)
-                            (Icon(Icons.pedal_bike)),
+                            (const Icon(Icons.pedal_bike)),
                           if (_cursorBuilding?.hasCarParking == true)
-                            (Icon(Icons.local_parking)),
+                            (const Icon(Icons.local_parking)),
                         ],
                       )),
 
@@ -348,20 +309,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (_polygons.isEmpty) {
-                _polygons = _buildPolygons(snapshot.data!);
-              }
-
               if (snapshot.hasError) {
                 return Center(
                   child: Text('Error loading polygons: ${snapshot.error}'),
                 );
               }
 
+              if (_polygons.isEmpty && snapshot.hasData) {
+                _polygons = _buildPolygons(snapshot.data!);
+              }
+
               return LayoutBuilder(
                 builder: (context, constraints) {
                   return Listener(
-                    //Listener required for getting tap coordinates w/o relying on GoogleMap
                     behavior: HitTestBehavior.translucent,
                     onPointerDown: (event) async {
                       final controller = await _controller.future;
@@ -410,8 +370,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               position: _cursorPoint!,
                               infoWindow: InfoWindow(
                                 title: _cursorBuilding?.name ?? 'No building',
-
-                                //snippet: _cursorBuilding?.description ?? 'No address'
                               ),
                             ),
                         },
@@ -421,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _sheetController = null;
                           } else {
                             final CampusBuilding? building =
-                                _findBuildingAtPoint(
+                                findBuildingAtPoint(
                                   point,
                                   buildingsPresent,
                                   _campus,
@@ -434,8 +392,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             lastTap = point;
 
-                            //Creates bottom sheet for when we tap on a non-shaded building (FOR NOW, WILL FURTHER DEVELOP FOR FUTURE SPRINTS WHERE FETCHING ADDRESS IS REQUIRED)
-
                             showBottomSheet(
                               context: context,
                               builder: (_) => Padding(
@@ -443,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                                  children: const [
                                     Text(
                                       'Not part of campus',
                                       style: TextStyle(
@@ -472,7 +428,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // US-1.4 Status card (top)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -500,7 +455,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Pushed Campus toggle a bit lower to avoid overlap
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 70, 12, 0),
@@ -530,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+bool isPointInPolygon(LatLng point, List<LatLng> polygon) {
   double x = point.longitude;
   double y = point.latitude;
 
@@ -562,9 +516,7 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
   return inside;
 }
 
-
-
-CampusBuilding? _findBuildingAtPoint(
+CampusBuilding? findBuildingAtPoint(
   LatLng point,
   List<CampusBuilding> buildings,
   Campus campus,
@@ -574,7 +526,7 @@ CampusBuilding? _findBuildingAtPoint(
       continue;
     }
 
-    if (_isPointInPolygon(point, b.boundary)) {
+    if (isPointInPolygon(point, b.boundary)) {
       return b;
     }
   }

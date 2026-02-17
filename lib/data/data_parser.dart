@@ -17,7 +17,10 @@ class DataParser {
     );
 
     final Map<String, dynamic> jsonFile = jsonDecode(rawData);
-
+    return parseBuildings(jsonFile);
+  }
+  List<CampusBuilding> parseBuildings(Map<String, dynamic> jsonFile)
+  {
     final List features = jsonFile['features'] ?? [];
     final List<CampusBuilding> buildings = [];
 
