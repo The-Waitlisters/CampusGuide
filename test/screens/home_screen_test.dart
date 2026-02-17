@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,6 +10,7 @@ import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState;
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
@@ -45,6 +47,114 @@ class MockGeolocatorPlatform extends Mock
       speedAccuracy: 0,
     ));
   }
+}
+
+/// Platform mock when location services are disabled (covers debugPrint branch).
+class LocationDisabledGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(false);
+}
+
+/// Platform mock when permission is denied (covers requestPermission + debugPrint).
+class PermissionDeniedGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(true);
+
+  @override
+  Future<LocationPermission> checkPermission() =>
+      Future.value(LocationPermission.denied);
+
+  @override
+  Future<LocationPermission> requestPermission() =>
+      Future.value(LocationPermission.deniedForever);
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      const Stream.empty();
+}
+
+/// Platform mock that exposes a stream controller for multi-emit tests.
+class PositionStreamGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  PositionStreamGeolocatorPlatform(this.stream);
+
+  final Stream<Position> stream;
+
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(true);
+
+  @override
+  Future<LocationPermission> checkPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Future<LocationPermission> requestPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      stream;
+}
+
+/// Fake map controller so _goToCampus can complete in tests.
+class FakeGoogleMapController implements GoogleMapController {
+  @override
+  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) =>
+      Future.value();
+
+  @override
+  Future<LatLng> getLatLng(ScreenCoordinate screenCoordinate) =>
+      Future.value(const LatLng(0, 0));
+
+  @override
+  Future<ScreenCoordinate> getScreenCoordinate(LatLng latLng) =>
+      Future.value(const ScreenCoordinate(x: 0, y: 0));
+
+  @override
+  Future<LatLngBounds> getVisibleRegion() =>
+      Future.value(LatLngBounds(
+        southwest: const LatLng(0, 0),
+        northeast: const LatLng(0, 0),
+      ));
+
+  @override
+  Future<void> moveCamera(CameraUpdate update) => Future.value();
+
+  @override
+  int get mapId => 0;
+
+  @override
+  Future<double> getZoomLevel() => Future.value(0);
+
+  @override
+  Future<void> hideMarkerInfoWindow(MarkerId markerId) => Future.value();
+
+  @override
+  Future<bool> isMarkerInfoWindowShown(MarkerId markerId) =>
+      Future.value(false);
+
+  @override
+  Future<void> setMapStyle(String? mapStyle) => Future.value();
+
+  @override
+  Future<void> showMarkerInfoWindow(MarkerId markerId) => Future.value();
+
+  @override
+  Future<Uint8List?> takeSnapshot() => Future.value(null);
+
+  @override
+  Future<String?> getStyleError() => Future.value(null);
+
+  @override
+  Future<void> clearTileCache(TileOverlayId tileOverlayId) => Future.value();
+
+  @override
+  void dispose() {}
 }
 
 // --- Test data ---
@@ -293,6 +403,149 @@ void main() {
       await tester.pump();
 
       verify(mockDataParser.getBuildingInfoFromJSON()).called(1);
+    });
+
+    testWidgets('location services disabled does not start stream',
+        (WidgetTester tester) async {
+      GeolocatorPlatform.instance = LocationDisabledGeolocatorPlatform();
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+    });
+
+    testWidgets('permission denied does not start stream',
+        (WidgetTester tester) async {
+      GeolocatorPlatform.instance = PermissionDeniedGeolocatorPlatform();
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+    });
+
+    testWidgets('when GPS building changes, getBuildingInfoFromJSON is called again',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(id: 'b1', name: 'B1');
+      final streamController = StreamController<Position>.broadcast();
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+      var updateCallCount = 0;
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenAnswer((_) {
+        updateCallCount++;
+        return updateCallCount == 1
+            ? BuildingStatus.none()
+            : BuildingStatus(building: building, treatedAsInside: true);
+      });
+
+      GeolocatorPlatform.instance =
+          PositionStreamGeolocatorPlatform(streamController.stream);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      streamController.add(Position(
+        latitude: 45.4972,
+        longitude: -73.5788,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      ));
+      await tester.pump();
+      streamController.add(Position(
+        latitude: 45.4973,
+        longitude: -73.5789,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      ));
+      await tester.pumpAndSettle();
+
+      verify(mockDataParser.getBuildingInfoFromJSON()).called(greaterThan(1));
+      await streamController.close();
+    });
+
+    testWidgets('tapping campus toggle calls reset and completes when test completer provided',
+        (WidgetTester tester) async {
+      final mapCompleter = Completer<GoogleMapController>()
+        ..complete(FakeGoogleMapController());
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testMapControllerCompleter: mapCompleter,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Loyola'));
+      await tester.pumpAndSettle();
+
+      verify(mockBuildingLocator.reset()).called(1);
+    });
+
+    testWidgets('builds map with non-empty buildings and GPS building for polygon styling',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(id: 'b1', name: 'B1');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenReturn(BuildingStatus(building: building, treatedAsInside: true));
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+      expect(find.text('Full Building 1'), findsOneWidget);
+    });
+
+    testWidgets('handleMapTap at point outside buildings shows "Not part of campus" and updates cursor',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final state = tester.state<HomeScreenState>(find.byType(home_screen.HomeScreen));
+      final scaffoldContext = tester.element(find.byType(Stack).first);
+      state.handleMapTap(const LatLng(99, 99), scaffoldContext);
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Not part of campus'), findsOneWidget);
+      expect(find.text('Please select a shaded building'), findsOneWidget);
     });
   });
 }

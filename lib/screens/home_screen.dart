@@ -11,20 +11,30 @@ import 'package:proj/services/building_locator.dart';
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
   final BuildingLocator? buildingLocator;
+  /// For tests: when non-null, used instead of the map's controller future
+  /// so [ _goToCampus ] can complete without a real map.
+  final Completer<GoogleMapController>? testMapControllerCompleter;
 
   const HomeScreen({
     super.key,
     this.dataParser,
     this.buildingLocator,
+    this.testMapControllerCompleter,
   });
 
   @override
-  State<HomeScreen> createState() {
-    return _HomeScreenState();
-  }
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+/// Public state type so tests can call [handleMapTap] to cover map-tap logic.
+abstract class HomeScreenState extends State<HomeScreen> {
+  /// Called when the map is tapped. Exposed for tests; production code calls
+  /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
+  /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
+  void handleMapTap(LatLng point, [BuildContext? sheetContext]);
+}
+
+class _HomeScreenState extends HomeScreenState {
   bool? isAnnex;
   late DataParser data;
   final Completer<GoogleMapController> _controller =
@@ -70,7 +80,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _goToCampus(Campus campus) async {
-    final controller = await _controller.future;
+    final completer = widget.testMapControllerCompleter ?? _controller;
+    final controller = await completer.future;
     final info = campusInfo[campus]!;
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
@@ -166,6 +177,49 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  @override
+  void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
+    if (_sheetController != null) {
+      _sheetController?.close();
+      _sheetController = null;
+      return;
+    }
+    final CampusBuilding? building =
+        findBuildingAtPoint(point, buildingsPresent, _campus);
+    debugPrint(
+      building != null
+          ? 'Selected building: ${building.name} (id=${building.id})'
+          : 'Selected building: none',
+    );
+    lastTap = point;
+    final ctx = sheetContext ?? context;
+    showBottomSheet(
+      context: ctx,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Not part of campus',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text('Please select a shaded building'),
+          ],
+        ),
+      ),
+    );
+    setState(() {
+      _cursorPoint = point;
+      _cursorBuilding = building;
+    });
+  }
+
   void _updateOnTap(PolygonId id) {
     final building = _polygonToBuilding[id];
     if (building == null) return;
@@ -174,10 +228,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (tap == null) return;
 
     _handleMapTap(tap);
+    _applyPolygonSelection(id, building);
+    _showBuildingDetailSheet();
+  }
+
+  void _applyPolygonSelection(PolygonId id, CampusBuilding building) {
     setState(() {
       _selectedId = id;
       _cursorBuilding = building;
-
       _polygons = _polygons.map((p) {
         final isSelected = (p.polygonId == _selectedId);
         return p.copyWith(
@@ -190,7 +248,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }).toSet();
     });
+  }
 
+  void _showBuildingDetailSheet() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final scaffoldState = _scaffoldKey.currentState;
       if (scaffoldState == null) return;
@@ -212,76 +272,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: SingleChildScrollView(
                 controller: scrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${_cursorBuilding?.name} ${(isAnnex == true) ? ('Annex') : ('- ${_cursorBuilding?.fullName}')}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-                    if (_cursorBuilding?.isWheelchairAccessible == true ||
-                        _cursorBuilding?.hasBikeParking == true ||
-                        _cursorBuilding?.hasCarParking == true)
-                      (Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_cursorBuilding?.isWheelchairAccessible == true)
-                            (const Icon(Icons.accessible)),
-                          if (_cursorBuilding?.hasBikeParking == true)
-                            (const Icon(Icons.pedal_bike)),
-                          if (_cursorBuilding?.hasCarParking == true)
-                            (const Icon(Icons.local_parking)),
-                        ],
-                      )),
-
-                    const SizedBox(height: 12),
-
-                    Text(_cursorBuilding?.description ?? ''),
-
-                    const SizedBox(height: 12),
-
-                    const Text(
-                      'Opening Hours:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    ..._cursorBuilding!.openingHours.map(
-                      (e) => Text((e == "-") ? ("None") : (e)),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    const Text(
-                      'Departments:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    ..._cursorBuilding!.departments.map(
-                      (e) => Text((e == "-") ? ("None") : (e)),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    const Text(
-                      'Services:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    ..._cursorBuilding!.services.map(
-                      (e) => Text((e == "-") ? ("None") : (e)),
-                    ),
-                  ],
+                child: _BuildingDetailContent(
+                  building: _cursorBuilding!,
+                  isAnnex: isAnnex == true,
                 ),
               ),
             );
@@ -373,53 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                         },
-                        onTap: (LatLng point) {
-                          if (_sheetController != null) {
-                            _sheetController?.close();
-                            _sheetController = null;
-                          } else {
-                            final CampusBuilding? building =
-                                findBuildingAtPoint(
-                                  point,
-                                  buildingsPresent,
-                                  _campus,
-                                );
-                            debugPrint(
-                              building != null
-                                  ? 'Selected building: ${building.name} (id=${building.id})'
-                                  : 'Selected building: none',
-                            );
-
-                            lastTap = point;
-
-                            showBottomSheet(
-                              context: context,
-                              builder: (_) => Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text(
-                                      'Not part of campus',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text('Please select a shaded building'),
-                                  ],
-                                ),
-                              ),
-                            );
-
-                            setState(() {
-                              _cursorPoint = point;
-                              _cursorBuilding = building;
-                            });
-                          }
-                        },
+                        onTap: (LatLng point) => handleMapTap(point, context),
                       ),
                     ),
                   );
@@ -481,6 +428,76 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _gpsSub?.cancel();
     super.dispose();
+  }
+}
+
+class _BuildingDetailContent extends StatelessWidget {
+  const _BuildingDetailContent({
+    required this.building,
+    required this.isAnnex,
+  });
+
+  final CampusBuilding building;
+  final bool isAnnex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${building.name} ${isAnnex ? 'Annex' : '- ${building.fullName}'}',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (building.isWheelchairAccessible ||
+            building.hasBikeParking ||
+            building.hasCarParking)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (building.isWheelchairAccessible)
+                const Icon(Icons.accessible),
+              if (building.hasBikeParking)
+                const Icon(Icons.pedal_bike),
+              if (building.hasCarParking)
+                const Icon(Icons.local_parking),
+            ],
+          ),
+        const SizedBox(height: 12),
+        Text(building.description ?? ''),
+        const SizedBox(height: 12),
+        const Text(
+          'Opening Hours:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        ...building.openingHours.map(
+          (e) => Text((e == '-') ? 'None' : e),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Departments:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        ...building.departments.map(
+          (e) => Text((e == '-') ? 'None' : e),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Services:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        ...building.services.map(
+          (e) => Text((e == '-') ? 'None' : e),
+        ),
+      ],
+    );
   }
 }
 
