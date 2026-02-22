@@ -8,6 +8,8 @@ import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
 
+import '../main.dart';
+
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
   final BuildingLocator? buildingLocator;
@@ -71,7 +73,9 @@ class _HomeScreenState extends HomeScreenState {
     _buildingsFuture = data.getBuildingInfoFromJSON();
     buildingsPresent = data.buildingsPresent;
 
-    _startLocationTracking();
+    if (!isE2EMode) {
+      _startLocationTracking();
+    }
   }
 
   CameraPosition get _initialCamera {
@@ -184,29 +188,35 @@ class _HomeScreenState extends HomeScreenState {
       _sheetController = null;
       return;
     }
+
     final CampusBuilding? building =
-        findBuildingAtPoint(point, buildingsPresent, _campus);
-    debugPrint(
-      building != null
-          ? 'Selected building: ${building.name} (id=${building.id})'
-          : 'Selected building: none',
-    );
+    findBuildingAtPoint(point, buildingsPresent, _campus);
+
     lastTap = point;
-    final ctx = sheetContext ?? context;
-    showBottomSheet(
-      context: ctx,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(16),
+
+    if (building == null) {
+      _showNotCampusSheet(sheetContext ?? context);
+    } else {
+      _cursorBuilding = building;
+      _updateOnTap(PolygonId(building.id));
+    }
+
+    setState(() {
+      _cursorPoint = point;
+    });
+  }
+  //logic seperated
+  void _showNotCampusSheet(BuildContext ctx) {
+    _sheetController = Scaffold.of(ctx).showBottomSheet(
+          (_) => const Padding(
+        padding: EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'Not part of campus',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
             Text('Please select a shaded building'),
@@ -214,22 +224,19 @@ class _HomeScreenState extends HomeScreenState {
         ),
       ),
     );
-    setState(() {
-      _cursorPoint = point;
-      _cursorBuilding = building;
-    });
   }
 
   void _updateOnTap(PolygonId id) {
     final building = _polygonToBuilding[id];
     if (building == null) return;
-    isAnnex = building.fullName!.contains("Annex");
+    final bool isAnnex =
+        building.fullName?.contains("Annex") ?? false;
     final tap = lastTap;
     if (tap == null) return;
 
     _handleMapTap(tap);
     _applyPolygonSelection(id, building);
-    _showBuildingDetailSheet();
+    _showBuildingDetailSheet(building, isAnnex);
   }
 
   void _applyPolygonSelection(PolygonId id, CampusBuilding building) {
@@ -250,7 +257,7 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-  void _showBuildingDetailSheet() {
+  void _showBuildingDetailSheet(CampusBuilding building, bool isAnnex,) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final scaffoldState = _scaffoldKey.currentState;
       if (scaffoldState == null) return;
@@ -272,9 +279,9 @@ class _HomeScreenState extends HomeScreenState {
               ),
               child: SingleChildScrollView(
                 controller: scrollController,
-                child: _BuildingDetailContent(
-                  building: _cursorBuilding!,
-                  isAnnex: isAnnex == true,
+                child: BuildingDetailContent(
+                  building: building,
+                  isAnnex: isAnnex,
                 ),
               ),
             );
@@ -345,15 +352,16 @@ class _HomeScreenState extends HomeScreenState {
                       width: double.infinity,
                       height: double.infinity,
                       child: GoogleMap(
+                        key: const Key("google_map"),
                         initialCameraPosition: _initialCamera,
                         onMapCreated: (GoogleMapController controller) {
                           if (!_controller.isCompleted) {
                             _controller.complete(controller);
                           }
                         },
-                        myLocationButtonEnabled: true,
                         zoomControlsEnabled: false,
-                        myLocationEnabled: true,
+                        myLocationButtonEnabled: !isE2EMode,
+                        myLocationEnabled: !isE2EMode,
                         polygons: _polygons,
                         mapToolbarEnabled: false,
                         markers: <Marker>{
@@ -419,6 +427,11 @@ class _HomeScreenState extends HomeScreenState {
               ),
             ),
           ),
+          if (isE2EMode)
+            Text(
+              _campus == Campus.loyola ? "campus:loyola" : "campus:sgw",
+              key: const Key("campus_label"),
+            ),
         ],
       ),
     );
@@ -429,10 +442,30 @@ class _HomeScreenState extends HomeScreenState {
     _gpsSub?.cancel();
     super.dispose();
   }
+  //to call _updateOnTap() in tests.
+  @visibleForTesting
+  void simulatePolygonTap(PolygonId id, LatLng tapPoint) {
+    lastTap = tapPoint;
+    _updateOnTap(id);
+  }
+  //test sheet render and bypass calling the tap methods.
+  @visibleForTesting
+  void simulateBuildingSelection(CampusBuilding building, LatLng tapPoint,) {
+    lastTap = tapPoint;
+    final bool isAnnex =
+        building.fullName?.contains("Annex") ?? false;
+
+    _showBuildingDetailSheet(building, isAnnex);
+
+    setState(() {
+      _cursorBuilding = building;
+      _cursorPoint = tapPoint;
+    });
+  }
 }
 
-class _BuildingDetailContent extends StatelessWidget {
-  const _BuildingDetailContent({
+class BuildingDetailContent extends StatelessWidget {
+  const BuildingDetailContent({
     required this.building,
     required this.isAnnex,
   });

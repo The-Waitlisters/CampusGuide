@@ -10,7 +10,7 @@ import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
-import 'package:proj/screens/home_screen.dart' show HomeScreenState;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState, BuildingDetailContent;
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
@@ -508,7 +508,7 @@ void main() {
       verify(mockBuildingLocator.reset()).called(1);
     });
 
-    testWidgets('builds map with non-empty buildings and GPS building for polygon styling',
+    testWidgets('shows GPS building name when inside building',
         (WidgetTester tester) async {
       final building = buildTestBuilding(id: 'b1', name: 'B1');
       when(mockDataParser.getBuildingInfoFromJSON())
@@ -530,7 +530,7 @@ void main() {
       expect(find.text('Full Building 1'), findsOneWidget);
     });
 
-    testWidgets('handleMapTap at point outside buildings shows "Not part of campus" and updates cursor',
+    testWidgets('tapping outside buildings shows not part of campus sheet',
         (WidgetTester tester) async {
       await tester.pumpWidget(wrap(home_screen.HomeScreen(
         dataParser: mockDataParser,
@@ -546,6 +546,105 @@ void main() {
 
       expect(find.text('Not part of campus'), findsOneWidget);
       expect(find.text('Please select a shaded building'), findsOneWidget);
+    });
+
+    testWidgets('handleMapTap closes existing sheet if already open',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final state = tester.state<HomeScreenState>(
+            find.byType(home_screen.HomeScreen).first,
+          );
+
+          final ctx = tester.element(find.byType(Stack).first);
+
+          // First tap → opens sheet
+          state.handleMapTap(const LatLng(99, 99), ctx);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Not part of campus'), findsOneWidget);
+
+          // Second tap → should close sheet
+          state.handleMapTap(const LatLng(99, 99), ctx);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Not part of campus'), findsNothing);
+    });
+
+    testWidgets('selecting building shows detail sheet',
+            (WidgetTester tester) async {
+
+          final building = buildTestBuilding(
+            id: 'b1',
+            name: 'B1',
+            fullName: 'Annex B1',
+          );
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [building]);
+          when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final state = tester.state<HomeScreenState>(
+            find.byType(home_screen.HomeScreen).first,
+          ) as dynamic;
+
+          state.simulateBuildingSelection(building, const LatLng(1, 1));
+
+          await tester.pump();          // setState
+          await tester.pump();          // postFrameCallback
+          await tester.pumpAndSettle();
+
+          expect(find.textContaining('Annex B1'), findsOneWidget);
+          expect(find.byType(BuildingDetailContent), findsOneWidget);
+          expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+        });
+    //test annex logic, applyPolygonSelection , showBuildingDetailSheet, selection styling
+    group('BuildingDetailContent', () {
+      testWidgets('renders building details correctly',
+              (WidgetTester tester) async {
+            final building = buildTestBuilding(
+              name: 'B1',
+              fullName: 'Full B1',
+              description: 'Test description',
+              openingHours: ['9-5'],
+              departments: ['CS'],
+              services: ['Library'],
+              isWheelchairAccessible: true,
+              hasBikeParking: true,
+              hasCarParking: true,
+            );
+
+            await tester.pumpWidget(
+              MaterialApp(
+                home: Scaffold(
+                  body: home_screen.BuildingDetailContent(
+                    building: building,
+                    isAnnex: false,
+                  ),
+                ),
+              ),
+            );
+
+            expect(find.textContaining('B1'), findsOneWidget);
+            expect(find.text('Test description'), findsOneWidget);
+            expect(find.text('9-5'), findsOneWidget);
+            expect(find.text('CS'), findsOneWidget);
+            expect(find.text('Library'), findsOneWidget);
+
+            expect(find.byIcon(Icons.accessible), findsOneWidget);
+            expect(find.byIcon(Icons.pedal_bike), findsOneWidget);
+            expect(find.byIcon(Icons.local_parking), findsOneWidget);
+          });
     });
   });
 }
