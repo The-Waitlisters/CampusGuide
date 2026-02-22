@@ -581,7 +581,7 @@ void main() {
           final building = buildTestBuilding(
             id: 'b1',
             name: 'B1',
-            fullName: 'Annex B1',
+            fullName: 'B1 Annex',
           );
 
           when(mockDataParser.getBuildingInfoFromJSON())
@@ -604,7 +604,7 @@ void main() {
           await tester.pump();          // postFrameCallback
           await tester.pumpAndSettle();
 
-          expect(find.textContaining('Annex B1'), findsOneWidget);
+          expect(find.textContaining('B1 Annex'), findsOneWidget);
           expect(find.byType(BuildingDetailContent), findsOneWidget);
           expect(find.byType(DraggableScrollableSheet), findsOneWidget);
         });
