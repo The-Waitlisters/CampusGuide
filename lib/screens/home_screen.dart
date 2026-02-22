@@ -29,6 +29,10 @@ class _HomeScreenState extends State<HomeScreen> {
   CampusBuilding? _endBuilding;
   //String? _addresses;
   late Future<Set<Polygon>> _polygonsFuture;
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  final List<CampusBuilding> _searchResults = <CampusBuilding>[];
+  bool _showSearchResults = false;
 
   // US-1.4: Current building from device location (keep existing tap/cursor logic)
 
@@ -98,6 +102,67 @@ class _HomeScreenState extends State<HomeScreen> {
       
     }
     
+  }
+
+  void _handleSearch(String query)
+  {
+    CampusBuilding? building;
+
+    try
+    {
+      building = campusBuildings.firstWhere(
+            (b) =>
+        b.name.toLowerCase().contains(query.toLowerCase()) ||
+            (b.fullName ?? "").toLowerCase().contains(query.toLowerCase()),
+      );
+    }
+    catch (_)
+    {
+      building = null;
+    }
+
+    if (building == null)
+    {
+      debugPrint("Search: no match for '$query'");
+      return;
+    }
+
+    debugPrint("Search match: ${building.name}");
+
+    _onBuildingTapped(building);
+  }
+
+  void _onSearchChanged(String value)
+  {
+    _searchDebounce?.cancel();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 300), ()
+    {
+      final String q = value.trim().toLowerCase();
+
+      if (q.isEmpty)
+      {
+        setState(() {
+          _searchResults.clear();
+          _showSearchResults = false;
+        });
+        return;
+      }
+
+      final results = campusBuildings
+          .where((b) =>
+      b.name.toLowerCase().contains(q) ||
+          (b.fullName ?? "").toLowerCase().contains(q))
+          .take(8)
+          .toList();
+
+      setState(() {
+        _searchResults
+          ..clear()
+          ..addAll(results);
+        _showSearchResults = results.isNotEmpty;
+      });
+    });
   }
 
   void _onBuildingTapped(CampusBuilding? building)
@@ -354,6 +419,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   onTap: (LatLng point)
                   {
+                    setState(() {
+                      _showSearchResults = false;
+                    });
+                    FocusScope.of(context).unfocus();
+
                     final CampusBuilding? building = _findBuildingAtPoint(
                       point,
                       campusBuildings,
@@ -556,6 +626,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+
           if (_startBuilding != null)
             Positioned(
             top: 150,
@@ -575,12 +646,100 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+
+
+          Positioned(
+            top: 16,
+            left: 12,
+            right: 12,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search building...",
+                        border: InputBorder.none,
+                        suffixIcon: _searchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: ()
+                          {
+                            _searchController.clear();
+                            setState(() {
+                              _searchResults.clear();
+                              _showSearchResults = false;
+                            });
+                          },
+                        ),
+                      ),
+                      onChanged: _onSearchChanged,
+                      onTap: ()
+                      {
+                        if (_searchResults.isNotEmpty)
+                        {
+                          setState(() {
+                            _showSearchResults = true;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+
+                if (_showSearchResults)
+                  Card(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i)
+                      {
+                        final b = _searchResults[i];
+
+                        return ListTile(
+                          dense: true,
+                          title: Text(b.name),
+                          subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
+                              ? Text(b.fullName!)
+                              : null,
+                          onTap: ()
+                          {
+                            _searchController.text = b.name;
+
+                            setState(() {
+                              _showSearchResults = false;
+                              _searchResults.clear();
+                            });
+
+                            _onBuildingTapped(b);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
         ],
       ),
     );
   }
 
-  @override void dispose() { _gpsSub?.cancel(); super.dispose(); }
+  @override
+  void dispose()
+  {
+    _gpsSub?.cancel();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
 }
 
 bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
