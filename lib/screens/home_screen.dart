@@ -8,6 +8,8 @@ import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
 
+import '../services/building_locator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
