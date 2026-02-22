@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
@@ -96,7 +97,8 @@ class _HomeScreenState extends HomeScreenState {
       List<Placemark> placemarks = [];
       //List<Location> loc = [];
 
-      if(_isPointInPolygon(coords, _cursorBuilding!.boundary)) {
+      if (_cursorBuilding != null &&
+          isPointInPolygon(coords, _cursorBuilding!.boundary)) {
         placemarks = await placemarkFromCoordinates(x, y);
       }
 
@@ -177,7 +179,7 @@ class _HomeScreenState extends HomeScreenState {
         return;
       }
 
-      final results = campusBuildings
+      final results = buildingsPresent
           .where((b) =>
       b.name.toLowerCase().contains(q) ||
           (b.fullName ?? "").toLowerCase().contains(q))
@@ -281,14 +283,14 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
+  /*Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
   {
     // Optional delay if they were using this to simulate async loading
     await Future.delayed(const Duration(milliseconds: 100));
 
     final Set<Polygon> polys = <Polygon>{};
 
-    for (final CampusBuilding b in campusBuildings)
+    for (final CampusBuilding b in buildingsPresent)
     {
       if (b.campus != campus)
       {
@@ -322,7 +324,7 @@ class _HomeScreenState extends HomeScreenState {
     }
 
     return polys;
-  }
+  }*/
 
 
   Future<void> _goToCampus(Campus campus) async {
@@ -524,6 +526,23 @@ class _HomeScreenState extends HomeScreenState {
                 child: BuildingDetailContent(
                   building: building,
                   isAnnex: isAnnex,
+                  startBuilding: _startBuilding,
+                  endBuilding: _endBuilding,
+                  onSetStart: () {
+                    setState(() {
+                      _startBuilding = building;
+                      _endBuilding = null;
+                    });
+                    _sheetController?.close();
+                    _sheetController = null;
+                  },
+                  onSetDestination: () {
+                    setState(() {
+                      _endBuilding = building;
+                    });
+                    _sheetController?.close();
+                    _sheetController = null;
+                  },
                 ),
               ),
             );
@@ -622,7 +641,6 @@ class _HomeScreenState extends HomeScreenState {
                           if (_searchResults.isNotEmpty) {
                             setState(() {
                               _showSearchResults = true;
-                            }
                           });
                           }
                           FocusScope.of(context).unfocus();
@@ -632,14 +650,6 @@ class _HomeScreenState extends HomeScreenState {
                       ),
                     ),
                   );
-
-                  setState(()
-                  {
-                    _cursorPoint = point;
-                    _cursorBuilding = building;
-                  });
-
-                  _onBuildingTapped(building);
                 },
               );
             },
@@ -858,13 +868,24 @@ class _HomeScreenState extends HomeScreenState {
 }
 
 class BuildingDetailContent extends StatelessWidget {
-  const BuildingDetailContent({super.key,
+  const BuildingDetailContent({
+    super.key,
     required this.building,
     required this.isAnnex,
+    required this.startBuilding,
+    required this.endBuilding,
+    required this.onSetStart,
+    required this.onSetDestination,
   });
 
   final CampusBuilding building;
   final bool isAnnex;
+
+  final CampusBuilding? startBuilding;
+  final CampusBuilding? endBuilding;
+
+  final VoidCallback onSetStart;
+  final VoidCallback onSetDestination;
 
   @override
   Widget build(BuildContext context) {
@@ -879,6 +900,21 @@ class BuildingDetailContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
+        // Direction selection buttons
+        if (startBuilding == null)
+          ElevatedButton(
+            onPressed: onSetStart,
+            child: const Text('Set as Start'),
+          )
+        else
+          ElevatedButton(
+            onPressed: (startBuilding?.id == building.id)
+                ? null
+                : onSetDestination,
+            child: const Text('Set as Destination'),
+          ),
+
+        const SizedBox(height: 12),
         if (building.isWheelchairAccessible ||
             building.hasBikeParking ||
             building.hasCarParking)
