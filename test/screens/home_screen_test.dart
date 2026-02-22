@@ -14,6 +14,7 @@ import 'package:proj/screens/home_screen.dart' show HomeScreenState, BuildingDet
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
+import 'package:proj/widgets/campus_toggle.dart';
 
 import 'home_screen_test.mocks.dart';
 
@@ -55,6 +56,18 @@ class LocationDisabledGeolocatorPlatform extends Mock
     implements GeolocatorPlatform {
   @override
   Future<bool> isLocationServiceEnabled() => Future.value(false);
+}
+
+class FakeDataParser extends DataParser {
+  FakeDataParser(this._buildings);
+
+  final List<CampusBuilding> _buildings;
+
+  @override
+  Future<List<CampusBuilding>> getBuildingInfoFromJSON() async {
+    buildingsPresent = _buildings;
+    return _buildings;
+  }
 }
 
 /// Platform mock when permission is denied (covers requestPermission + debugPrint).
@@ -539,7 +552,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final state = tester.state<HomeScreenState>(find.byType(home_screen.HomeScreen));
-      final scaffoldContext = tester.element(find.byType(Stack).first);
+      final scaffoldContext = tester.element(find.byType(CampusToggle));
       state.handleMapTap(const LatLng(99, 99), scaffoldContext);
 
       await tester.pumpAndSettle();
@@ -560,7 +573,7 @@ void main() {
             find.byType(home_screen.HomeScreen).first,
           );
 
-          final ctx = tester.element(find.byType(Stack).first);
+          final ctx = tester.element(find.byType(CampusToggle));
 
           // First tap → opens sheet
           state.handleMapTap(const LatLng(99, 99), ctx);
@@ -608,6 +621,72 @@ void main() {
           expect(find.byType(BuildingDetailContent), findsOneWidget);
           expect(find.byType(DraggableScrollableSheet), findsOneWidget);
         });
+
+    testWidgets('handleMapTap inside a building selects it and opens detail sheet',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'b1',
+        name: 'B1',
+        fullName: 'B1 Annex',
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final state = tester.state<HomeScreenState>(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      // Point (1,1) is inside the default boundary used by buildTestBuilding.
+      state.handleMapTap(const LatLng(1, 1), tester.element(find.byType(CampusToggle)));
+
+      // _showBuildingDetailSheet uses addPostFrameCallback.
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('B1 Annex'), findsOneWidget);
+      expect(find.byType(BuildingDetailContent), findsOneWidget);
+      expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+    });
+
+    testWidgets('simulatePolygonTap selects building and opens detail sheet',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'b1',
+        name: 'B1',
+        fullName: 'Full B1',
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      // Access private state helpers via dynamic.
+      final dynamic state = tester.state(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      state.simulatePolygonTap(const PolygonId('b1'), const LatLng(1, 1));
+
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Full B1'), findsOneWidget);
+      expect(find.byType(BuildingDetailContent), findsOneWidget);
+    });
     //test annex logic, applyPolygonSelection , showBuildingDetailSheet, selection styling
     group('BuildingDetailContent', () {
       testWidgets('renders building details correctly',
