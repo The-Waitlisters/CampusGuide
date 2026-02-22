@@ -14,6 +14,7 @@ class CampusToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SegmentedButton<Campus>(
+      key: const Key("campus_toggle"),
       segments: const <ButtonSegment<Campus>>[
         ButtonSegment<Campus>(
           value: Campus.sgw,

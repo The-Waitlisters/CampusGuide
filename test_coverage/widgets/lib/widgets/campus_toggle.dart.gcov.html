@@ -37,7 +37,7 @@
           </tr>
           <tr>
             <td class="headerItem">Test Date:</td>
-            <td class="headerValue">2026-02-16 02:28:32</td>
+            <td class="headerValue">2026-02-22 09:15:57</td>
             <td></td>
             <td class="headerItem">Functions:</td>
             <td class="headerCovTableEntryHi">-</td>
@@ -76,27 +76,28 @@
 <span id="L14"><span class="lineNum">      14</span> <span class="tlaGNC">           1 :   @override</span></span>
 <span id="L15"><span class="lineNum">      15</span>              :   Widget build(BuildContext context) {</span>
 <span id="L16"><span class="lineNum">      16</span> <span class="tlaGNC">           1 :     return SegmentedButton&lt;Campus&gt;(</span></span>
-<span id="L17"><span class="lineNum">      17</span>              :       segments: const &lt;ButtonSegment&lt;Campus&gt;&gt;[</span>
-<span id="L18"><span class="lineNum">      18</span>              :         ButtonSegment&lt;Campus&gt;(</span>
-<span id="L19"><span class="lineNum">      19</span>              :           value: Campus.sgw,</span>
-<span id="L20"><span class="lineNum">      20</span>              :           label: Text('SGW'),</span>
-<span id="L21"><span class="lineNum">      21</span>              :         ),</span>
-<span id="L22"><span class="lineNum">      22</span>              :         ButtonSegment&lt;Campus&gt;(</span>
-<span id="L23"><span class="lineNum">      23</span>              :           value: Campus.loyola,</span>
-<span id="L24"><span class="lineNum">      24</span>              :           label: Text('Loyola'),</span>
-<span id="L25"><span class="lineNum">      25</span>              :         ),</span>
-<span id="L26"><span class="lineNum">      26</span>              :       ],</span>
-<span id="L27"><span class="lineNum">      27</span> <span class="tlaGNC">           1 :       selected: &lt;Campus&gt;{selected},</span></span>
-<span id="L28"><span class="lineNum">      28</span> <span class="tlaGNC">           1 :       onSelectionChanged: (Set&lt;Campus&gt; selection) {</span></span>
-<span id="L29"><span class="lineNum">      29</span> <span class="tlaGNC">           1 :         if (selection.isEmpty) {</span></span>
-<span id="L30"><span class="lineNum">      30</span>              :           return;</span>
-<span id="L31"><span class="lineNum">      31</span>              :         }</span>
-<span id="L32"><span class="lineNum">      32</span> <span class="tlaGNC">           3 :         onChanged(selection.first);</span></span>
-<span id="L33"><span class="lineNum">      33</span>              :       },</span>
-<span id="L34"><span class="lineNum">      34</span>              :       showSelectedIcon: false,</span>
-<span id="L35"><span class="lineNum">      35</span>              :     );</span>
-<span id="L36"><span class="lineNum">      36</span>              :   }</span>
-<span id="L37"><span class="lineNum">      37</span>              : }</span>
+<span id="L17"><span class="lineNum">      17</span>              :       key: const Key(&quot;campus_toggle&quot;),</span>
+<span id="L18"><span class="lineNum">      18</span>              :       segments: const &lt;ButtonSegment&lt;Campus&gt;&gt;[</span>
+<span id="L19"><span class="lineNum">      19</span>              :         ButtonSegment&lt;Campus&gt;(</span>
+<span id="L20"><span class="lineNum">      20</span>              :           value: Campus.sgw,</span>
+<span id="L21"><span class="lineNum">      21</span>              :           label: Text('SGW'),</span>
+<span id="L22"><span class="lineNum">      22</span>              :         ),</span>
+<span id="L23"><span class="lineNum">      23</span>              :         ButtonSegment&lt;Campus&gt;(</span>
+<span id="L24"><span class="lineNum">      24</span>              :           value: Campus.loyola,</span>
+<span id="L25"><span class="lineNum">      25</span>              :           label: Text('Loyola'),</span>
+<span id="L26"><span class="lineNum">      26</span>              :         ),</span>
+<span id="L27"><span class="lineNum">      27</span>              :       ],</span>
+<span id="L28"><span class="lineNum">      28</span> <span class="tlaGNC">           1 :       selected: &lt;Campus&gt;{selected},</span></span>
+<span id="L29"><span class="lineNum">      29</span> <span class="tlaGNC">           1 :       onSelectionChanged: (Set&lt;Campus&gt; selection) {</span></span>
+<span id="L30"><span class="lineNum">      30</span> <span class="tlaGNC">           1 :         if (selection.isEmpty) {</span></span>
+<span id="L31"><span class="lineNum">      31</span>              :           return;</span>
+<span id="L32"><span class="lineNum">      32</span>              :         }</span>
+<span id="L33"><span class="lineNum">      33</span> <span class="tlaGNC">           3 :         onChanged(selection.first);</span></span>
+<span id="L34"><span class="lineNum">      34</span>              :       },</span>
+<span id="L35"><span class="lineNum">      35</span>              :       showSelectedIcon: false,</span>
+<span id="L36"><span class="lineNum">      36</span>              :     );</span>
+<span id="L37"><span class="lineNum">      37</span>              :   }</span>
+<span id="L38"><span class="lineNum">      38</span>              : }</span>
         </pre>
               </td>
             </tr>
