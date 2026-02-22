@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
     
   }
 
-  void _handleSearch(String query)
+  /*void _handleSearch(String query)
   {
     CampusBuilding? building;
 
@@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
     debugPrint("Search match: ${building.name}");
 
     _onBuildingTapped(building);
-  }
+  }*/
 
   void _onSearchChanged(String value)
   {
@@ -197,8 +197,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context)
       {
-        final bool canSetStart = _startBuilding == null || (_startBuilding?.id != building.id);
-        final bool canSetEnd = _endBuilding == null || (_endBuilding?.id != building.id);
+        //final bool canSetStart = _startBuilding == null || (_startBuilding?.id != building.id);
+        //final bool canSetEnd = _endBuilding == null || (_endBuilding?.id != building.id);
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -713,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _searchResults.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, i)
                       {
                         final b = _searchResults[i];
