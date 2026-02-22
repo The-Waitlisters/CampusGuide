@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     
   }
 
-  /*void _handleSearch(String query)
+  /*void _handleSearch(String query)//
   {
     CampusBuilding? building;
 
