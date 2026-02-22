@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
-const bool isE2EMode = bool.fromEnvironment('E2E');
+final bool isE2EMode = const bool.fromEnvironment('E2E_TEST', defaultValue: false);
 
 void main() {
   runApp(const CampusGuideApp());

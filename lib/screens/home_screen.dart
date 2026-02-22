@@ -1,46 +1,67 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-
+import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../data/building_data.dart';
-import '../models/campus.dart';
-import '../widgets/campus_toggle.dart';
-import '../models/campus_building.dart';
+import 'package:proj/models/campus.dart';
+import 'package:proj/widgets/campus_toggle.dart';
+import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/building_locator.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:proj/services/building_locator.dart';
 import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final DataParser? dataParser;
+  final BuildingLocator? buildingLocator;
+  /// For tests: when non-null, used instead of the map's controller future
+  /// so [ _goToCampus ] can complete without a real map.
+  final Completer<GoogleMapController>? testMapControllerCompleter;
+
+  const HomeScreen({
+    super.key,
+    this.dataParser,
+    this.buildingLocator,
+    this.testMapControllerCompleter,
+  });
 
   @override
-  State<HomeScreen> createState() {
-    return _HomeScreenState();
-  }
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// Public state type so tests can call [handleMapTap] to cover map-tap logic.
+abstract class HomeScreenState extends State<HomeScreen> {
+  /// Called when the map is tapped. Exposed for tests; production code calls
+  /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
+  /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
+  void handleMapTap(LatLng point, [BuildContext? sheetContext]);
+}
 
-class _HomeScreenState extends State<HomeScreen> {
-  final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
+class _HomeScreenState extends HomeScreenState {
+  bool? isAnnex;
+  late DataParser data;
+  final Completer<GoogleMapController> _controller =
+      Completer<GoogleMapController>();
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
+  LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
-  //String? _addresses;
-  late Future<Set<Polygon>> _polygonsFuture;
+  late Future<List<CampusBuilding>> _buildingsFuture;
   final TextEditingController _searchController = TextEditingController();
+  List<CampusBuilding> buildingsPresent = [];
+  Set<Polygon> _polygons = {};
+  PolygonId? _selectedId;
   Timer? _searchDebounce;
+  final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
+  bool campusChange = false;
+  final GlobalKey _mapKey = GlobalKey();
   final List<CampusBuilding> _searchResults = <CampusBuilding>[];
   bool _showSearchResults = false;
 
-  // US-1.4: Current building from device location (keep existing tap/cursor logic)
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  PersistentBottomSheetController? _sheetController;
 
-  final BuildingLocator _buildingLocator = BuildingLocator(
-    enterThresholdMeters: 15,
-    exitThresholdMeters: 25,
-  );
+  late BuildingLocator _buildingLocator;
 
   StreamSubscription<Position>? _gpsSub;
   CampusBuilding? _currentBuildingFromGPS;
@@ -48,15 +69,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Start loading polygons for the initial campus
-    _polygonsFuture = _buildPolygonsForCampus(_campus);
+    data = widget.dataParser ?? DataParser();
+    _buildingLocator = widget.buildingLocator ?? BuildingLocator(
+      enterThresholdMeters: 15,
+      exitThresholdMeters: 25,
+    );
 
-    // US-1.4: start listening to device location
+    _buildingsFuture = data.getBuildingInfoFromJSON();
+    buildingsPresent = data.buildingsPresent;
+
     if (!isE2EMode) {
       _startLocationTracking();
     }
   }
-
 
   CameraPosition get _initialCamera {
     final info = campusInfo[_campus]!;
@@ -301,21 +326,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   Future<void> _goToCampus(Campus campus) async {
-    final controller = await _controller.future;
+    final completer = widget.testMapControllerCompleter ?? _controller;
+    final controller = await completer.future;
     final info = campusInfo[campus]!;
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: info.center, zoom: info.zoom),
       ),
     );
-    // When campus changes, start loading the new set of polygons
 
     setState(() {
       _campus = campus;
-      // Reset GPS building on campus change (prevents stale highlight)
       _buildingLocator.reset();
       _currentBuildingFromGPS = null;
-      _polygonsFuture = _buildPolygonsForCampus(campus);
     });
   }
 
@@ -337,230 +360,277 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    _gpsSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      ),
-    ).listen((Position pos) {
-      final userPoint = LatLng(pos.latitude, pos.longitude);
+    _gpsSub =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 5,
+          ),
+        ).listen((Position pos) {
+          final userPoint = LatLng(pos.latitude, pos.longitude);
+          final result = _buildingLocator.update(
+            userPoint: userPoint,
+            campus: _campus,
+            buildings: buildingsPresent,
+          );
 
-      final result = _buildingLocator.update(
-        userPoint: userPoint,
-        campus: _campus,
-        buildings: campusBuildings,
+          if (!mounted) return;
+
+          final oldId = _currentBuildingFromGPS?.id;
+          final newId = result.building?.id;
+
+          setState(() {
+            _currentBuildingFromGPS = result.building;
+
+            if (oldId != newId) {
+              _buildingsFuture = data.getBuildingInfoFromJSON(
+              );
+              buildingsPresent = data.buildingsPresent;
+            }
+          });
+        });
+  }
+
+  Set<Polygon> _buildPolygons(List<CampusBuilding> buildings) {
+    _polygonToBuilding.clear();
+
+    return buildings.map((e) {
+      final pid = PolygonId(e.id);
+      _polygonToBuilding[pid] = e;
+      final bool isActiveGps = _currentBuildingFromGPS?.id == e.id;
+
+      return Polygon(
+        polygonId: pid,
+        points: e.boundary,
+        consumeTapEvents: true,
+        fillColor: isActiveGps
+            ? const Color(0x803197F6)
+            : const Color(0x80912338),
+        strokeColor: isActiveGps ? Colors.blue : const Color(0xFF741C2C),
+        strokeWidth: isActiveGps ? 3 : 2,
+        onTap: () {
+          _cursorBuilding = e;
+          _updateOnTap(pid);
+        },
       );
+    }).toSet();
+  }
 
-      if (!mounted) return;
+  void _handleMapTap(LatLng point) {
+    setState(() {
+      _cursorPoint = point;
+      _cursorBuilding = findBuildingAtPoint(point, buildingsPresent, _campus);
+    });
+  }
 
-      // Only rebuild polygons when the active building changes (avoid heavy redraw)
-      final oldId = _currentBuildingFromGPS?.id;
-      final newId = result.building?.id;
+  @override
+  void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
+    if (_sheetController != null) {
+      _sheetController?.close();
+      _sheetController = null;
+      return;
+    }
 
-      setState(() {
-        _currentBuildingFromGPS = result.building;
+    final CampusBuilding? building =
+    findBuildingAtPoint(point, buildingsPresent, _campus);
 
-        if (oldId != newId) {
-          _polygonsFuture = _buildPolygonsForCampus(_campus);
-        }
+    lastTap = point;
+
+    if (building == null) {
+      _showNotCampusSheet(sheetContext ?? context);
+    } else {
+      _cursorBuilding = building;
+      _updateOnTap(PolygonId(building.id));
+    }
+
+    setState(() {
+      _cursorPoint = point;
+    });
+  }
+  //logic seperated
+  void _showNotCampusSheet(BuildContext ctx) {
+    _sheetController = Scaffold.of(ctx).showBottomSheet(
+          (_) => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Not part of campus',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('Please select a shaded building'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _updateOnTap(PolygonId id) {
+    final building = _polygonToBuilding[id];
+    if (building == null) return;
+    final bool isAnnex =
+        building.fullName?.contains("Annex") ?? false;
+    final tap = lastTap;
+    if (tap == null) return;
+
+    _handleMapTap(tap);
+    _applyPolygonSelection(id, building);
+    _showBuildingDetailSheet(building, isAnnex);
+  }
+
+  void _applyPolygonSelection(PolygonId id, CampusBuilding building) {
+    setState(() {
+      _selectedId = id;
+      _cursorBuilding = building;
+      _polygons = _polygons.map((p) {
+        final isSelected = (p.polygonId == _selectedId);
+        return p.copyWith(
+          fillColorParam: isSelected
+              ? const Color.fromARGB(255, 124, 115, 29)
+              : const Color(0x80912338),
+          strokeColorParam: isSelected
+              ? Colors.yellow
+              : const Color(0xFF741C2C),
+        );
+      }).toSet();
+    });
+  }
+
+  void _showBuildingDetailSheet(CampusBuilding building, bool isAnnex,) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scaffoldState = _scaffoldKey.currentState;
+      if (scaffoldState == null) return;
+      _sheetController?.close();
+      _sheetController = null;
+
+      _sheetController = scaffoldState.showBottomSheet((context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.25,
+          minChildSize: 0.15,
+          maxChildSize: 0.8,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: BuildingDetailContent(
+                  building: building,
+                  isAnnex: isAnnex,
+                ),
+              ),
+            );
+          },
+        );
+      });
+
+      _sheetController!.closed.then((_) {
+        if (mounted) _sheetController = null;
       });
     });
   }
 
-
   @override
-  Widget build(BuildContext context)
-  {
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('The Waitlisters'),
-      ),
+      key: _scaffoldKey,
+      appBar: AppBar(title: const Text('The Waitlisters')),
       body: Stack(
         children: [
-          FutureBuilder<Set<Polygon>>(
-            future: _polygonsFuture,
-            builder: (BuildContext context, AsyncSnapshot<Set<Polygon>> snapshot)
-            {
-              if (snapshot.connectionState == ConnectionState.waiting)
-              {
-                // Map without polygons while loading
-                return GoogleMap(
-                  key: const Key("google_map"),
-                  initialCameraPosition: _initialCamera,
-                  onMapCreated: (GoogleMapController controller)
-                  {
-                    if (!_controller.isCompleted)
-                    {
-                      _controller.complete(controller);
-                    }
-                  },
-                  myLocationButtonEnabled: !isE2EMode,
-                  zoomControlsEnabled: false,
-                  myLocationEnabled: !isE2EMode,
-                  markers: <Marker>
-                  {
-                    if (_cursorPoint != null)
-                      Marker(
-                        markerId: const MarkerId('cursor'),
-                        position: _cursorPoint!,
-                        infoWindow: InfoWindow(
-                          title: _cursorBuilding?.fullName ?? 'No building',
-                          snippet: _cursorBuilding?.description ?? 'No address'
-                        ),
-                      ),
-                  },
-                  onTap: (LatLng point)
-                  {
-                    setState(() {
-                      _showSearchResults = false;
-                    });
-                    FocusScope.of(context).unfocus();
-
-                    final CampusBuilding? building = _findBuildingAtPoint(
-                      point,
-                      campusBuildings,
-                      _campus,
-                    );
-
-                    
-
-                  
-                  //Creates bottom sheet upon tapping polygon
-                  //hardcoded to ignore non-campus buildings for now, will be further expanded on next sprint
-                    if(building != null) {
-                      showBottomSheet(
-                      context: context,
-                      builder: (_) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            SizedBox(height: 8),
-                            Text('${_cursorBuilding?.description}'),
-                          ],
-                        ),
-                      ),
-                    );
-                  } else {
-                    showBottomSheet(
-                      context: context,
-                      builder: (_) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            SizedBox(height: 8),
-                            Text('Please select a shaded building'),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                    debugPrint(
-                      building != null
-                          ? 'Selected building: ${building.name} (id=${building.id})'
-                          : 'Selected building: none',
-                    );
-
-                    
-
-                    setState(()
-                    {
-                      _cursorPoint = point;
-                      _cursorBuilding = building;                     
-                    });
-                  },
-                );
+          FutureBuilder<List<CampusBuilding>>(
+            future: _buildingsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
               }
 
-              if (snapshot.hasError)
-              {
+              if (snapshot.hasError) {
                 return Center(
                   child: Text('Error loading polygons: ${snapshot.error}'),
                 );
               }
 
-              // Polygons loaded
-              return GoogleMap(
-                key: const Key("google_maps"),
-                initialCameraPosition: _initialCamera,
-                onMapCreated: (GoogleMapController controller)
-                {
-                  if (!_controller.isCompleted)
-                  {
-                    _controller.complete(controller);
-                  }
-                },
-                myLocationButtonEnabled: !isE2EMode,
-                zoomControlsEnabled: false,
-                myLocationEnabled:!isE2EMode,
-                polygons: snapshot.data ?? <Polygon>{},
-                markers: <Marker>
-                {
-                  if (_cursorPoint != null)
-                    Marker(
-                      markerId: const MarkerId('cursor'),
-                      position: _cursorPoint!,
-                      infoWindow: InfoWindow(
-                        title: _cursorBuilding?.fullName ?? 'No building',
-                        snippet: _cursorBuilding?.description ?? 'No address'
-                        
+              if (_polygons.isEmpty && snapshot.hasData) {
+                _polygons = _buildPolygons(snapshot.data!);
+              }
+
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  return Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (event) async {
+                      final controller = await _controller.future;
+                      final box =
+                          _mapKey.currentContext?.findRenderObject()
+                              as RenderBox?;
+                      if (box == null) return;
+
+                      final local = box.globalToLocal(event.position);
+
+                      if (context.mounted) {
+                        final pixelRatio = MediaQuery.of(
+                          context,
+                        ).devicePixelRatio;
+
+                        final screenCoordinate = ScreenCoordinate(
+                          x: (local.dx * pixelRatio).round(),
+                          y: (local.dy * pixelRatio).round(),
+                        );
+                        final latLng = await controller.getLatLng(
+                          screenCoordinate,
+                        );
+                        lastTap = latLng;
+                      }
+                    },
+                    child: SizedBox(
+                      key: _mapKey,
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: GoogleMap(
+                        key: const Key("google_map"),
+                        initialCameraPosition: _initialCamera,
+                        onMapCreated: (GoogleMapController controller) {
+                          if (!_controller.isCompleted) {
+                            _controller.complete(controller);
+                          }
+                        },
+                        zoomControlsEnabled: false,
+                        myLocationButtonEnabled: !isE2EMode,
+                        myLocationEnabled: !isE2EMode,
+                        polygons: _polygons,
+                        mapToolbarEnabled: false,
+                        markers: <Marker>{
+                          if (_cursorPoint != null)
+                            Marker(
+                              markerId: const MarkerId('cursor'),
+                              position: _cursorPoint!,
+                              infoWindow: InfoWindow(
+                                title: _cursorBuilding?.name ?? 'No building',
+                              ),
+                            ),
+                        },
+                        onTap: (LatLng point) {
+                          handleMapTap(point, context);
+
+                          if (_searchResults.isNotEmpty) {
+                            setState(() {
+                              _showSearchResults = true;
+                            }
+                          });
+                          }
+                          FocusScope.of(context).unfocus();
+
+                        }
+
                       ),
                     ),
-                },
-                onTap: (LatLng point)
-                {
-                  final CampusBuilding? building = _findBuildingAtPoint(
-                    point,
-                    campusBuildings,
-                    _campus,
-                  );
-
-                  //Creates bottom sheet upon tapping polygon
-
-                  if(building != null) {
-                    showBottomSheet(
-                    context: context,
-                    builder: (_) => Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('${_cursorBuilding?.campus.name.toUpperCase()} - ${_cursorBuilding?.name} - ${_cursorBuilding?.fullName}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 8),
-                          Text('${_cursorBuilding?.description}'),
-                        ],
-                      ),
-                    ),
-                  );
-                  }  else {
-                    showBottomSheet(
-                      context: context,
-                      builder: (_) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Not part of campus', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            SizedBox(height: 8),
-                            Text('Please select a shaded building'),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  
-                  debugPrint(
-                    building != null
-                        ? 'Selected building: ${building.name} (id=${building.id})'
-                        : 'Selected building: none',
                   );
 
                   setState(()
@@ -575,7 +645,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // US-1.4 Status card (top)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -584,7 +653,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Card(
                   elevation: 4,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     child: Text(
                       _currentBuildingFromGPS?.fullName ??
                           _currentBuildingFromGPS?.name ??
@@ -600,8 +672,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-
-          // Pushed Campus toggle a bit lower to avoid overlap
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 70, 12, 0),
@@ -747,7 +817,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
+  if (isE2EMode)
+  Text(
+  _campus == Campus.loyola ? "campus:loyola" : "campus:sgw",
+  key: const Key("campus_label"),
+  ),
         ],
       ),
     );
@@ -755,24 +829,112 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose()
-  {
+        {
     _gpsSub?.cancel();
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
+  //to call _updateOnTap() in tests.
+  @visibleForTesting
+  void simulatePolygonTap(PolygonId id, LatLng tapPoint) {
+    lastTap = tapPoint;
+    _updateOnTap(id);
+  }
+  //test sheet render and bypass calling the tap methods.
+  @visibleForTesting
+  void simulateBuildingSelection(CampusBuilding building, LatLng tapPoint,) {
+    lastTap = tapPoint;
+    final bool isAnnex =
+        building.fullName?.contains("Annex") ?? false;
+
+    _showBuildingDetailSheet(building, isAnnex);
+
+    setState(() {
+      _cursorBuilding = building;
+      _cursorPoint = tapPoint;
+    });
+  }
 }
 
-bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
-{
+class BuildingDetailContent extends StatelessWidget {
+  const BuildingDetailContent({super.key,
+    required this.building,
+    required this.isAnnex,
+  });
+
+  final CampusBuilding building;
+  final bool isAnnex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${building.name} ${isAnnex ? 'Annex' : '- ${building.fullName}'}',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (building.isWheelchairAccessible ||
+            building.hasBikeParking ||
+            building.hasCarParking)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (building.isWheelchairAccessible)
+                const Icon(Icons.accessible),
+              if (building.hasBikeParking)
+                const Icon(Icons.pedal_bike),
+              if (building.hasCarParking)
+                const Icon(Icons.local_parking),
+            ],
+          ),
+        const SizedBox(height: 12),
+        Text(building.description ?? ''),
+        const SizedBox(height: 12),
+        const Text(
+          'Opening Hours:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        ...building.openingHours.map(
+          (e) => Text((e == '-') ? 'None' : e),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Departments:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        ...building.departments.map(
+          (e) => Text((e == '-') ? 'None' : e),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Services:',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        ...building.services.map(
+          (e) => Text((e == '-') ? 'None' : e),
+        ),
+      ],
+    );
+  }
+}
+
+bool isPointInPolygon(LatLng point, List<LatLng> polygon) {
   double x = point.longitude;
   double y = point.latitude;
 
   bool inside = false;
   int j = polygon.length - 1;
 
-  for (int i = 0; i < polygon.length; i++)
-  {
+  for (int i = 0; i < polygon.length; i++) {
     double xi = polygon[i].longitude;
     double yi = polygon[i].latitude;
 
@@ -780,17 +942,14 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
     double yj = polygon[j].latitude;
 
     double denom = (yj - yi);
-    if (denom == 0.0)
-    {
+    if (denom == 0.0) {
       denom = 1e-12;
     }
 
     bool intersect =
-        ((yi > y) != (yj > y)) &&
-            (x < (xj - xi) * (y - yi) / denom + xi);
+        ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / denom + xi);
 
-    if (intersect)
-    {
+    if (intersect) {
       inside = !inside;
     }
 
@@ -800,25 +959,20 @@ bool _isPointInPolygon(LatLng point, List<LatLng> polygon)
   return inside;
 }
 
-CampusBuilding? _findBuildingAtPoint(
-    LatLng point,
-    List<CampusBuilding> buildings,
-    Campus campus,
-    )
-{
-  for (CampusBuilding b in buildings)
-  {
-    if (b.campus != campus)
-    {
+CampusBuilding? findBuildingAtPoint(
+  LatLng point,
+  List<CampusBuilding> buildings,
+  Campus campus,
+) {
+  for (CampusBuilding b in buildings) {
+    if (b.campus != campus) {
       continue;
     }
 
-    if (_isPointInPolygon(point, b.boundary))
-    {
+    if (isPointInPolygon(point, b.boundary)) {
       return b;
     }
   }
 
   return null;
 }
-

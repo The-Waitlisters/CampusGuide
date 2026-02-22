@@ -1,0 +1,729 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mockito/annotations.dart';
+import 'package:mockito/mockito.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:proj/data/data_parser.dart';
+import 'package:proj/models/campus.dart';
+import 'package:proj/models/campus_building.dart';
+import 'package:proj/screens/home_screen.dart' as home_screen;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState, BuildingDetailContent;
+import 'package:proj/services/building_locator.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
+import 'package:proj/widgets/campus_toggle.dart';
+
+import 'home_screen_test.mocks.dart';
+
+
+class MockGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(true);
+
+  @override
+  Future<LocationPermission> checkPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Future<LocationPermission> requestPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) {
+    return Stream.value(Position(
+      latitude: 45.4972,
+      longitude: -73.5788,
+      timestamp: DateTime.now(),
+      accuracy: 0,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    ));
+  }
+}
+
+/// Platform mock when location services are disabled (covers debugPrint branch).
+class LocationDisabledGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(false);
+}
+
+class FakeDataParser extends DataParser {
+  FakeDataParser(this._buildings);
+
+  final List<CampusBuilding> _buildings;
+
+  @override
+  Future<List<CampusBuilding>> getBuildingInfoFromJSON() async {
+    buildingsPresent = _buildings;
+    return _buildings;
+  }
+}
+
+/// Platform mock when permission is denied (covers requestPermission + debugPrint).
+class PermissionDeniedGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(true);
+
+  @override
+  Future<LocationPermission> checkPermission() =>
+      Future.value(LocationPermission.denied);
+
+  @override
+  Future<LocationPermission> requestPermission() =>
+      Future.value(LocationPermission.deniedForever);
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      const Stream.empty();
+}
+
+/// Platform mock that exposes a stream controller for multi-emit tests.
+class PositionStreamGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  PositionStreamGeolocatorPlatform(this.stream);
+
+  final Stream<Position> stream;
+
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(true);
+
+  @override
+  Future<LocationPermission> checkPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Future<LocationPermission> requestPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      stream;
+}
+
+/// Fake map controller so _goToCampus can complete in tests.
+class FakeGoogleMapController implements GoogleMapController {
+  @override
+  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) =>
+      Future.value();
+
+  @override
+  Future<LatLng> getLatLng(ScreenCoordinate screenCoordinate) =>
+      Future.value(const LatLng(0, 0));
+
+  @override
+  Future<ScreenCoordinate> getScreenCoordinate(LatLng latLng) =>
+      Future.value(const ScreenCoordinate(x: 0, y: 0));
+
+  @override
+  Future<LatLngBounds> getVisibleRegion() =>
+      Future.value(LatLngBounds(
+        southwest: const LatLng(0, 0),
+        northeast: const LatLng(0, 0),
+      ));
+
+  @override
+  Future<void> moveCamera(CameraUpdate update) => Future.value();
+
+  @override
+  int get mapId => 0;
+
+  @override
+  Future<double> getZoomLevel() => Future.value(0);
+
+  @override
+  Future<void> hideMarkerInfoWindow(MarkerId markerId) => Future.value();
+
+  @override
+  Future<bool> isMarkerInfoWindowShown(MarkerId markerId) =>
+      Future.value(false);
+
+  @override
+  Future<void> setMapStyle(String? mapStyle) => Future.value();
+
+  @override
+  Future<void> showMarkerInfoWindow(MarkerId markerId) => Future.value();
+
+  @override
+  Future<Uint8List?> takeSnapshot() => Future.value(null);
+
+  @override
+  Future<String?> getStyleError() => Future.value(null);
+
+  @override
+  Future<void> clearTileCache(TileOverlayId tileOverlayId) => Future.value();
+
+  @override
+  void dispose() {}
+}
+
+// --- Test data ---
+
+CampusBuilding buildTestBuilding({
+  String id = '1',
+  String name = 'Building 1',
+  String fullName = 'Full Building 1',
+  Campus campus = Campus.sgw,
+  List<LatLng>? boundary,
+  String description = 'A test building',
+  List<String> openingHours = const ['9-5'],
+  List<String> departments = const ['Dept A'],
+  List<String> services = const ['Service X'],
+  bool isWheelchairAccessible = false,
+  bool hasBikeParking = false,
+  bool hasCarParking = false,
+}) {
+  return CampusBuilding(
+    id: id,
+    name: name,
+    fullName: fullName,
+    campus: campus,
+    boundary: boundary ??
+        const [
+          LatLng(0, 0),
+          LatLng(0, 2),
+          LatLng(2, 2),
+          LatLng(2, 0),
+          LatLng(0, 0),
+        ],
+    description: description,
+    openingHours: openingHours,
+    departments: departments,
+    services: services,
+    isWheelchairAccessible: isWheelchairAccessible,
+    hasBikeParking: hasBikeParking,
+    hasCarParking: hasCarParking,
+  );
+}
+
+@GenerateMocks([DataParser, BuildingLocator])
+void main() {
+  // -------------------------------------------------------------------------
+  // isPointInPolygon (pure function)
+  // -------------------------------------------------------------------------
+  group('isPointInPolygon', () {
+    const polygon = [
+      LatLng(0, 0),
+      LatLng(0, 2),
+      LatLng(2, 2),
+      LatLng(2, 0),
+      LatLng(0, 0),
+    ];
+
+    test('returns true for a point inside the polygon', () {
+      expect(home_screen.isPointInPolygon(const LatLng(1, 1), polygon), isTrue);
+    });
+
+    test('returns false for a point outside the polygon', () {
+      expect(home_screen.isPointInPolygon(const LatLng(3, 3), polygon), isFalse);
+    });
+
+    test('returns false for a point to the left of the polygon', () {
+      expect(home_screen.isPointInPolygon(const LatLng(0.5, -0.5), polygon), isFalse);
+    });
+
+    test('handles polygon with zero denominator (vertical edge)', () {
+      const degenerate = [LatLng(1, 0), LatLng(1, 2), LatLng(1, 0)];
+      expect(home_screen.isPointInPolygon(const LatLng(0.5, 1), degenerate), isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // findBuildingAtPoint (pure function)
+  // -------------------------------------------------------------------------
+  group('findBuildingAtPoint', () {
+    late CampusBuilding sgwBuilding;
+    late CampusBuilding loyolaBuilding;
+
+    setUp(() {
+      sgwBuilding = buildTestBuilding(id: 'sgw1', campus: Campus.sgw);
+      loyolaBuilding = buildTestBuilding(
+        id: 'loyola1',
+        campus: Campus.loyola,
+        boundary: const [
+          LatLng(10, 10),
+          LatLng(10, 12),
+          LatLng(12, 12),
+          LatLng(12, 10),
+          LatLng(10, 10),
+        ],
+      );
+    });
+
+    test('returns building when point is inside boundary and campus matches', () {
+      final result = home_screen.findBuildingAtPoint(
+        const LatLng(1, 1),
+        [sgwBuilding, loyolaBuilding],
+        Campus.sgw,
+      );
+      expect(result, equals(sgwBuilding));
+    });
+
+    test('returns null when point is inside boundary but campus does not match', () {
+      final result = home_screen.findBuildingAtPoint(
+        const LatLng(1, 1),
+        [sgwBuilding, loyolaBuilding],
+        Campus.loyola,
+      );
+      expect(result, isNull);
+    });
+
+    test('returns null when point is outside all buildings', () {
+      final result = home_screen.findBuildingAtPoint(
+        const LatLng(5, 5),
+        [sgwBuilding, loyolaBuilding],
+        Campus.sgw,
+      );
+      expect(result, isNull);
+    });
+
+    test('returns null for empty buildings list', () {
+      final result = home_screen.findBuildingAtPoint(
+        const LatLng(1, 1),
+        [],
+        Campus.sgw,
+      );
+      expect(result, isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // HomeScreen widget
+  // -------------------------------------------------------------------------
+  group('HomeScreen', () {
+    late MockDataParser mockDataParser;
+    late MockBuildingLocator mockBuildingLocator;
+
+    setUp(() {
+      mockDataParser = MockDataParser();
+      mockBuildingLocator = MockBuildingLocator();
+      GeolocatorPlatform.instance = MockGeolocatorPlatform();
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => <CampusBuilding>[]);
+      when(mockDataParser.buildingsPresent).thenReturn(<CampusBuilding>[]);
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenReturn(BuildingStatus.none());
+      when(mockBuildingLocator.reset()).thenReturn(null);
+    });
+
+    Widget wrap(Widget child) {
+      return MaterialApp(home: child);
+    }
+
+    testWidgets('shows app bar title', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('The Waitlisters'), findsOneWidget);
+    });
+
+    testWidgets('shows loading indicator until buildings future completes',
+        (WidgetTester tester) async {
+      final completer = Completer<List<CampusBuilding>>();
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) => completer.future);
+      when(mockDataParser.buildingsPresent).thenReturn(<CampusBuilding>[]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      completer.complete([]);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('shows error message when buildings future fails',
+        (WidgetTester tester) async {
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => throw Exception('load failed'));
+      when(mockDataParser.buildingsPresent).thenReturn(<CampusBuilding>[]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Error loading polygons'), findsOneWidget);
+    });
+
+    testWidgets('builds map and overlay cards when buildings load',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+      expect(find.byType(Card), findsWidgets);
+    });
+
+    testWidgets('shows "Not in a building" when GPS has no building',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Not in a building'), findsOneWidget);
+    });
+
+    testWidgets('shows CampusToggle with SGW and Loyola', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.text('SGW'), findsOneWidget);
+      expect(find.text('Loyola'), findsOneWidget);
+    });
+
+    testWidgets('calls getBuildingInfoFromJSON on init when parser is provided',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pump();
+
+      verify(mockDataParser.getBuildingInfoFromJSON()).called(1);
+    });
+
+    testWidgets('location services disabled does not start stream',
+        (WidgetTester tester) async {
+      GeolocatorPlatform.instance = LocationDisabledGeolocatorPlatform();
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+    });
+
+    testWidgets('permission denied does not start stream',
+        (WidgetTester tester) async {
+      GeolocatorPlatform.instance = PermissionDeniedGeolocatorPlatform();
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+    });
+
+    testWidgets('when GPS building changes, getBuildingInfoFromJSON is called again',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(id: 'b1', name: 'B1');
+      final streamController = StreamController<Position>.broadcast();
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+      var updateCallCount = 0;
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenAnswer((_) {
+        updateCallCount++;
+        return updateCallCount == 1
+            ? BuildingStatus.none()
+            : BuildingStatus(building: building, treatedAsInside: true);
+      });
+
+      GeolocatorPlatform.instance =
+          PositionStreamGeolocatorPlatform(streamController.stream);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      streamController.add(Position(
+        latitude: 45.4972,
+        longitude: -73.5788,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      ));
+      await tester.pump();
+      streamController.add(Position(
+        latitude: 45.4973,
+        longitude: -73.5789,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      ));
+      await tester.pumpAndSettle();
+
+      verify(mockDataParser.getBuildingInfoFromJSON()).called(greaterThan(1));
+      await streamController.close();
+    });
+
+    testWidgets('tapping campus toggle calls reset and completes when test completer provided',
+        (WidgetTester tester) async {
+      final mapCompleter = Completer<GoogleMapController>()
+        ..complete(FakeGoogleMapController());
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testMapControllerCompleter: mapCompleter,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Loyola'));
+      await tester.pumpAndSettle();
+
+      verify(mockBuildingLocator.reset()).called(1);
+    });
+
+    testWidgets('shows GPS building name when inside building',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(id: 'b1', name: 'B1');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenReturn(BuildingStatus(building: building, treatedAsInside: true));
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+      expect(find.text('Full Building 1'), findsOneWidget);
+    });
+
+    testWidgets('tapping outside buildings shows not part of campus sheet',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final state = tester.state<HomeScreenState>(find.byType(home_screen.HomeScreen));
+      final scaffoldContext = tester.element(find.byType(CampusToggle));
+      state.handleMapTap(const LatLng(99, 99), scaffoldContext);
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Not part of campus'), findsOneWidget);
+      expect(find.text('Please select a shaded building'), findsOneWidget);
+    });
+
+    testWidgets('handleMapTap closes existing sheet if already open',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final state = tester.state<HomeScreenState>(
+            find.byType(home_screen.HomeScreen).first,
+          );
+
+          final ctx = tester.element(find.byType(CampusToggle));
+
+          // First tap → opens sheet
+          state.handleMapTap(const LatLng(99, 99), ctx);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Not part of campus'), findsOneWidget);
+
+          // Second tap → should close sheet
+          state.handleMapTap(const LatLng(99, 99), ctx);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Not part of campus'), findsNothing);
+    });
+
+    testWidgets('selecting building shows detail sheet',
+            (WidgetTester tester) async {
+
+          final building = buildTestBuilding(
+            id: 'b1',
+            name: 'B1',
+            fullName: 'B1 Annex',
+          );
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [building]);
+          when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final state = tester.state<HomeScreenState>(
+            find.byType(home_screen.HomeScreen).first,
+          ) as dynamic;
+
+          state.simulateBuildingSelection(building, const LatLng(1, 1));
+
+          await tester.pump();          // setState
+          await tester.pump();          // postFrameCallback
+          await tester.pumpAndSettle();
+
+          expect(find.textContaining('B1 Annex'), findsOneWidget);
+          expect(find.byType(BuildingDetailContent), findsOneWidget);
+          expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+        });
+
+    testWidgets('handleMapTap inside a building selects it and opens detail sheet',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'b1',
+        name: 'B1',
+        fullName: 'B1 Annex',
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final state = tester.state<HomeScreenState>(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      // Point (1,1) is inside the default boundary used by buildTestBuilding.
+      state.handleMapTap(const LatLng(1, 1), tester.element(find.byType(CampusToggle)));
+
+      // _showBuildingDetailSheet uses addPostFrameCallback.
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('B1 Annex'), findsOneWidget);
+      expect(find.byType(BuildingDetailContent), findsOneWidget);
+      expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+    });
+
+    testWidgets('simulatePolygonTap selects building and opens detail sheet',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'b1',
+        name: 'B1',
+        fullName: 'Full B1',
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      // Access private state helpers via dynamic.
+      final dynamic state = tester.state(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      state.simulatePolygonTap(const PolygonId('b1'), const LatLng(1, 1));
+
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Full B1'), findsOneWidget);
+      expect(find.byType(BuildingDetailContent), findsOneWidget);
+    });
+    //test annex logic, applyPolygonSelection , showBuildingDetailSheet, selection styling
+    group('BuildingDetailContent', () {
+      testWidgets('renders building details correctly',
+              (WidgetTester tester) async {
+            final building = buildTestBuilding(
+              name: 'B1',
+              fullName: 'Full B1',
+              description: 'Test description',
+              openingHours: ['9-5'],
+              departments: ['CS'],
+              services: ['Library'],
+              isWheelchairAccessible: true,
+              hasBikeParking: true,
+              hasCarParking: true,
+            );
+
+            await tester.pumpWidget(
+              MaterialApp(
+                home: Scaffold(
+                  body: home_screen.BuildingDetailContent(
+                    building: building,
+                    isAnnex: false,
+                  ),
+                ),
+              ),
+            );
+
+            expect(find.textContaining('B1'), findsOneWidget);
+            expect(find.text('Test description'), findsOneWidget);
+            expect(find.text('9-5'), findsOneWidget);
+            expect(find.text('CS'), findsOneWidget);
+            expect(find.text('Library'), findsOneWidget);
+
+            expect(find.byIcon(Icons.accessible), findsOneWidget);
+            expect(find.byIcon(Icons.pedal_bike), findsOneWidget);
+            expect(find.byIcon(Icons.local_parking), findsOneWidget);
+          });
+    });
+  });
+}

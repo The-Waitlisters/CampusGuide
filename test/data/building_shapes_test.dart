@@ -1,9 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:proj/data/building_data.dart';
+import 'package:proj/data/data_parser.dart';
 
 void main() {
-  test('All campus buildings have a boundary', () {
-    for (final building in campusBuildings) {
+  test('All campus buildings have a boundary', () async {
+
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    for (final building in allBuildings) {
       expect(
         building.boundary.isNotEmpty,
         true,
@@ -12,8 +17,9 @@ void main() {
     }
   });
 
-  test('All campus buildings have valid polygon shapes', () {
-    for (final building in campusBuildings) {
+  test('All campus buildings have valid polygon shapes', () async{
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    for (final building in allBuildings) {
       expect(
         building.boundary.length >= 3,
         true,
@@ -22,8 +28,9 @@ void main() {
     }
   });
 
-  test('All building boundary coordinates are valid', () {
-    for (final building in campusBuildings) {
+  test('All building boundary coordinates are valid', () async{
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    for (final building in allBuildings) {
       for (final point in building.boundary) {
         expect(point.latitude.abs() <= 90, true);
         expect(point.longitude.abs() <= 180, true);

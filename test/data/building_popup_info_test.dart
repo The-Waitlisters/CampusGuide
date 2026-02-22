@@ -1,10 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:proj/data/building_data.dart';
+
+import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus_building.dart';
 
 void main() {
-  test('All buildings have a short name for pop-up display', () {
-    for (final CampusBuilding building in campusBuildings) {
+  test('All buildings have a short name for pop-up display', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    
+    for (final CampusBuilding building in allBuildings) {
       expect(
         building.name.trim().isNotEmpty,
         true,
@@ -13,8 +19,12 @@ void main() {
     }
   });
 
-  test('Buildings with full names have valid pop-up titles', () {
-    final buildingsWithFullNames = campusBuildings.where(
+  test('Buildings with full names have valid pop-up titles', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    final buildingsWithFullNames = allBuildings.where(
       (b) => b.fullName != null,
     );
 
@@ -27,8 +37,12 @@ void main() {
     }
   });
 
-  test('Building descriptions are safe for pop-up rendering', () {
-    for (final building in campusBuildings) {
+  test('Building descriptions are safe for pop-up rendering', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    for (final building in allBuildings) {
       final description = building.description;
 
       if (description != null) {
@@ -41,8 +55,12 @@ void main() {
     }
   });
 
-  test('Pop-up information access does not throw for any building', () {
-    for (final building in campusBuildings) {
+  test('Pop-up information access does not throw for any building', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+
+    final allBuildings = await DataParser().getBuildingInfoFromJSON();
+    for (final building in allBuildings) {
       expect(() {
         building.name;
         building.fullName;
