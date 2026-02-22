@@ -9,6 +9,7 @@ import '../models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/building_locator.dart';
 import 'package:geocoding/geocoding.dart';
+import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,7 +52,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _polygonsFuture = _buildPolygonsForCampus(_campus);
 
     // US-1.4: start listening to device location
-    _startLocationTracking();
+    if (!isE2EMode) {
+      _startLocationTracking();
+    }
   }
 
 
@@ -382,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
               {
                 // Map without polygons while loading
                 return GoogleMap(
+                  key: const Key("google_map"),
                   initialCameraPosition: _initialCamera,
                   onMapCreated: (GoogleMapController controller)
                   {
@@ -390,9 +394,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       _controller.complete(controller);
                     }
                   },
-                  myLocationButtonEnabled: true,
+                  myLocationButtonEnabled: !isE2EMode,
                   zoomControlsEnabled: false,
-                  myLocationEnabled: true,
+                  myLocationEnabled: !isE2EMode,
                   markers: <Marker>
                   {
                     if (_cursorPoint != null)
@@ -483,6 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // Polygons loaded
               return GoogleMap(
+                key: const Key("google_maps"),
                 initialCameraPosition: _initialCamera,
                 onMapCreated: (GoogleMapController controller)
                 {
@@ -491,9 +496,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     _controller.complete(controller);
                   }
                 },
-                myLocationButtonEnabled: true,
+                myLocationButtonEnabled: !isE2EMode,
                 zoomControlsEnabled: false,
-                myLocationEnabled:true,
+                myLocationEnabled:!isE2EMode,
                 polygons: snapshot.data ?? <Polygon>{},
                 markers: <Marker>
                 {
