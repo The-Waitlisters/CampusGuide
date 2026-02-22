@@ -25,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   CampusBuilding? _cursorBuilding;
+  CampusBuilding? _startBuilding;
+  CampusBuilding? _endBuilding;
   //String? _addresses;
   late Future<Set<Polygon>> _polygonsFuture;
 
@@ -96,6 +98,106 @@ class _HomeScreenState extends State<HomeScreen> {
       
     }
     
+  }
+
+  void _onBuildingTapped(CampusBuilding? building)
+  {
+    if (building == null)
+    {
+      showModalBottomSheet(
+        context: context,
+        builder: (context)
+        {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Not part of campus',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text('Please select a shaded building'),
+              ],
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context)
+      {
+        final bool canSetStart = _startBuilding == null || (_startBuilding?.id != building.id);
+        final bool canSetEnd = _endBuilding == null || (_endBuilding?.id != building.id);
+
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${building.campus.name.toUpperCase()} - ${building.name} - ${building.fullName}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(building.description ?? 'No description available'),
+
+              const SizedBox(height: 16),
+
+              if (_startBuilding == null)
+                ElevatedButton(
+                  onPressed: ()
+                  {
+                    setState(() {
+                      _startBuilding = building;
+                      _endBuilding = null;
+                    });
+
+                    debugPrint("START set to: ${building.name}");
+
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Set as Start'),
+                )
+              else
+                ElevatedButton(
+                  onPressed: ()
+                  {
+                    setState(() {
+                      _endBuilding = building;
+                    });
+
+                    debugPrint("END set to: ${building.name}");
+
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Set as Destination'),
+                ),
+
+              const SizedBox(height: 8),
+
+              TextButton(
+                onPressed: ()
+                {
+                  setState(() {
+                    _startBuilding = null;
+                    _endBuilding = null;
+                  });
+                  Navigator.pop(context);
+                },
+                child: const Text('Clear start/destination'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
@@ -403,6 +505,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     _cursorPoint = point;
                     _cursorBuilding = building;
                   });
+
+                  _onBuildingTapped(building);
                 },
               );
             },
@@ -448,6 +552,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       onChanged: _goToCampus,
                     ),
                   ),
+                ),
+              ),
+            ),
+          ),
+          if (_startBuilding != null)
+            Positioned(
+            top: 150,
+            left: 12,
+            right: 12,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Start: ${_startBuilding?.fullName ?? "Not set"}"),
+                    const SizedBox(height: 6),
+                    Text("Destination: ${_endBuilding?.fullName ?? "Not set"}"),
+                  ],
                 ),
               ),
             ),
