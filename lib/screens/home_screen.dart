@@ -246,18 +246,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
               const SizedBox(height: 8),
-
-              TextButton(
-                onPressed: ()
-                {
-                  setState(() {
-                    _startBuilding = null;
-                    _endBuilding = null;
-                  });
-                  Navigator.pop(context);
-                },
-                child: const Text('Clear start/destination'),
-              ),
             ],
           ),
         );
@@ -629,23 +617,51 @@ class _HomeScreenState extends State<HomeScreen> {
 
           if (_startBuilding != null)
             Positioned(
-            top: 150,
-            left: 12,
-            right: 12,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Start: ${_startBuilding?.fullName ?? "Not set"}"),
-                    const SizedBox(height: 6),
-                    Text("Destination: ${_endBuilding?.fullName ?? "Not set"}"),
-                  ],
+              top: 150,
+              left: 12,
+              right: 12,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Directions",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: ()
+                            {
+                              setState(() {
+                                _startBuilding = null;
+                                _endBuilding = null;
+                              });
+
+                              debugPrint("Directions cancelled");
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Text("Start: ${_startBuilding!.fullName ?? _startBuilding!.name}"),
+
+                      const SizedBox(height: 6),
+
+                      Text("Destination: ${_endBuilding?.fullName ?? "Not set"}"),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
 
           Positioned(
