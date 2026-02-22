@@ -7,9 +7,6 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
-
-import '../services/building_locator.dart';
-import 'package:geocoding/geocoding.dart';
 import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -467,7 +464,7 @@ class _HomeScreenState extends HomeScreenState {
 }
 
 class BuildingDetailContent extends StatelessWidget {
-  const BuildingDetailContent({
+  const BuildingDetailContent({super.key,
     required this.building,
     required this.isAnnex,
   });
