@@ -3,12 +3,16 @@ import 'screens/home_screen.dart';
 
 final bool isE2EMode = const bool.fromEnvironment('E2E_TEST', defaultValue: false);
 
+// coverage:ignore-start
 void main() {
   runApp(const CampusGuideApp());
 }
+// coverage:ignore-end
 
 class CampusGuideApp extends StatelessWidget {
-  const CampusGuideApp({super.key});
+  const CampusGuideApp({super.key, this.home});
+
+  final Widget? home;// home
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +23,7 @@ class CampusGuideApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: home ?? const HomeScreen(),
     );
   }
 }
