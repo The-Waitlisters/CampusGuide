@@ -92,8 +92,9 @@ class _HomeScreenState extends HomeScreenState {
       client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
     );
     assert(() {
-      debugPrint('Directions key present? ${Secrets.directionsApiKey.isNotEmpty}');
-      debugPrint('Directions key length: ${Secrets.directionsApiKey.length}');
+      if (Secrets.directionsApiKey.isEmpty) {
+        debugPrint('Directions API key is missing (DIRECTIONS_API_KEY not set).');
+      }
       return true;
     }());
     _directions.addListener(() {
