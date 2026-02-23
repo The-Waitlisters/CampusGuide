@@ -787,8 +787,7 @@ class _HomeScreenState extends HomeScreenState {
                           ),
                           IconButton(
                             icon: const Icon(Icons.close),
-                            onPressed: ()
-                            {
+                            onPressed: () {
                               setState(() {
                                 _startBuilding = null;
                                 _endBuilding = null;
@@ -807,12 +806,49 @@ class _HomeScreenState extends HomeScreenState {
                       const SizedBox(height: 6),
 
                       Text("Destination: ${_endBuilding?.fullName ?? "Not set"}"),
-                      Text('Route pts: ${_directions.state.polyline?.points.length ?? 0}'),
-                      if (_directions.state.errorMessage != null)
-                        Text(
-                          'ERR: ${_directions.state.errorMessage}',
-                          style: const TextStyle(color: Colors.red),
-                        ),
+
+                      const SizedBox(height: 8),
+
+                      // ---- NEW: loading / unavailable / retry / success summary ----
+                      if (_endBuilding == null)
+                        const Text(
+                          'Select a destination to see a route.',
+                          style: TextStyle(fontStyle: FontStyle.italic),
+                        )
+                      else if (_directions.state.isLoading)
+                        const Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Loading directions...'),
+                          ],
+                        )
+                      else if (_directions.state.errorMessage != null)
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline, size: 18),
+                              const SizedBox(width: 8),
+                              const Expanded(child: Text('Directions unavailable')),
+                              TextButton(
+                                onPressed: _updateDirectionsIfReady,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          )
+                        else if (_directions.state.polyline != null)
+                            Text(
+                              '${_directions.state.durationText ?? ''}'
+                                  '${_directions.state.durationText != null && _directions.state.distanceText != null ? ' • ' : ''}'
+                                  '${_directions.state.distanceText ?? ''}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+
+                      // ---- (Optional) keep your debug line, but you can remove later ----
+                      // Text('Route pts: ${_directions.state.polyline?.points.length ?? 0}'),
                     ],
                   ),
                 ),
