@@ -8,7 +8,10 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
+import '../config/secrets.dart';
 import '../main.dart';
+import '../services/directions/directions_controller.dart';
+import '../services/directions/transport_mode_strategy.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -17,11 +20,12 @@ class HomeScreen extends StatefulWidget {
   /// so [ _goToCampus ] can complete without a real map.
   final Completer<GoogleMapController>? testMapControllerCompleter;
 
+
   const HomeScreen({
     super.key,
     this.dataParser,
     this.buildingLocator,
-    this.testMapControllerCompleter,
+    this.testMapControllerCompleter
   });
 
   @override
@@ -58,6 +62,7 @@ class _HomeScreenState extends HomeScreenState {
   final GlobalKey _mapKey = GlobalKey();
   final List<CampusBuilding> _searchResults = <CampusBuilding>[];
   bool _showSearchResults = false;
+  late final DirectionsController _directions;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
@@ -82,6 +87,20 @@ class _HomeScreenState extends HomeScreenState {
     if (!isE2EMode) {
       _startLocationTracking();
     }
+
+    _directions = DirectionsController(
+      client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
+    );
+    assert(() {
+      if (Secrets.directionsApiKey.isEmpty) {
+        debugPrint('Directions API key is missing (DIRECTIONS_API_KEY not set).');
+      }
+      return true;
+    }());
+    _directions.addListener(() {
+      if (!mounted) return;
+      setState(() {}); // reflect polyline/loading/error in UI
+    });
   }
 
   CameraPosition get _initialCamera {
@@ -195,8 +214,58 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  LatLng _buildingAnchor(CampusBuilding b) {
+    final pts = b.boundary;
+    if (pts.isEmpty) return const LatLng(0, 0);
+
+    double lat = 0;
+    double lng = 0;
+    for (final p in pts) {
+      lat += p.latitude;
+      lng += p.longitude;
+    }
+    return LatLng(lat / pts.length, lng / pts.length);
+  }
+
+  Future<void> _updateDirectionsIfReady() async {
+    debugPrint('_updateDirectionsIfReady start=${_startBuilding?.name} end=${_endBuilding?.name}');
+
+    final start = _startBuilding == null ? null : _buildingAnchor(_startBuilding!);
+    final end = _endBuilding == null ? null : _buildingAnchor(_endBuilding!);
+
+    await _directions.updateRoute(start: start, end: end);
+
+    debugPrint('Directions done: err=${_directions.state.errorMessage} '
+        'points=${_directions.state.polyline?.points.length}');
+
+    if (start != null && end != null && _directions.state.polyline != null) {
+      await _zoomToRoute(start, end);
+    }
+  }
+
+  Future<void> _zoomToRoute(LatLng a, LatLng b) async {
+    final controller = await _controller.future;
+
+    final sw = LatLng(
+      a.latitude < b.latitude ? a.latitude : b.latitude,
+      a.longitude < b.longitude ? a.longitude : b.longitude,
+    );
+    final ne = LatLng(
+      a.latitude > b.latitude ? a.latitude : b.latitude,
+      a.longitude > b.longitude ? a.longitude : b.longitude,
+    );
+
+    await controller.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(southwest: sw, northeast: ne),
+        80,
+      ),
+    );
+  }
+
   void _onBuildingTapped(CampusBuilding? building)
   {
+    debugPrint('_onBuildingTapped called with: ${building?.name}');
     if (building == null)
     {
       showModalBottomSheet(
@@ -247,30 +316,26 @@ class _HomeScreenState extends HomeScreenState {
 
               if (_startBuilding == null)
                 ElevatedButton(
-                  onPressed: ()
-                  {
+                  onPressed: () async {
+                    debugPrint('Pressed Set as Start for: ${building.name}');
                     setState(() {
                       _startBuilding = building;
                       _endBuilding = null;
                     });
-
-                    debugPrint("START set to: ${building.name}");
-
                     Navigator.pop(context);
+                    await _updateDirectionsIfReady();
                   },
                   child: const Text('Set as Start'),
                 )
               else
                 ElevatedButton(
-                  onPressed: ()
-                  {
+                  onPressed: () async {
+                    debugPrint('Pressed Set as Destination for: ${building.name}');
                     setState(() {
                       _endBuilding = building;
                     });
-
-                    debugPrint("END set to: ${building.name}");
-
                     Navigator.pop(context);
+                    await _updateDirectionsIfReady();
                   },
                   child: const Text('Set as Destination'),
                 ),
@@ -528,18 +593,22 @@ class _HomeScreenState extends HomeScreenState {
                   isAnnex: isAnnex,
                   startBuilding: _startBuilding,
                   endBuilding: _endBuilding,
-                  onSetStart: () {
+                  onSetStart: () async {
+                    debugPrint('Sheet: Set as Start pressed for ${building.name}');
                     setState(() {
                       _startBuilding = building;
                       _endBuilding = null;
                     });
+                    await _updateDirectionsIfReady();
                     _sheetController?.close();
                     _sheetController = null;
                   },
-                  onSetDestination: () {
+                  onSetDestination: () async {
+                    debugPrint('Sheet: Set as Destination pressed for ${building.name}');
                     setState(() {
                       _endBuilding = building;
                     });
+                    await _updateDirectionsIfReady();
                     _sheetController?.close();
                     _sheetController = null;
                   },
@@ -624,6 +693,9 @@ class _HomeScreenState extends HomeScreenState {
                         myLocationButtonEnabled: !isE2EMode,
                         myLocationEnabled: !isE2EMode,
                         polygons: _polygons,
+                        polylines: _directions.state.polyline == null
+                            ? <Polyline>{}
+                            : <Polyline>{_directions.state.polyline!},
                         mapToolbarEnabled: false,
                         markers: <Marker>{
                           if (_cursorPoint != null)
@@ -722,14 +794,13 @@ class _HomeScreenState extends HomeScreenState {
                           ),
                           IconButton(
                             icon: const Icon(Icons.close),
-                            onPressed: ()
-                            {
+                            onPressed: () {
                               setState(() {
                                 _startBuilding = null;
                                 _endBuilding = null;
                               });
-
-                              debugPrint("Directions cancelled");
+                              _directions.updateRoute(start: null, end: null);
+                              debugPrint('Directions cancelled');
                             },
                           ),
                         ],
@@ -742,6 +813,49 @@ class _HomeScreenState extends HomeScreenState {
                       const SizedBox(height: 6),
 
                       Text("Destination: ${_endBuilding?.fullName ?? "Not set"}"),
+
+                      const SizedBox(height: 8),
+
+                      // ---- NEW: loading / unavailable / retry / success summary ----
+                      if (_endBuilding == null)
+                        const Text(
+                          'Select a destination to see a route.',
+                          style: TextStyle(fontStyle: FontStyle.italic),
+                        )
+                      else if (_directions.state.isLoading)
+                        const Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Loading directions...'),
+                          ],
+                        )
+                      else if (_directions.state.errorMessage != null)
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline, size: 18),
+                              const SizedBox(width: 8),
+                              const Expanded(child: Text('Directions unavailable')),
+                              TextButton(
+                                onPressed: _updateDirectionsIfReady,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          )
+                        else if (_directions.state.polyline != null)
+                            Text(
+                              '${_directions.state.durationText ?? ''}'
+                                  '${_directions.state.durationText != null && _directions.state.distanceText != null ? ' • ' : ''}'
+                                  '${_directions.state.distanceText ?? ''}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+
+                      // ---- (Optional) keep your debug line, but you can remove later ----
+                      // Text('Route pts: ${_directions.state.polyline?.points.length ?? 0}'),
                     ],
                   ),
                 ),
@@ -811,13 +925,13 @@ class _HomeScreenState extends HomeScreenState {
                               : null,
                           onTap: ()
                           {
+                            debugPrint('Tapped search result: ${b.name}');
                             _searchController.text = b.name;
 
                             setState(() {
                               _showSearchResults = false;
                               _searchResults.clear();
                             });
-
                             _onBuildingTapped(b);
                           },
                         );
@@ -843,6 +957,7 @@ class _HomeScreenState extends HomeScreenState {
     _gpsSub?.cancel();
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _directions.dispose();
     super.dispose();
   }
   //to call _updateOnTap() in tests.
@@ -931,6 +1046,7 @@ class BuildingDetailContent extends StatelessWidget {
         if (startBuilding == null)
           ElevatedButton(
             onPressed: onSetStart,
+
             child: const Text('Set as Start'),
           )
         else
