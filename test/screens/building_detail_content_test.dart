@@ -6,6 +6,8 @@ import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart';
 
+import 'home_screen_test.dart';
+
 CampusBuilding _building({
   required String fullName,
   required bool accessible,
@@ -181,4 +183,32 @@ void main() {
     );
     expect(btn.onPressed, isNull);
   });
+
+  testWidgets('destination button enabled when startBuilding differs and calls onSetDestination',
+          (WidgetTester tester) async {
+        var called = false;
+        final startB = buildTestBuilding(id: 's', name: 'S', fullName: 'Start');
+        final b = buildTestBuilding(id: 'b', name: 'B', fullName: 'Building');
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: BuildingDetailContent(
+                building: b,
+                isAnnex: false,
+                startBuilding: startB, // different id -> enabled
+                endBuilding: null,
+                onSetStart: () {},
+                onSetDestination: () {
+                  called = true;
+                },
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+        await tester.pump();
+        expect(called, isTrue);
+      });
 }

@@ -851,6 +851,33 @@ class _HomeScreenState extends HomeScreenState {
     lastTap = tapPoint;
     _updateOnTap(id);
   }
+
+  /// For tests: trigger the onTap handler of the Polygon built in `_buildPolygons`.
+  /// This covers the `Polygon.onTap` closure (cursor building assignment + _updateOnTap).
+  @visibleForTesting
+  void triggerPolygonOnTap(PolygonId id) {
+    final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
+      (p) => p != null && p.polygonId == id,
+      orElse: () => null,
+    );
+    poly?.onTap?.call();
+  }
+
+  /// For tests: invoke the private `_onBuildingTapped` method, including the null branch.
+  @visibleForTesting
+  void simulateBuildingTap(CampusBuilding? building) {
+    _onBuildingTapped(building);
+  }
+
+  /// For tests: complete the internal map controller completer so the Listener
+  /// `onPointerDown` logic can await `_controller.future`.
+  @visibleForTesting
+  void completeInternalMapController(GoogleMapController controller) {
+    if (!_controller.isCompleted) {
+      _controller.complete(controller);
+    }
+  }
+
   //test sheet render and bypass calling the tap methods.
   @visibleForTesting
   void simulateBuildingSelection(CampusBuilding building, LatLng tapPoint,) {

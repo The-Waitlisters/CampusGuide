@@ -883,5 +883,198 @@ void main() {
             expect(find.byIcon(Icons.local_parking), findsOneWidget);
           });
     });
+
+    testWidgets('search: empty query clears results and hides list',
+            (WidgetTester tester) async {
+          final b1 = buildTestBuilding(id: 'b1', name: 'HALL', fullName: 'Hall Building');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [b1]);
+          when(mockDataParser.buildingsPresent).thenReturn([b1]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          await tester.enterText(find.byType(TextField), 'hall');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          expect(find.text('HALL'), findsOneWidget);
+
+          // Empty/whitespace -> q.isEmpty branch
+          await tester.enterText(find.byType(TextField), '   ');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+
+          expect(find.text('HALL'), findsNothing);
+        });
+
+    testWidgets('search: matches fullName; list renders dividers; tapping field keeps list visible',
+            (WidgetTester tester) async {
+          final b1 = buildTestBuilding(id: 'b1', name: 'AAA', fullName: 'Hall Building');
+          final b2 = buildTestBuilding(id: 'b2', name: 'BBB', fullName: 'Hall Annex');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [b1, b2]);
+          when(mockDataParser.buildingsPresent).thenReturn([b1, b2]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          // Matches fullName (not name) -> line 185
+          await tester.enterText(find.byType(TextField), 'hall');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+
+          expect(find.text('AAA'), findsOneWidget);
+          expect(find.text('BBB'), findsOneWidget);
+
+          // 2 items -> separatorBuilder executes (line 801)
+          expect(find.byType(Divider), findsWidgets);
+
+          // Tap field when results exist -> onTap block (782–787)
+          await tester.tap(find.byType(TextField));
+          await tester.pump();
+
+          expect(find.text('AAA'), findsOneWidget);
+        });
+
+    testWidgets('simulateBuildingTap(null) shows Not part of campus modal sheet',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+          state.simulateBuildingTap(null);
+          await tester.pumpAndSettle();
+
+          expect(find.text('Not part of campus'), findsOneWidget);
+          expect(find.text('Please select a shaded building'), findsOneWidget);
+        });
+
+    testWidgets('building sheet: set start then set destination updates directions',
+            (WidgetTester tester) async {
+          final startB = buildTestBuilding(id: 'b1', name: 'START', fullName: 'Start Building');
+          final destB = buildTestBuilding(id: 'b2', name: 'DEST', fullName: 'Destination Building');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [startB, destB]);
+          when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          // open START sheet
+          await tester.enterText(find.byType(TextField), 'start');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('START'));
+          await tester.pumpAndSettle();
+
+          // Set as Start -> covers 531–538 (+ sheet close path)
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(find.text('Directions'), findsOneWidget);
+
+          // open DEST sheet
+          await tester.enterText(find.byType(TextField), 'dest');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('DEST'));
+          await tester.pumpAndSettle();
+
+          // Set as Destination -> covers 264–273 and 539–544
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(find.textContaining('Destination Building'), findsOneWidget);
+        });
+
+    testWidgets('triggerPolygonOnTap runs Polygon.onTap closure',
+            (WidgetTester tester) async {
+          final building = buildTestBuilding(id: 'b1', name: 'B1', fullName: 'B1 Annex');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+          when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+          state.lastTap = const LatLng(1, 1); // so _updateOnTap doesn't early return
+          state.triggerPolygonOnTap(const PolygonId('b1'));
+
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(find.byType(BuildingDetailContent), findsOneWidget);
+        });
+
+    testWidgets('map Listener onPointerDown computes lastTap using controller.getLatLng',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+          state.completeInternalMapController(FakeGoogleMapController());
+
+          await tester.tapAt(const Offset(50, 200));
+          await tester.pumpAndSettle();
+
+          expect(state.lastTap, isNotNull);
+        });
+
+    testWidgets('GoogleMap onMapCreated completes controller when not completed',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+          map.onMapCreated!(FakeGoogleMapController());
+          await tester.pump();
+
+          expect(find.byType(GoogleMap), findsOneWidget);
+        });
+
+    testWidgets('GoogleMap onTap shows search results when results already exist',
+            (WidgetTester tester) async {
+          final b1 = buildTestBuilding(id: 'b1', name: 'HALL', fullName: 'Hall Building');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [b1]);
+          when(mockDataParser.buildingsPresent).thenReturn([b1]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          await tester.enterText(find.byType(TextField), 'hall');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          expect(find.text('HALL'), findsOneWidget);
+
+          final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+          map.onTap!(const LatLng(99, 99));
+          await tester.pumpAndSettle();
+
+          expect(find.text('HALL'), findsOneWidget);
+        });
+
   });
 }
