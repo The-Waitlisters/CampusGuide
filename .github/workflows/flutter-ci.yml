@@ -2,7 +2,7 @@ name: Flutter CI
 
 permissions:
   contents: write
-  
+
 on:
   push:
     branches: [main, develop]
@@ -12,6 +12,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
+    env:
+      DIRECTIONS_API_KEY: ${{ secrets.DIRECTIONS_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -30,10 +33,11 @@ jobs:
         run: flutter analyze
 
       - name: Run tests with coverage
-        run: flutter test --coverage
+        run: flutter test --coverage --dart-define=DIRECTIONS_API_KEY=$DIRECTIONS_API_KEY
 
       - name: Install Lcov
-        run: sudo apt-get install lcov
+        if: github.event_name == 'push'
+        run: sudo apt-get update && sudo apt-get install -y lcov
 
       - name: Generate coverage report
         if: github.event_name == 'push'
