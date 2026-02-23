@@ -6,6 +6,8 @@ import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart';
 
+import 'home_screen_test.dart';
+
 CampusBuilding _building({
   required String fullName,
   required bool accessible,
@@ -51,7 +53,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Material(
-          child: BuildingDetailContent(building: b, isAnnex: true),
+          child: BuildingDetailContent(building: b, isAnnex: true,
+            startBuilding: null,
+            endBuilding: null,
+            onSetStart: () {},
+            onSetDestination: () {},),
         ),
       ),
     );
@@ -73,7 +79,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Material(
-          child: BuildingDetailContent(building: b, isAnnex: false),
+          child: BuildingDetailContent(building: b, isAnnex: false,
+            startBuilding: null,
+            endBuilding: null,
+            onSetStart: () {},
+            onSetDestination: () {},),
         ),
       ),
     );
@@ -95,7 +105,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Material(
-          child: BuildingDetailContent(building: b, isAnnex: false),
+          child: BuildingDetailContent(building: b, isAnnex: false,
+            startBuilding: null,
+            endBuilding: null,
+            onSetStart: () {},
+            onSetDestination: () {},),
         ),
       ),
     );
@@ -120,7 +134,14 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             home: Material(
-              child: BuildingDetailContent(building: b, isAnnex: false),
+              child: BuildingDetailContent(
+                building: b,
+                isAnnex: false,
+                startBuilding: null,
+                endBuilding: null,
+                onSetStart: () {},
+                onSetDestination: () {},
+              ),
             ),
           ),
         );
@@ -128,5 +149,66 @@ void main() {
         expect(find.text('Math'), findsOneWidget);
         // 1 from openingHours + 1 from departments + 2 from services = 4
         expect(find.text('None'), findsNWidgets(4));
+      });
+
+  testWidgets('destination button is disabled when startBuilding is same as building',
+      (tester) async {
+    final b = _building(
+      fullName: 'Hall Building',
+      accessible: false,
+      bike: false,
+      car: false,
+      openingHours: const ['-'],
+      departments: const ['-'],
+      services: const ['-'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BuildingDetailContent(
+            building: b,
+            isAnnex: false,
+            startBuilding: b, // same id
+            endBuilding: null,
+            onSetStart: () {},
+            onSetDestination: () {},
+          ),
+        ),
+      ),
+    );
+
+    final btn = tester.widget<ElevatedButton>(
+      find.widgetWithText(ElevatedButton, 'Set as Destination'),
+    );
+    expect(btn.onPressed, isNull);
+  });
+
+  testWidgets('destination button enabled when startBuilding differs and calls onSetDestination',
+          (WidgetTester tester) async {
+        var called = false;
+        final startB = buildTestBuilding(id: 's', name: 'S', fullName: 'Start');
+        final b = buildTestBuilding(id: 'b', name: 'B', fullName: 'Building');
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: BuildingDetailContent(
+                building: b,
+                isAnnex: false,
+                startBuilding: startB, // different id -> enabled
+                endBuilding: null,
+                onSetStart: () {},
+                onSetDestination: () {
+                  called = true;
+                },
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+        await tester.pump();
+        expect(called, isTrue);
       });
 }

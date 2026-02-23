@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
@@ -44,13 +45,19 @@ class _HomeScreenState extends HomeScreenState {
   LatLng? _cursorPoint;
   LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
+  CampusBuilding? _startBuilding;
+  CampusBuilding? _endBuilding;
   late Future<List<CampusBuilding>> _buildingsFuture;
+  final TextEditingController _searchController = TextEditingController();
   List<CampusBuilding> buildingsPresent = [];
   Set<Polygon> _polygons = {};
   PolygonId? _selectedId;
+  Timer? _searchDebounce;
   final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
   bool campusChange = false;
   final GlobalKey _mapKey = GlobalKey();
+  final List<CampusBuilding> _searchResults = <CampusBuilding>[];
+  bool _showSearchResults = false;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
@@ -81,6 +88,244 @@ class _HomeScreenState extends HomeScreenState {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
   }
+
+  Future<String> getPlaceMarks(LatLng coords) async { /// To be fixed in sprint 2
+    try {
+
+      double x = coords.latitude;
+      double y = coords.longitude;
+      List<Placemark> placemarks = [];
+      //List<Location> loc = [];
+
+      if (_cursorBuilding != null &&
+          isPointInPolygon(coords, _cursorBuilding!.boundary)) {
+        placemarks = await placemarkFromCoordinates(x, y);
+      }
+
+      String address = '';
+
+      if(placemarks.isNotEmpty) {
+
+        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ?? ''}, ' '${placemarks[0].postalCode ?? ''}';
+
+        /* var streets = placemarks.reversed.map((placemark) => placemark.street).where((street) => street != null);
+
+        streets = streets.where((street) => street!.toLowerCase() != placemarks.reversed.last.locality!.toLowerCase());
+
+        streets = streets.where((street) => !street!.contains('+'));
+
+        address += streets.first!;
+
+        address += ', ${placemarks.reversed.last.subAdministrativeArea ?? ''}';
+        address += ', ${placemarks.reversed.last.administrativeArea ?? ''}';
+        address += ', ${placemarks.reversed.last.postalCode ?? ''}'; */
+      }
+
+      //debugPrint("Your Address for ($x , $y) is: $address");
+
+      return address;
+
+    } catch (e) {
+
+      debugPrint("Error getting placemarks: $e");
+      return "No Address";
+      
+    }
+    
+  }
+
+  /*void _handleSearch(String query)//
+  {
+    CampusBuilding? building;
+
+    try
+    {
+      building = campusBuildings.firstWhere(
+            (b) =>
+        b.name.toLowerCase().contains(query.toLowerCase()) ||
+            (b.fullName ?? "").toLowerCase().contains(query.toLowerCase()),
+      );
+    }
+    catch (_)
+    {
+      building = null;
+    }
+
+    if (building == null)
+    {
+      debugPrint("Search: no match for '$query'");
+      return;
+    }
+
+    debugPrint("Search match: ${building.name}");
+
+    _onBuildingTapped(building);
+  }*/
+
+  void _onSearchChanged(String value)
+  {
+    _searchDebounce?.cancel();
+
+    _searchDebounce = Timer(const Duration(milliseconds: 300), ()
+    {
+      final String q = value.trim().toLowerCase();
+
+      if (q.isEmpty)
+      {
+        setState(() {
+          _searchResults.clear();
+          _showSearchResults = false;
+        });
+        return;
+      }
+
+      final results = buildingsPresent
+          .where((b) =>
+      b.name.toLowerCase().contains(q) ||
+          (b.fullName ?? "").toLowerCase().contains(q))
+          .take(8)
+          .toList();
+
+      setState(() {
+        _searchResults
+          ..clear()
+          ..addAll(results);
+        _showSearchResults = results.isNotEmpty;
+      });
+    });
+  }
+
+  void _onBuildingTapped(CampusBuilding? building)
+  {
+    if (building == null)
+    {
+      showModalBottomSheet(
+        context: context,
+        builder: (context)
+        {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Not part of campus',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text('Please select a shaded building'),
+              ],
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context)
+      {
+        //final bool canSetStart = _startBuilding == null || (_startBuilding?.id != building.id);
+        //final bool canSetEnd = _endBuilding == null || (_endBuilding?.id != building.id);
+
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${building.campus.name.toUpperCase()} - ${building.name} - ${building.fullName}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(building.description ?? 'No description available'),
+
+              const SizedBox(height: 16),
+
+              if (_startBuilding == null)
+                ElevatedButton(
+                  onPressed: ()
+                  {
+                    setState(() {
+                      _startBuilding = building;
+                      _endBuilding = null;
+                    });
+
+                    debugPrint("START set to: ${building.name}");
+
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Set as Start'),
+                )
+              else
+                ElevatedButton(
+                  onPressed: ()
+                  {
+                    setState(() {
+                      _endBuilding = building;
+                    });
+
+                    debugPrint("END set to: ${building.name}");
+
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Set as Destination'),
+                ),
+
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /*Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
+  {
+    // Optional delay if they were using this to simulate async loading
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    final Set<Polygon> polys = <Polygon>{};
+
+    for (final CampusBuilding b in buildingsPresent)
+    {
+      if (b.campus != campus)
+      {
+        continue;
+      }
+
+      final bool isActiveGps = _currentBuildingFromGPS?.id == b.id;
+
+      polys.add(
+        Polygon(
+          polygonId: PolygonId(b.id),
+          points: b.boundary,
+          fillColor: isActiveGps
+              ? const Color(0x803197F6) // highlighted fill
+              : const Color(0x80912338), // default fill
+          strokeColor: isActiveGps
+              ? Colors.blue
+              : const Color(0xFF741C2C),
+          strokeWidth: isActiveGps ? 3 : 2,
+          consumeTapEvents: false,
+          onTap: ()
+          {
+            debugPrint('Polygon tapped: ${b.name} (id=${b.id})');
+            setState(()
+            {
+              _cursorBuilding = b;
+            });
+          },
+        ),
+      );
+    }
+
+    return polys;
+  }*/
+
 
   Future<void> _goToCampus(Campus campus) async {
     final completer = widget.testMapControllerCompleter ?? _controller;
@@ -281,6 +526,23 @@ class _HomeScreenState extends HomeScreenState {
                 child: BuildingDetailContent(
                   building: building,
                   isAnnex: isAnnex,
+                  startBuilding: _startBuilding,
+                  endBuilding: _endBuilding,
+                  onSetStart: () {
+                    setState(() {
+                      _startBuilding = building;
+                      _endBuilding = null;
+                    });
+                    _sheetController?.close();
+                    _sheetController = null;
+                  },
+                  onSetDestination: () {
+                    setState(() {
+                      _endBuilding = building;
+                    });
+                    _sheetController?.close();
+                    _sheetController = null;
+                  },
                 ),
               ),
             );
@@ -373,7 +635,18 @@ class _HomeScreenState extends HomeScreenState {
                               ),
                             ),
                         },
-                        onTap: (LatLng point) => handleMapTap(point, context),
+                        onTap: (LatLng point) {
+                          handleMapTap(point, context);
+
+                          if (_searchResults.isNotEmpty) {
+                            setState(() {
+                              _showSearchResults = true;
+                          });
+                          }
+                          FocusScope.of(context).unfocus();
+
+                        }
+
                       ),
                     ),
                   );
@@ -426,19 +699,150 @@ class _HomeScreenState extends HomeScreenState {
               ),
             ),
           ),
-          if (isE2EMode)
-            Text(
-              _campus == Campus.loyola ? "campus:loyola" : "campus:sgw",
-              key: const Key("campus_label"),
+
+          if (_startBuilding != null)
+            Positioned(
+              top: 150,
+              left: 12,
+              right: 12,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Directions",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: ()
+                            {
+                              setState(() {
+                                _startBuilding = null;
+                                _endBuilding = null;
+                              });
+
+                              debugPrint("Directions cancelled");
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Text("Start: ${_startBuilding!.fullName ?? _startBuilding!.name}"),
+
+                      const SizedBox(height: 6),
+
+                      Text("Destination: ${_endBuilding?.fullName ?? "Not set"}"),
+                    ],
+                  ),
+                ),
+              ),
             ),
+
+
+          Positioned(
+            top: 16,
+            left: 12,
+            right: 12,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search building...",
+                        border: InputBorder.none,
+                        suffixIcon: _searchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: ()
+                          {
+                            _searchController.clear();
+                            setState(() {
+                              _searchResults.clear();
+                              _showSearchResults = false;
+                            });
+                          },
+                        ),
+                      ),
+                      onChanged: _onSearchChanged,
+                      onTap: ()
+                      {
+                        if (_searchResults.isNotEmpty)
+                        {
+                          setState(() {
+                            _showSearchResults = true;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+
+                if (_showSearchResults)
+                  Card(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, i)
+                      {
+                        final b = _searchResults[i];
+
+                        return ListTile(
+                          dense: true,
+                          title: Text(b.name),
+                          subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
+                              ? Text(b.fullName!)
+                              : null,
+                          onTap: ()
+                          {
+                            _searchController.text = b.name;
+
+                            setState(() {
+                              _showSearchResults = false;
+                              _searchResults.clear();
+                            });
+
+                            _onBuildingTapped(b);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+  if (isE2EMode)
+  Text(
+  _campus == Campus.loyola ? "campus:loyola" : "campus:sgw",
+  key: const Key("campus_label"),
+  ),
         ],
       ),
     );
   }
 
   @override
-  void dispose() {
+  void dispose()
+        {
     _gpsSub?.cancel();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
   //to call _updateOnTap() in tests.
@@ -447,6 +851,33 @@ class _HomeScreenState extends HomeScreenState {
     lastTap = tapPoint;
     _updateOnTap(id);
   }
+
+  /// For tests: trigger the onTap handler of the Polygon built in `_buildPolygons`.
+  /// This covers the `Polygon.onTap` closure (cursor building assignment + _updateOnTap).
+  @visibleForTesting
+  void triggerPolygonOnTap(PolygonId id) {
+    final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
+      (p) => p != null && p.polygonId == id,
+      orElse: () => null,
+    );
+    poly?.onTap?.call();
+  }
+
+  /// For tests: invoke the private `_onBuildingTapped` method, including the null branch.
+  @visibleForTesting
+  void simulateBuildingTap(CampusBuilding? building) {
+    _onBuildingTapped(building);
+  }
+
+  /// For tests: complete the internal map controller completer so the Listener
+  /// `onPointerDown` logic can await `_controller.future`.
+  @visibleForTesting
+  void completeInternalMapController(GoogleMapController controller) {
+    if (!_controller.isCompleted) {
+      _controller.complete(controller);
+    }
+  }
+
   //test sheet render and bypass calling the tap methods.
   @visibleForTesting
   void simulateBuildingSelection(CampusBuilding building, LatLng tapPoint,) {
@@ -464,13 +895,24 @@ class _HomeScreenState extends HomeScreenState {
 }
 
 class BuildingDetailContent extends StatelessWidget {
-  const BuildingDetailContent({super.key,
+  const BuildingDetailContent({
+    super.key,
     required this.building,
     required this.isAnnex,
+    required this.startBuilding,
+    required this.endBuilding,
+    required this.onSetStart,
+    required this.onSetDestination,
   });
 
   final CampusBuilding building;
   final bool isAnnex;
+
+  final CampusBuilding? startBuilding;
+  final CampusBuilding? endBuilding;
+
+  final VoidCallback onSetStart;
+  final VoidCallback onSetDestination;
 
   @override
   Widget build(BuildContext context) {
@@ -485,6 +927,21 @@ class BuildingDetailContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
+        // Direction selection buttons
+        if (startBuilding == null)
+          ElevatedButton(
+            onPressed: onSetStart,
+            child: const Text('Set as Start'),
+          )
+        else
+          ElevatedButton(
+            onPressed: (startBuilding?.id == building.id)
+                ? null
+                : onSetDestination,
+            child: const Text('Set as Destination'),
+          ),
+
+        const SizedBox(height: 12),
         if (building.isWheelchairAccessible ||
             building.hasBikeParking ||
             building.hasCarParking)
