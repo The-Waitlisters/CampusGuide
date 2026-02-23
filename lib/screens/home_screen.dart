@@ -8,10 +8,10 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
+import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
-import 'package:proj/config/secrets.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -20,11 +20,12 @@ class HomeScreen extends StatefulWidget {
   /// so [ _goToCampus ] can complete without a real map.
   final Completer<GoogleMapController>? testMapControllerCompleter;
 
+
   const HomeScreen({
     super.key,
     this.dataParser,
     this.buildingLocator,
-    this.testMapControllerCompleter,
+    this.testMapControllerCompleter
   });
 
   @override
@@ -90,6 +91,11 @@ class _HomeScreenState extends HomeScreenState {
     _directions = DirectionsController(
       client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
     );
+    assert(() {
+      debugPrint('Directions key present? ${Secrets.directionsApiKey.isNotEmpty}');
+      debugPrint('Directions key length: ${Secrets.directionsApiKey.length}');
+      return true;
+    }());
     _directions.addListener(() {
       if (!mounted) return;
       setState(() {}); // reflect polyline/loading/error in UI
@@ -221,14 +227,14 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _updateDirectionsIfReady() async {
-    print('_updateDirectionsIfReady start=${_startBuilding?.name} end=${_endBuilding?.name}');
+    debugPrint('_updateDirectionsIfReady start=${_startBuilding?.name} end=${_endBuilding?.name}');
 
     final start = _startBuilding == null ? null : _buildingAnchor(_startBuilding!);
     final end = _endBuilding == null ? null : _buildingAnchor(_endBuilding!);
 
     await _directions.updateRoute(start: start, end: end);
 
-    print('Directions done: err=${_directions.state.errorMessage} '
+    debugPrint('Directions done: err=${_directions.state.errorMessage} '
         'points=${_directions.state.polyline?.points.length}');
 
     if (start != null && end != null && _directions.state.polyline != null) {
@@ -258,7 +264,7 @@ class _HomeScreenState extends HomeScreenState {
 
   void _onBuildingTapped(CampusBuilding? building)
   {
-    print('_onBuildingTapped called with: ${building?.name}');
+    debugPrint('_onBuildingTapped called with: ${building?.name}');
     if (building == null)
     {
       showModalBottomSheet(
@@ -310,25 +316,25 @@ class _HomeScreenState extends HomeScreenState {
               if (_startBuilding == null)
                 ElevatedButton(
                   onPressed: () async {
-                    print('Pressed Set as Start for: ${building.name}');
+                    debugPrint('Pressed Set as Start for: ${building.name}');
                     setState(() {
                       _startBuilding = building;
                       _endBuilding = null;
                     });
-                    await _updateDirectionsIfReady();
                     Navigator.pop(context);
+                    await _updateDirectionsIfReady();
                   },
                   child: const Text('Set as Start'),
                 )
               else
                 ElevatedButton(
                   onPressed: () async {
-                    print('Pressed Set as Destination for: ${building.name}');
+                    debugPrint('Pressed Set as Destination for: ${building.name}');
                     setState(() {
                       _endBuilding = building;
                     });
-                    await _updateDirectionsIfReady();
                     Navigator.pop(context);
+                    await _updateDirectionsIfReady();
                   },
                   child: const Text('Set as Destination'),
                 ),
@@ -587,7 +593,7 @@ class _HomeScreenState extends HomeScreenState {
                   startBuilding: _startBuilding,
                   endBuilding: _endBuilding,
                   onSetStart: () async {
-                    print('Sheet: Set as Start pressed for ${building.name}');
+                    debugPrint('Sheet: Set as Start pressed for ${building.name}');
                     setState(() {
                       _startBuilding = building;
                       _endBuilding = null;
@@ -597,7 +603,7 @@ class _HomeScreenState extends HomeScreenState {
                     _sheetController = null;
                   },
                   onSetDestination: () async {
-                    print('Sheet: Set as Destination pressed for ${building.name}');
+                    debugPrint('Sheet: Set as Destination pressed for ${building.name}');
                     setState(() {
                       _endBuilding = building;
                     });
@@ -793,7 +799,7 @@ class _HomeScreenState extends HomeScreenState {
                                 _endBuilding = null;
                               });
                               _directions.updateRoute(start: null, end: null);
-                              print('Directions cancelled');
+                              debugPrint('Directions cancelled');
                             },
                           ),
                         ],
@@ -918,7 +924,7 @@ class _HomeScreenState extends HomeScreenState {
                               : null,
                           onTap: ()
                           {
-                            print('Tapped search result: ${b.name}');
+                            debugPrint('Tapped search result: ${b.name}');
                             _searchController.text = b.name;
 
                             setState(() {
