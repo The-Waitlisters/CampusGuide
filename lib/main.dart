@@ -12,7 +12,7 @@ void main() {
 class CampusGuideApp extends StatelessWidget {
   const CampusGuideApp({super.key, this.home});
 
-  final Widget? home;
+  final Widget? home;// home
 
   @override
   Widget build(BuildContext context) {
