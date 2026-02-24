@@ -90,7 +90,14 @@ class _HomeScreenState extends HomeScreenState {
     );
 
     _buildingsFuture = data.getBuildingInfoFromJSON();
-    buildingsPresent = data.buildingsPresent;
+    _buildingsFuture.then((list) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        buildingsPresent = list;
+      });
+    });
   }
 
   void _initDirections() {
@@ -152,12 +159,6 @@ class _HomeScreenState extends HomeScreenState {
 
           setState(() {
             _currentBuildingFromGPS = result.building;
-
-            if (oldId != newId) {
-              _buildingsFuture = data.getBuildingInfoFromJSON(
-              );
-              buildingsPresent = data.buildingsPresent;
-            }
           });
         });
   }
@@ -874,6 +875,8 @@ class _HomeScreenState extends HomeScreenState {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
     super.dispose();
