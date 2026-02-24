@@ -13,6 +13,8 @@ import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../widgets/home/building_detail_content.dart';
+import '../utilities/polygon_helper.dart';
+import '../widgets/home/search_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -167,7 +169,6 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<String> getPlaceMarks(LatLng coords) async {
     try {
-
       double x = coords.latitude;
       double y = coords.longitude;
       List<Placemark> placemarks = [];
@@ -186,24 +187,18 @@ class _HomeScreenState extends HomeScreenState {
       return address;
 
     } catch (e) {
-
       debugPrint("Error getting placemarks: $e");
       return "No Address";
-      
     }
-    
   }
 
-  void _onSearchChanged(String value)
-  {
+  void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
 
-    _searchDebounce = Timer(const Duration(milliseconds: 300), ()
-    {
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       final String q = value.trim().toLowerCase();
 
-      if (q.isEmpty)
-      {
+      if (q.isEmpty) {
         setState(() {
           _searchResults.clear();
           _showSearchResults = false;
@@ -211,8 +206,7 @@ class _HomeScreenState extends HomeScreenState {
         return;
       }
 
-      final results = buildingsPresent
-          .where((b) =>
+      final results = buildingsPresent.where((b) =>
       b.name.toLowerCase().contains(q) ||
           (b.fullName ?? "").toLowerCase().contains(q))
           .take(8)
@@ -227,24 +221,11 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-  LatLng _buildingAnchor(CampusBuilding b) {
-    final pts = b.boundary;
-    if (pts.isEmpty) return const LatLng(0, 0);
-
-    double lat = 0;
-    double lng = 0;
-    for (final p in pts) {
-      lat += p.latitude;
-      lng += p.longitude;
-    }
-    return LatLng(lat / pts.length, lng / pts.length);
-  }
-
   Future<void> _updateDirectionsIfReady() async {
     debugPrint('_updateDirectionsIfReady start=${_startBuilding?.name} end=${_endBuilding?.name}');
 
-    final start = _startBuilding == null ? null : _buildingAnchor(_startBuilding!);
-    final end = _endBuilding == null ? null : _buildingAnchor(_endBuilding!);
+    final start = _startBuilding == null ? null : polygonCenter(_startBuilding!.boundary);
+    final end = _endBuilding == null ? null : polygonCenter(_endBuilding!.boundary);
 
     await _directions.updateRoute(start: start, end: end);
 
@@ -479,7 +460,7 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-  //logic seperated
+  //logic separated
   void _showNotCampusSheet(BuildContext ctx) {
     _sheetController = Scaffold.of(ctx).showBottomSheet(
           (_) => const Padding(
@@ -597,110 +578,115 @@ class _HomeScreenState extends HomeScreenState {
       appBar: AppBar(title: const Text('The Waitlisters')),
       body: Stack(
         children: [
-          FutureBuilder<List<CampusBuilding>>(
-            future: _buildingsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text('Error loading polygons: ${snapshot.error}'),
-                );
-              }
-
-              if (_polygons.isEmpty && snapshot.hasData) {
-                _polygons = _buildPolygons(snapshot.data!);
-              }
-
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  return Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerDown: (event) async {
-                      final controller = await _controller.future;
-                      final box =
-                          _mapKey.currentContext?.findRenderObject()
-                              as RenderBox?;
-                      if (box == null) return;
-
-                      final local = box.globalToLocal(event.position);
-
-                      if (context.mounted) {
-                        final pixelRatio = MediaQuery.of(
-                          context,
-                        ).devicePixelRatio;
-
-                        final screenCoordinate = ScreenCoordinate(
-                          x: (local.dx * pixelRatio).round(),
-                          y: (local.dy * pixelRatio).round(),
-                        );
-                        final latLng = await controller.getLatLng(
-                          screenCoordinate,
-                        );
-                        lastTap = latLng;
-                      }
-                    },
-                    child: SizedBox(
-                      key: _mapKey,
-                      width: double.infinity,
-                      height: double.infinity,
-                      child: GoogleMap(
-                        key: const Key("google_map"),
-                        initialCameraPosition: _initialCamera,
-                        onMapCreated: (GoogleMapController controller) {
-                          if (!_controller.isCompleted) {
-                            _controller.complete(controller);
-                          }
-                        },
-                        zoomControlsEnabled: false,
-                        myLocationButtonEnabled: !isE2EMode,
-                        myLocationEnabled: !isE2EMode,
-                        polygons: _polygons,
-                        polylines: _directions.state.polyline == null
-                            ? <Polyline>{}
-                            : <Polyline>{_directions.state.polyline!},
-                        mapToolbarEnabled: false,
-                        markers: <Marker>{
-                          if (_cursorPoint != null)
-                            Marker(
-                              markerId: const MarkerId('cursor'),
-                              position: _cursorPoint!,
-                              infoWindow: InfoWindow(
-                                title: _cursorBuilding?.name ?? 'No building',
-                              ),
-                            ),
-                        },
-                        onTap: (LatLng point) {
-                          handleMapTap(point, context);
-
-                          if (_searchResults.isNotEmpty) {
-                            setState(() {
-                              _showSearchResults = true;
-                          });
-                          }
-                          FocusScope.of(context).unfocus();
-
-                        }
-
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-
+          _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          if (_showSearchResults) _buildSearchResultsCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
-
         ],
       ),
+    );
+  }
+
+  Widget _buildMapLayer() {
+    return FutureBuilder<List<CampusBuilding>>(
+      future: _buildingsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error loading polygons: ${snapshot.error}'),
+          );
+        }
+
+        if (_polygons.isEmpty && snapshot.hasData) {
+          _polygons = _buildPolygons(snapshot.data!);
+        }
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (event) async {
+                final controller = await _controller.future;
+                final box =
+                _mapKey.currentContext?.findRenderObject()
+                as RenderBox?;
+                if (box == null) return;
+
+                final local = box.globalToLocal(event.position);
+
+                if (context.mounted) {
+                  final pixelRatio = MediaQuery.of(
+                    context,
+                  ).devicePixelRatio;
+
+                  final screenCoordinate = ScreenCoordinate(
+                    x: (local.dx * pixelRatio).round(),
+                    y: (local.dy * pixelRatio).round(),
+                  );
+                  final latLng = await controller.getLatLng(
+                    screenCoordinate,
+                  );
+                  lastTap = latLng;
+                }
+              },
+              child: SizedBox(
+                key: _mapKey,
+                width: double.infinity,
+                height: double.infinity,
+                child: _buildGoogleMapWidget()
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildGoogleMapWidget() {
+    return GoogleMap(
+        key: const Key("google_map"),
+        initialCameraPosition: _initialCamera,
+        onMapCreated: (GoogleMapController controller) {
+          if (!_controller.isCompleted) {
+            _controller.complete(controller);
+          }
+        },
+        zoomControlsEnabled: false,
+        myLocationButtonEnabled: !isE2EMode,
+        myLocationEnabled: !isE2EMode,
+        polygons: _polygons,
+        polylines: _directions.state.polyline == null
+            ? <Polyline>{}
+            : <Polyline>{_directions.state.polyline!},
+        mapToolbarEnabled: false,
+        markers: <Marker>{
+          if (_cursorPoint != null)
+            Marker(
+              markerId: const MarkerId('cursor'),
+              position: _cursorPoint!,
+              infoWindow: InfoWindow(
+                title: _cursorBuilding?.name ?? 'No building',
+              ),
+            ),
+        },
+        onTap: (LatLng point) {
+          handleMapTap(point, context);
+
+          if (_searchResults.isNotEmpty) {
+            setState(() {
+              _showSearchResults = true;
+            });
+          }
+          FocusScope.of(context).unfocus();
+
+        }
+
     );
   }
 
@@ -846,84 +832,36 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildSearchOverlay() {
-    return Positioned(
-      top: 16,
-      left: 12,
-      right: 12,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: "Search building...",
-                  border: InputBorder.none,
-                  suffixIcon: _searchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: ()
-                    {
-                      _searchController.clear();
-                      setState(() {
-                        _searchResults.clear();
-                        _showSearchResults = false;
-                      });
-                    },
-                  ),
-                ),
-                onChanged: _onSearchChanged,
-                onTap: ()
-                {
-                  if (_searchResults.isNotEmpty)
-                  {
-                    setState(() {
-                      _showSearchResults = true;
-                    });
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    return SearchOverlay(
+      controller: _searchController,
+      showResults: _showSearchResults,
+      results: _searchResults,
+      onChanged: _onSearchChanged,
+      onTapField: () {
+        if (_searchResults.isNotEmpty) {
+          setState(() {
+            _showSearchResults = true;
+          });
+        }
+      },
+      onClear: () {
+        _searchController.clear();
+        setState(() {
+          _searchResults.clear();
+          _showSearchResults = false;
+        });
+      },
+      onSelectResult: (b) {
+        debugPrint('Tapped search result: ${b.name}');
+        _searchController.text = b.name;
 
-  Widget _buildSearchResultsCard() {
-    return Card(
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: _searchResults.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, i)
-        {
-          final b = _searchResults[i];
+        setState(() {
+          _showSearchResults = false;
+          _searchResults.clear();
+        });
 
-          return ListTile(
-            dense: true,
-            title: Text(b.name),
-            subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
-                ? Text(b.fullName!)
-                : null,
-            onTap: ()
-            {
-              debugPrint('Tapped search result: ${b.name}');
-              _searchController.text = b.name;
-
-              setState(() {
-                _showSearchResults = false;
-                _searchResults.clear();
-              });
-              _onBuildingTapped(b);
-            },
-          );
-        },
-      ),
+        _onBuildingTapped(b);
+      },
     );
   }
 
@@ -935,11 +873,8 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @override
-  void dispose()
-        {
+  void dispose() {
     _gpsSub?.cancel();
-    _searchDebounce?.cancel();
-    _searchController.dispose();
     _directions.dispose();
     super.dispose();
   }
@@ -991,22 +926,4 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-}
-
-CampusBuilding? findBuildingAtPoint(
-  LatLng point,
-  List<CampusBuilding> buildings,
-  Campus campus,
-) {
-  for (CampusBuilding b in buildings) {
-    if (b.campus != campus) {
-      continue;
-    }
-
-    if (isPointInPolygon(point, b.boundary)) {
-      return b;
-    }
-  }
-
-  return null;
 }
