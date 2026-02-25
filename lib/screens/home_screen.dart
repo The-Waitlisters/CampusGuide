@@ -354,49 +354,6 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  /*Future<Set<Polygon>> _buildPolygonsForCampus(Campus campus) async
-  {
-    // Optional delay if they were using this to simulate async loading
-    await Future.delayed(const Duration(milliseconds: 100));
-
-    final Set<Polygon> polys = <Polygon>{};
-
-    for (final CampusBuilding b in buildingsPresent)
-    {
-      if (b.campus != campus)
-      {
-        continue;
-      }
-
-      final bool isActiveGps = _currentBuildingFromGPS?.id == b.id;
-
-      polys.add(
-        Polygon(
-          polygonId: PolygonId(b.id),
-          points: b.boundary,
-          fillColor: isActiveGps
-              ? const Color(0x803197F6) // highlighted fill
-              : const Color(0x80912338), // default fill
-          strokeColor: isActiveGps
-              ? Colors.blue
-              : const Color(0xFF741C2C),
-          strokeWidth: isActiveGps ? 3 : 2,
-          consumeTapEvents: false,
-          onTap: ()
-          {
-            debugPrint('Polygon tapped: ${b.name} (id=${b.id})');
-            setState(()
-            {
-              _cursorBuilding = b;
-            });
-          },
-        ),
-      );
-    }
-
-    return polys;
-  }*/
-
   Future<void> _goToCampus(Campus campus) async {
     final completer = widget.testMapControllerCompleter ?? _controller;
     final controller = await completer.future;
@@ -413,7 +370,6 @@ class _HomeScreenState extends HomeScreenState {
       _currentBuildingFromGPS = null;
     });
   }
-
 
   Set<Polygon> _buildPolygons(List<CampusBuilding> buildings) {
     _polygonToBuilding.clear();
@@ -708,48 +664,40 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildGpsStatusCard() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: Card(
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
-              child: Text(
-                _currentBuildingFromGPS?.fullName ??
-                    _currentBuildingFromGPS?.name ??
-                    'Not in a building',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
+  Widget _buildGpsStatusCard() {final text = _currentBuildingFromGPS?.fullName ?? _currentBuildingFromGPS?.name ?? 'Not in a building';
+    return _topCard(
+      top: 12,
+      elevation: 4,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
     );
   }
 
   Widget _buildCampusToggleCard() {
+    return _topCard(
+      top: 70,
+      padding: const EdgeInsets.all(8),
+      child: CampusToggle(
+        selected: _campus,
+        onChanged: _goToCampus,
+      ),
+    );
+  }
+
+  Widget _topCard({required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(12), double? elevation,}) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 70, 12, 0),
+        padding: EdgeInsets.fromLTRB(12, top, 12, 0),
         child: Align(
           alignment: Alignment.topCenter,
           child: Card(
+            elevation: elevation,
             child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: CampusToggle(
-                selected: _campus,
-                onChanged: _goToCampus,
-              ),
+              padding: padding,
+              child: child,
             ),
           ),
         ),
