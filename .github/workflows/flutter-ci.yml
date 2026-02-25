@@ -27,10 +27,10 @@ jobs:
       - name: Create .env for tests
         run: |
           cat > .env << 'EOF'
-          DIRECTIONS_API_KEY=$DIRECTIONS_API_KEY
-          CONCORDIA_USER_ID=$CONCORDIA_USER_ID
-          CONCORDIA_API_KEY=$CONCORDIA_API_KEY
-          MAPS_API_KEY=$MAPS_API_KEY
+          DIRECTIONS_API_KEY=${{ secrets.DIRECTIONS_API_KEY }}
+          CONCORDIA_USER_ID=${{ secrets.CONCORDIA_USER_ID }}
+          CONCORDIA_API_KEY=${{ secrets.CONCORDIA_API_KEY }}
+          MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}
           EOF
 
       - name: Analyze code
