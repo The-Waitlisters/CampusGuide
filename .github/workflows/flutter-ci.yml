@@ -37,14 +37,7 @@ jobs:
         run: flutter analyze
 
       - name: Run tests with coverage
-        env:
-          DIRECTIONS_API_KEY: ${{ secrets.DIRECTIONS_API_KEY }}
-        run: |
-          if [ -n "$DIRECTIONS_API_KEY" ]; then
-            flutter test --coverage --dart-define=DIRECTIONS_API_KEY=$DIRECTIONS_API_KEY
-          else
-            flutter test --coverage
-          fi
+        run: flutter test --coverage
       - name: Upload LCOV artifact (for Sonar job)
         uses: actions/upload-artifact@v4
         with:
