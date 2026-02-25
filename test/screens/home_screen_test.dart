@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
@@ -10,12 +11,14 @@ import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
-import 'package:proj/screens/home_screen.dart' show HomeScreenState, BuildingDetailContent;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState;
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
+import 'package:proj/utilities/polygon_helper.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
+import 'package:proj/widgets/home/building_detail_content.dart';
 
 import 'home_screen_test.mocks.dart';
 
@@ -261,20 +264,20 @@ void main() {
     ];
 
     test('returns true for a point inside the polygon', () {
-      expect(home_screen.isPointInPolygon(const LatLng(1, 1), polygon), isTrue);
+      expect(isPointInPolygon(const LatLng(1, 1), polygon), isTrue);
     });
 
     test('returns false for a point outside the polygon', () {
-      expect(home_screen.isPointInPolygon(const LatLng(3, 3), polygon), isFalse);
+      expect(isPointInPolygon(const LatLng(3, 3), polygon), isFalse);
     });
 
     test('returns false for a point to the left of the polygon', () {
-      expect(home_screen.isPointInPolygon(const LatLng(0.5, -0.5), polygon), isFalse);
+      expect(isPointInPolygon(const LatLng(0.5, -0.5), polygon), isFalse);
     });
 
     test('handles polygon with zero denominator (vertical edge)', () {
       const degenerate = [LatLng(1, 0), LatLng(1, 2), LatLng(1, 0)];
-      expect(home_screen.isPointInPolygon(const LatLng(0.5, 1), degenerate), isFalse);
+      expect(isPointInPolygon(const LatLng(0.5, 1), degenerate), isFalse);
     });
   });
 
@@ -301,7 +304,7 @@ void main() {
     });
 
     test('returns building when point is inside boundary and campus matches', () {
-      final result = home_screen.findBuildingAtPoint(
+      final result = findBuildingAtPoint(
         const LatLng(1, 1),
         [sgwBuilding, loyolaBuilding],
         Campus.sgw,
@@ -310,7 +313,7 @@ void main() {
     });
 
     test('returns null when point is inside boundary but campus does not match', () {
-      final result = home_screen.findBuildingAtPoint(
+      final result = findBuildingAtPoint(
         const LatLng(1, 1),
         [sgwBuilding, loyolaBuilding],
         Campus.loyola,
@@ -319,7 +322,7 @@ void main() {
     });
 
     test('returns null when point is outside all buildings', () {
-      final result = home_screen.findBuildingAtPoint(
+      final result = findBuildingAtPoint(
         const LatLng(5, 5),
         [sgwBuilding, loyolaBuilding],
         Campus.sgw,
@@ -328,7 +331,7 @@ void main() {
     });
 
     test('returns null for empty buildings list', () {
-      final result = home_screen.findBuildingAtPoint(
+      final result = findBuildingAtPoint(
         const LatLng(1, 1),
         [],
         Campus.sgw,
@@ -827,19 +830,19 @@ void main() {
       // Force geocoding to return a placemark without touching MethodChannels.
       GeocodingPlatform.instance = FakeGeocodingSuccess();
 
-      final String addr = await state.getPlaceMarks(insidePoint);
+      final String address = await state.getPlaceMarks(insidePoint);
       // Don't assert exact formatting: it depends on how Placemark fields are
       // derived on a given platform. We only need to ensure the happy-path
       // returns a non-empty address (and not the catch fallback).
-      expect(addr, isNot('No Address'));
-      expect(addr.toLowerCase(), contains('montreal'));
-      expect(addr, contains('H0H0H0'));
+      expect(address, isNot('No Address'));
+      expect(address.toLowerCase(), contains('montreal'));
+      expect(address, contains('H0H0H0'));
 
       // Now force geocoding to throw -> catch branch returns "No Address".
       GeocodingPlatform.instance = FakeGeocodingThrow();
 
-      final String addr2 = await state.getPlaceMarks(insidePoint);
-      expect(addr2, 'No Address');
+      final String address2 = await state.getPlaceMarks(insidePoint);
+      expect(address2, 'No Address');
     });
     //test annex logic, applyPolygonSelection , showBuildingDetailSheet, selection styling
     group('BuildingDetailContent', () {
@@ -860,7 +863,7 @@ void main() {
             await tester.pumpWidget(
               MaterialApp(
                 home: Scaffold(
-                  body: home_screen.BuildingDetailContent(
+                  body: BuildingDetailContent(
                     building: building,
                     isAnnex: false,
                     startBuilding: null,

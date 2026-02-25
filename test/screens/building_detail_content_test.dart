@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
-import 'package:proj/screens/home_screen.dart';
+import 'package:proj/widgets/home/building_detail_content.dart';
 
 import 'home_screen_test.dart';
 
