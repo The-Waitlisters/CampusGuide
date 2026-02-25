@@ -13,7 +13,6 @@ import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
-import '../widgets/home/building_detail_content.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
