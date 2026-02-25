@@ -37,12 +37,14 @@ jobs:
             flutter test --coverage
           fi
       - name: Upload LCOV artifact (for Sonar job)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
+        env: 
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           name: coverage-lcov
           path: coverage/lcov.info
           retention-days: 14
-
+          
       - name: Install lcov (for genhtml)
         run: sudo apt-get update && sudo apt-get install -y lcov
 
