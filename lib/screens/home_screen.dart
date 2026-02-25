@@ -89,15 +89,7 @@ class _HomeScreenState extends HomeScreenState {
       exitThresholdMeters: 25,
     );
 
-    _buildingsFuture = data.getBuildingInfoFromJSON();
-    _buildingsFuture.then((list) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        buildingsPresent = list;
-      });
-    });
+    _refreshBuildingsFromParser();
   }
 
   void _initDirections() {
@@ -117,7 +109,7 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _tryInitLocationTracking() async {
-    if (!isE2EMode) {
+    if (isE2EMode) {
       return;
     }
 
@@ -154,10 +146,32 @@ class _HomeScreenState extends HomeScreenState {
 
           if (!mounted) return;
 
+          final oldId = _currentBuildingFromGPS?.id;
+          final newId = result.building?.id;
+
           setState(() {
             _currentBuildingFromGPS = result.building;
           });
+
+          if (oldId != newId) {
+            _refreshBuildingsFromParser();
+          }
         });
+  }
+
+  void _refreshBuildingsFromParser() {
+    _buildingsFuture = data.getBuildingInfoFromJSON().then((list) {
+      if (!mounted) {
+        return list;
+      }
+
+      setState(() {
+        buildingsPresent = list;
+        _polygons = _buildPolygons(list);
+      });
+
+      return list;
+    });
   }
 
   CameraPosition get _initialCamera {
@@ -447,7 +461,7 @@ class _HomeScreenState extends HomeScreenState {
     lastTap = point;
 
     if (building == null) {
-      _showNotCampusSheet(sheetContext ?? context);
+      _showNotCampusSheet();
     } else {
       _cursorBuilding = building;
       _updateOnTap(PolygonId(building.id));
@@ -459,8 +473,14 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   //logic separated
-  void _showNotCampusSheet(BuildContext ctx) {
-    _sheetController = Scaffold.of(ctx).showBottomSheet(
+  void _showNotCampusSheet() {
+    final scaffoldState = _scaffoldKey.currentState;
+    if (scaffoldState == null) {
+      return;
+    }
+
+    _sheetController?.close();
+    _sheetController = scaffoldState.showBottomSheet(
           (_) => const Padding(
         padding: EdgeInsets.all(16),
         child: Column(
