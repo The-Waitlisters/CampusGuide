@@ -16,6 +16,7 @@ import '../services/directions/transport_mode_strategy.dart';
 import '../widgets/home/building_detail_content.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/directions_card.dart';
+import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -566,61 +567,18 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildMapLayer() {
-    return FutureBuilder<List<CampusBuilding>>(
+    return MapLayer<CampusBuilding>(
       future: _buildingsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error loading polygons: ${snapshot.error}'),
-          );
-        }
-
-        if (_polygons.isEmpty && snapshot.hasData) {
-          _polygons = _buildPolygons(snapshot.data!);
-        }
-
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (event) async {
-                final controller = await _controller.future;
-                final box =
-                _mapKey.currentContext?.findRenderObject()
-                as RenderBox?;
-                if (box == null) return;
-
-                final local = box.globalToLocal(event.position);
-
-                if (context.mounted) {
-                  final pixelRatio = MediaQuery.of(
-                    context,
-                  ).devicePixelRatio;
-
-                  final screenCoordinate = ScreenCoordinate(
-                    x: (local.dx * pixelRatio).round(),
-                    y: (local.dy * pixelRatio).round(),
-                  );
-                  final latLng = await controller.getLatLng(
-                    screenCoordinate,
-                  );
-                  lastTap = latLng;
-                }
-              },
-              child: SizedBox(
-                key: _mapKey,
-                width: double.infinity,
-                height: double.infinity,
-                child: _buildGoogleMapWidget()
-              ),
-            );
-          },
-        );
+      hasPolygons: _polygons.isNotEmpty,
+      onDataReady: (data) {
+        _polygons = _buildPolygons(data);
       },
+      mapKey: _mapKey,
+      controllerFuture: _controller.future,
+      onMapTapLatLng: (latLng) {
+        lastTap = latLng;
+      },
+      map: _buildGoogleMapWidget(),
     );
   }
 
