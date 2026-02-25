@@ -15,6 +15,7 @@ import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../widgets/home/building_detail_content.dart';
 import '../utilities/polygon_helper.dart';
+import '../widgets/home/directions_card.dart';
 import '../widgets/home/search_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -703,94 +704,23 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildDirectionsCard() {
-    if (_startBuilding == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Positioned(
-      top: 150,
-      left: 12,
-      right: 12,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Directions",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      setState(() {
-                        _startBuilding = null;
-                        _endBuilding = null;
-                      });
-                      _directions.updateRoute(start: null, end: null);
-                      debugPrint('Directions cancelled');
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 8),
-
-              Text("Start: ${_startBuilding!.fullName ?? _startBuilding!.name}"),
-
-              const SizedBox(height: 6),
-
-              Text("Destination: ${_endBuilding?.fullName ?? "Not set"}"),
-
-              const SizedBox(height: 8),
-
-              // ---- NEW: loading / unavailable / retry / success summary ----
-              if (_endBuilding == null)
-                const Text(
-                  'Select a destination to see a route.',
-                  style: TextStyle(fontStyle: FontStyle.italic),
-                )
-              else if (_directions.state.isLoading)
-                const Row(
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 10),
-                    Text('Loading directions...'),
-                  ],
-                )
-              else if (_directions.state.errorMessage != null)
-                  Row(
-                    children: [
-                      const Icon(Icons.error_outline, size: 18),
-                      const SizedBox(width: 8),
-                      const Expanded(child: Text('Directions unavailable')),
-                      TextButton(
-                        onPressed: _updateDirectionsIfReady,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  )
-                else if (_directions.state.polyline != null)
-                    Text(
-                      '${_directions.state.durationText ?? ''}'
-                          '${_directions.state.durationText != null && _directions.state.distanceText != null ? ' • ' : ''}'
-                          '${_directions.state.distanceText ?? ''}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-            ],
-          ),
-        ),
-      ),
+    return DirectionsCard(
+      startBuilding: _startBuilding,
+      endBuilding: _endBuilding,
+      isLoading: _directions.state.isLoading,
+      errorMessage: _directions.state.errorMessage,
+      polyline: _directions.state.polyline,
+      durationText: _directions.state.durationText,
+      distanceText: _directions.state.distanceText,
+      onCancel: () {
+        setState(() {
+          _startBuilding = null;
+          _endBuilding = null;
+        });
+        _directions.updateRoute(start: null, end: null);
+        debugPrint('Directions cancelled');
+      },
+      onRetry: _updateDirectionsIfReady,
     );
   }
 
