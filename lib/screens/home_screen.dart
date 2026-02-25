@@ -15,6 +15,7 @@ import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../widgets/home/building_detail_content.dart';
 import '../utilities/polygon_helper.dart';
+import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
@@ -489,55 +490,38 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-  void _showBuildingDetailSheet(CampusBuilding building, bool isAnnex,) {
+  void _showBuildingDetailSheet(CampusBuilding building, bool isAnnex) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final scaffoldState = _scaffoldKey.currentState;
       if (scaffoldState == null) return;
+
       _sheetController?.close();
       _sheetController = null;
 
       _sheetController = scaffoldState.showBottomSheet((context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.25,
-          minChildSize: 0.15,
-          maxChildSize: 0.8,
-          expand: false,
-          builder: (context, scrollController) {
-            return Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: BuildingDetailContent(
-                  building: building,
-                  isAnnex: isAnnex,
-                  startBuilding: _startBuilding,
-                  endBuilding: _endBuilding,
-                  onSetStart: () async {
-                    debugPrint('Sheet: Set as Start pressed for ${building.name}');
-                    setState(() {
-                      _startBuilding = building;
-                      _endBuilding = null;
-                    });
-                    await _updateDirectionsIfReady();
-                    _sheetController?.close();
-                    _sheetController = null;
-                  },
-                  onSetDestination: () async {
-                    debugPrint('Sheet: Set as Destination pressed for ${building.name}');
-                    setState(() {
-                      _endBuilding = building;
-                    });
-                    await _updateDirectionsIfReady();
-                    _sheetController?.close();
-                    _sheetController = null;
-                  },
-                ),
-              ),
-            );
+        return BuildingDetailSheet(
+          building: building,
+          isAnnex: isAnnex,
+          startBuilding: _startBuilding,
+          endBuilding: _endBuilding,
+          onSetStart: () async {
+            debugPrint('Sheet: Set as Start pressed for ${building.name}');
+            setState(() {
+              _startBuilding = building;
+              _endBuilding = null;
+            });
+            await _updateDirectionsIfReady();
+            _sheetController?.close();
+            _sheetController = null;
+          },
+          onSetDestination: () async {
+            debugPrint('Sheet: Set as Destination pressed for ${building.name}');
+            setState(() {
+              _endBuilding = building;
+            });
+            await _updateDirectionsIfReady();
+            _sheetController?.close();
+            _sheetController = null;
           },
         );
       });
