@@ -8,6 +8,7 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
+import 'package:proj/widgets/home/campus_map.dart';
 import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
@@ -623,44 +624,40 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildGoogleMapWidget() {
-    return GoogleMap(
-        key: const Key("google_map"),
-        initialCameraPosition: _initialCamera,
-        onMapCreated: (GoogleMapController controller) {
-          if (!_controller.isCompleted) {
-            _controller.complete(controller);
-          }
-        },
-        zoomControlsEnabled: false,
-        myLocationButtonEnabled: !isE2EMode,
-        myLocationEnabled: !isE2EMode,
-        polygons: _polygons,
-        polylines: _directions.state.polyline == null
-            ? <Polyline>{}
-            : <Polyline>{_directions.state.polyline!},
-        mapToolbarEnabled: false,
-        markers: <Marker>{
-          if (_cursorPoint != null)
-            Marker(
-              markerId: const MarkerId('cursor'),
-              position: _cursorPoint!,
-              infoWindow: InfoWindow(
-                title: _cursorBuilding?.name ?? 'No building',
-              ),
+    return CampusMap(
+      initialCamera: _initialCamera,
+      polygons: _polygons,
+      polylines: _directions.state.polyline == null
+          ? <Polyline>{}
+          : <Polyline>{_directions.state.polyline!},
+      markers: <Marker>{
+        if (_cursorPoint != null)
+          Marker(
+            markerId: const MarkerId('cursor'),
+            position: _cursorPoint!,
+            infoWindow: InfoWindow(
+              title: _cursorBuilding?.name ?? 'No building',
             ),
-        },
-        onTap: (LatLng point) {
-          handleMapTap(point, context);
+          ),
+      },
+      myLocationEnabled: !isE2EMode,
+      myLocationButtonEnabled: !isE2EMode,
+      onMapCreated: (GoogleMapController controller) {
+        if (!_controller.isCompleted) {
+          _controller.complete(controller);
+        }
+      },
+      onTap: (LatLng point) {
+        handleMapTap(point);
 
-          if (_searchResults.isNotEmpty) {
-            setState(() {
-              _showSearchResults = true;
-            });
-          }
-          FocusScope.of(context).unfocus();
-
+        if (_searchResults.isNotEmpty) {
+          setState(() {
+            _showSearchResults = true;
+          });
         }
 
+        FocusScope.of(context).unfocus();
+      },
     );
   }
 
