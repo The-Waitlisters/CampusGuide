@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final bool isE2EMode = const bool.fromEnvironment('E2E_TEST', defaultValue: false);
 
 // coverage:ignore-start
-void main() {
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const CampusGuideApp());
 }
 // coverage:ignore-end

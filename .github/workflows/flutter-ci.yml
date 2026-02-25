@@ -15,6 +15,9 @@ jobs:
 
     env:
       DIRECTIONS_API_KEY: ${{ secrets.DIRECTIONS_API_KEY }}
+      CONCORDIA_USER_ID: ${{ secrets.CONCORDIA_USER_ID }}
+      CONCORDIA_API_KEY: ${{ secrets.CONCORDIA_API_KEY }}
+      MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -29,11 +32,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create .env for tests
+        run: |
+          cat > .env << 'EOF'
+          DIRECTIONS_API_KEY=$DIRECTIONS_API_KEY
+          CONCORDIA_USER_ID=$CONCORDIA_USER_ID
+          CONCORDIA_API_KEY=$CONCORDIA_API_KEY
+          MAPS_API_KEY=$MAPS_API_KEY
+          EOF
+
       - name: Analyze code
         run: flutter analyze
 
       - name: Run tests with coverage
-        run: flutter test --coverage --dart-define=DIRECTIONS_API_KEY=$DIRECTIONS_API_KEY
+        run: flutter test --coverage
 
       - name: Install Lcov
         if: github.event_name == 'push'
