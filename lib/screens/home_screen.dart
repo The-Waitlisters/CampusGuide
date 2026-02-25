@@ -154,9 +154,6 @@ class _HomeScreenState extends HomeScreenState {
 
           if (!mounted) return;
 
-          final oldId = _currentBuildingFromGPS?.id;
-          final newId = result.building?.id;
-
           setState(() {
             _currentBuildingFromGPS = result.building;
           });
