@@ -9,6 +9,4 @@
 !/test_coverage
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
-lib/config/secrets.dart
-.env
 tool/
