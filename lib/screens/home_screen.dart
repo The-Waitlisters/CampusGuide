@@ -18,6 +18,7 @@ import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
+import '../widgets/use_as_start.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -75,6 +76,8 @@ class _HomeScreenState extends HomeScreenState {
 
   StreamSubscription<Position>? _gpsSub;
   CampusBuilding? _currentBuildingFromGPS;
+
+  bool isInBuilding = false;
 
   @override
   void initState() {
@@ -381,7 +384,9 @@ class _HomeScreenState extends HomeScreenState {
       final pid = PolygonId(e.id);
       _polygonToBuilding[pid] = e;
       final bool isActiveGps = _currentBuildingFromGPS?.id == e.id;
-
+      if(isActiveGps) {
+        isInBuilding = isActiveGps; // As soon as there's a building we are in, global variable is set to true
+      }
       return Polygon(
         polygonId: pid,
         points: e.boundary,
@@ -477,7 +482,11 @@ class _HomeScreenState extends HomeScreenState {
       _cursorBuilding = building;
       _polygons = _polygons.map((p) {
         final isSelected = (p.polygonId == _selectedId);
-        final selectedLocatedBuilding = p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
+        bool selectedLocatedBuilding = false;
+        if(_currentBuildingFromGPS != null) {
+          selectedLocatedBuilding = p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
+
+        }
         return p.copyWith(
           fillColorParam: isSelected
               ? const Color.fromARGB(255, 124, 115, 29)
@@ -544,6 +553,7 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
+          if (_currentBuildingFromGPS != null)_buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
         ],
       ),
@@ -625,6 +635,20 @@ class _HomeScreenState extends HomeScreenState {
         onChanged: _goToCampus,
       ),
     );
+  }
+
+  Widget _buildSetCurrentAsStartCard() {
+    return useAsStart(selected: _currentBuildingFromGPS!,
+        onSetStart: () async {
+      debugPrint('Sheet: Set as Start pressed for ${_currentBuildingFromGPS?.name}');
+      setState(() {
+        _startBuilding = _currentBuildingFromGPS;
+        _endBuilding = null;
+      });
+      await _updateDirectionsIfReady();
+      _sheetController?.close();
+      _sheetController = null;
+    });
   }
 
   Widget _topCard({required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(12), double? elevation,}) {
@@ -713,6 +737,7 @@ class _HomeScreenState extends HomeScreenState {
     _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
+    _controller.future.then((ctlrer) => ctlrer.dispose());
     super.dispose();
   }
   //to call _updateOnTap() in tests.
