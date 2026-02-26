@@ -49,19 +49,32 @@ class MapLayer<T> extends StatelessWidget {
         return Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (event) async {
-            final box = mapKey.currentContext?.findRenderObject() as RenderBox?;
-            if (box == null) return;
+            final RenderBox? box = mapKey.currentContext?.findRenderObject() as RenderBox?;
+            if (box == null) {
+              return;
+            }
 
-            final local = box.globalToLocal(event.position);
-            final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+            final Offset local = box.globalToLocal(event.position);
+            final double pixelRatio = MediaQuery.of(context).devicePixelRatio;
 
-            final screenCoordinate = ScreenCoordinate(
+            final ScreenCoordinate screenCoordinate = ScreenCoordinate(
               x: (local.dx * pixelRatio).round(),
               y: (local.dy * pixelRatio).round(),
             );
 
-            final controller = await controllerFuture;
-            final latLng = await controller.getLatLng(screenCoordinate);
+            final GoogleMapController controller = await controllerFuture;
+
+            // Map may have been disposed while awaiting the controller.
+            if (mapKey.currentContext == null) {
+              return;
+            }
+
+            LatLng latLng;
+            try {
+              latLng = await controller.getLatLng(screenCoordinate);
+            } catch (_) {
+              return;
+            }
 
             onMapTapLatLng(latLng);
           },

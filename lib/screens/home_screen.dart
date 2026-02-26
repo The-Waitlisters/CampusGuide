@@ -71,11 +71,13 @@ class _HomeScreenState extends HomeScreenState {
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
+  static const double _sheetLiftMax = 210.0;
 
   late BuildingLocator _buildingLocator;
 
   StreamSubscription<Position>? _gpsSub;
   CampusBuilding? _currentBuildingFromGPS;
+  LatLng? _lastGpsPoint;
 
   bool isInBuilding = false;
 
@@ -156,7 +158,11 @@ class _HomeScreenState extends HomeScreenState {
           final newId = result.building?.id;
 
           setState(() {
+            _lastGpsPoint = userPoint;
             _currentBuildingFromGPS = result.building;
+
+            final CampusBuilding? b = result.building;
+            isInBuilding = b != null && isPointInPolygon(userPoint, b.boundary);
           });
 
           if (oldId != newId) {
@@ -461,7 +467,15 @@ class _HomeScreenState extends HomeScreenState {
         ),
       ),
     );
+    _attachSheetAnimation(_sheetController);
   }
+
+  void _attachSheetAnimation(PersistentBottomSheetController? controller) {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
 
   void _updateOnTap(PolygonId id) {
     final building = _polygonToBuilding[id];
@@ -534,6 +548,7 @@ class _HomeScreenState extends HomeScreenState {
           },
         );
       });
+      _attachSheetAnimation(_sheetController);
 
       _sheetController!.closed.then((_) {
         if (mounted) _sheetController = null;
@@ -553,7 +568,7 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          if (_currentBuildingFromGPS != null)_buildSetCurrentAsStartCard(),
+          if (_currentBuildingFromGPS != null && _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
         ],
       ),
@@ -638,17 +653,38 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildSetCurrentAsStartCard() {
-    return useAsStart(selected: _currentBuildingFromGPS!,
-        onSetStart: () async {
-      debugPrint('Sheet: Set as Start pressed for ${_currentBuildingFromGPS?.name}');
-      setState(() {
-        _startBuilding = _currentBuildingFromGPS;
-        _endBuilding = null;
-      });
-      await _updateDirectionsIfReady();
-      _sheetController?.close();
-      _sheetController = null;
-    });
+    if (_currentBuildingFromGPS == null || !isInBuilding || _startBuilding != null) {
+      return const SizedBox.shrink();
+    }
+
+    final bool sheetOpen = _sheetController != null;
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      left: 0,
+      bottom: sheetOpen ? _sheetLiftMax : 0,
+      child: useAsStart(
+        selected: _currentBuildingFromGPS!,
+        onSetStart: () {
+          debugPrint('Set as Start pressed for ${_currentBuildingFromGPS?.name}');
+
+          setState(() {
+            _startBuilding = _currentBuildingFromGPS;
+            _endBuilding = null;
+          });
+
+          _updateDirectionsIfReady();
+
+          if (_sheetController != null) {
+            _sheetController?.close();
+            setState(() {
+              _sheetController = null;
+            });
+          }
+        },
+      ),
+    );
   }
 
   Widget _topCard({required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(12), double? elevation,}) {
