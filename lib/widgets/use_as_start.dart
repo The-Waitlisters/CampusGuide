@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:proj/models/campus_building.dart';
 
-class useAsStart extends StatelessWidget {
-  const useAsStart({
+class UseAsStart extends StatelessWidget {
+  const UseAsStart({
     super.key,
     required this.selected,
     required this.onSetStart,

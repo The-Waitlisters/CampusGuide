@@ -77,7 +77,6 @@ class _HomeScreenState extends HomeScreenState {
 
   StreamSubscription<Position>? _gpsSub;
   CampusBuilding? _currentBuildingFromGPS;
-  LatLng? _lastGpsPoint;
 
   bool isInBuilding = false;
 
@@ -664,7 +663,7 @@ class _HomeScreenState extends HomeScreenState {
       curve: Curves.easeOut,
       left: 0,
       bottom: sheetOpen ? _sheetLiftMax : 0,
-      child: useAsStart(
+      child: UseAsStart(
         selected: _currentBuildingFromGPS!,
         onSetStart: () {
           debugPrint('Set as Start pressed for ${_currentBuildingFromGPS?.name}');
