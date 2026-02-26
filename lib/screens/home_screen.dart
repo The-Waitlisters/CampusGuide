@@ -157,7 +157,6 @@ class _HomeScreenState extends HomeScreenState {
           final newId = result.building?.id;
 
           setState(() {
-            _lastGpsPoint = userPoint;
             _currentBuildingFromGPS = result.building;
 
             final CampusBuilding? b = result.building;
