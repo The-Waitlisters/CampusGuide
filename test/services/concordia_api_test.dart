@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/testing.dart';
+import 'package:http/http.dart' as http;
 import 'package:proj/services/concordia_api.dart';
 
 String _joinPath(String a, String b) {
@@ -62,5 +64,34 @@ void main() {
     );
 
     expect(result, isNotEmpty);
+  });
+
+  test('throws if credentials are missing', () async {
+    final service = ConcordiaApiService(
+      userId: '',
+      apiKey: '',
+    );
+
+    expect(
+          () => service.fetchSchedule(subject: 'COMP', catalog: '248'),
+      throwsException,
+    );
+  });
+
+  test('throws on non-200 response', () async {
+    final mockClient = MockClient((request) async {
+      return http.Response('failure', 500);
+    });
+
+    final service = ConcordiaApiService(
+      userId: 'abc',
+      apiKey: 'xyz',
+      client: mockClient,
+    );
+
+    expect(
+          () => service.fetchSchedule(subject: 'COMP', catalog: '248'),
+      throwsException,
+    );
   });
 }

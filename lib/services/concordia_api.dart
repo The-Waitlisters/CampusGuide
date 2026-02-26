@@ -4,11 +4,13 @@ import 'package:http/http.dart' as http;
 class ConcordiaApiService {
   final String userId;
   final String apiKey;
+  final http.Client client;
 
   ConcordiaApiService({
     required this.userId,
     required this.apiKey,
-  });
+    http.Client? client,
+  }) : client = client ?? http.Client();
 
   Future<List<dynamic>> fetchSchedule({
     required String subject,
@@ -24,9 +26,9 @@ class ConcordiaApiService {
       'https://opendata.concordia.ca/API/v1/course/schedule/filter/*/$subject/$catalog',
     );
 
-    final response = await http.get(
+    final response = await client.get(
       uri,
-      headers: <String, String>{
+      headers: {
         'Authorization': 'Basic $auth',
         'Accept': 'application/json',
       },
