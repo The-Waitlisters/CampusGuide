@@ -477,13 +477,14 @@ class _HomeScreenState extends HomeScreenState {
       _cursorBuilding = building;
       _polygons = _polygons.map((p) {
         final isSelected = (p.polygonId == _selectedId);
+        final selectedLocatedBuilding = p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
         return p.copyWith(
           fillColorParam: isSelected
               ? const Color.fromARGB(255, 124, 115, 29)
-              : const Color(0x80912338),
+              : (selectedLocatedBuilding) ? const Color(0x803197F6) : Color(0x80912338),
           strokeColorParam: isSelected
               ? Colors.yellow
-              : const Color(0xFF741C2C),
+              : (selectedLocatedBuilding) ? Colors.blue : Color(0xFF741C2C),
         );
       }).toSet();
     });
