@@ -44,6 +44,7 @@ class DataParser {
       final isWheelchairAccessible = properties['isWheelchairAccessible'];
       final hasBikeParking = properties['hasBikeParking'];
       final hasCarParking = properties['hasCarParking'];
+      final hasMetroAccess = properties['hasMetroAccess'];
 
       final openingHoursRaw = properties['openingHours'];
       final departmentsRaw = properties['departments'];
@@ -83,6 +84,7 @@ class DataParser {
           isWheelchairAccessible: isWheelchairAccessible,
           hasBikeParking: hasBikeParking,
           hasCarParking: hasCarParking,
+          hasMetroAccess: hasMetroAccess,
           departments: departments,
           services: services,
         ),

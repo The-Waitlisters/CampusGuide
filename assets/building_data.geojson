@@ -12,6 +12,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": true,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -77,6 +78,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -137,6 +139,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -187,6 +190,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": true,
         "hasCarParking": false,
+        "hasMetroAccess": true,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -254,6 +258,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": true,
         "hasCarParking": true,
+        "hasMetroAccess": true,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -322,6 +327,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": true,
         "hasCarParking": false,
+        "hasMetroAccess": true,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -389,6 +395,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": true,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -452,6 +459,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: None",
           "Restricted Access: 24/7"
@@ -502,6 +510,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: None",
           "Restricted Access: 24/7"
@@ -556,6 +565,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -606,6 +616,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -658,6 +669,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -708,6 +720,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -758,6 +771,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -808,6 +822,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -858,6 +873,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -908,6 +924,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -958,6 +975,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1016,6 +1034,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": true,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1076,6 +1095,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1122,6 +1142,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1172,6 +1193,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1225,6 +1247,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1275,6 +1298,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1325,6 +1349,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1375,6 +1400,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1425,6 +1451,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1475,6 +1502,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1525,6 +1553,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1575,6 +1604,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1625,6 +1655,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": true,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1675,6 +1706,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1725,6 +1757,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1775,6 +1808,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1826,6 +1860,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1876,6 +1911,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1927,6 +1963,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -1980,6 +2017,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2066,6 +2104,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2118,6 +2157,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2168,6 +2208,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2231,6 +2272,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": true,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2289,6 +2331,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": true,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2341,6 +2384,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2410,6 +2454,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "https://www.stig.ca/schedule"
         ],
@@ -2459,6 +2504,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: None",
           "Restricted Access: 24/7"
@@ -2509,6 +2555,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2559,6 +2606,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: None",
           "Restricted Access: 24/7"
@@ -2610,6 +2658,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2660,6 +2709,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: None",
           "Restricted Access: 24/7"
@@ -2710,6 +2760,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": true,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2760,6 +2811,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2811,6 +2863,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2861,6 +2914,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2912,6 +2966,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -2962,6 +3017,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -3016,6 +3072,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -3066,6 +3123,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -3116,6 +3174,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -3168,6 +3227,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -3235,6 +3295,7 @@
         "isWheelchairAccessible": false,
         "hasBikeParking": false,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"
@@ -3285,6 +3346,7 @@
         "isWheelchairAccessible": true,
         "hasBikeParking": true,
         "hasCarParking": false,
+        "hasMetroAccess": false,
         "openingHours": [
           "Regular Access: Monday to Friday 7:00am to 11:00pm, Saturday and Sunday 7:00am to 9:00pm",
           "Restricted Access: 24/7"

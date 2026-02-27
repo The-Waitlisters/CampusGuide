@@ -52,7 +52,7 @@ class BuildingDetailContent extends StatelessWidget {
         const SizedBox(height: 12),
         if (building.isWheelchairAccessible ||
             building.hasBikeParking ||
-            building.hasCarParking)
+            building.hasCarParking || building.hasMetroAccess)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -62,6 +62,8 @@ class BuildingDetailContent extends StatelessWidget {
                 const Icon(Icons.pedal_bike),
               if (building.hasCarParking)
                 const Icon(Icons.local_parking),
+              if (building.hasMetroAccess)
+                const Icon(Icons.train),
             ],
           ),
         const SizedBox(height: 12),
