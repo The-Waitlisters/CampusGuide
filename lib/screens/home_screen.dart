@@ -39,6 +39,21 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
+
+  // For tests: Make sure we cover route-zoom math without a real map
+  @visibleForTesting
+  LatLngBounds boundsForRoute(LatLng a, LatLng b) {
+    final sw = LatLng(
+      a.latitude < b.latitude ? a.latitude : b.latitude,
+      a.longitude < b.longitude ? a.longitude : b.longitude,
+    );
+    final ne = LatLng(
+      a.latitude > b.latitude ? a.latitude : b.latitude,
+      a.longitude > b.longitude ? a.longitude : b.longitude,
+    );
+
+    return LatLngBounds(southwest: sw, northeast: ne);
+  }
 }
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
@@ -52,7 +67,8 @@ abstract class HomeScreenState extends State<HomeScreen> {
 class _HomeScreenState extends HomeScreenState {
   bool? isAnnex;
   late DataParser data;
-  final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
+  final Completer<GoogleMapController> _controller = Completer<
+      GoogleMapController>();
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   LatLng? lastTap;
@@ -108,7 +124,9 @@ class _HomeScreenState extends HomeScreenState {
     );
     assert(() {
       if (Secrets.directionsApiKey.isEmpty) {
-        debugPrint('Directions API key is missing (DIRECTIONS_API_KEY not set).');
+        // coverage:ignore-line
+        debugPrint(
+            'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
       return true;
     }());
@@ -205,12 +223,12 @@ class _HomeScreenState extends HomeScreenState {
 
       String address = '';
 
-      if(placemarks.isNotEmpty) {
-        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ?? ''}, ' '${placemarks[0].postalCode ?? ''}';
+      if (placemarks.isNotEmpty) {
+        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ??
+            ''}, ' '${placemarks[0].postalCode ?? ''}';
       }
 
       return address;
-
     } catch (e) {
       debugPrint("Error getting placemarks: $e");
       return "No Address";
@@ -247,10 +265,13 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _updateDirectionsIfReady() async {
-    debugPrint('_updateDirectionsIfReady start=${_startBuilding?.name} end=${_endBuilding?.name}');
+    debugPrint('_updateDirectionsIfReady start=${_startBuilding
+        ?.name} end=${_endBuilding?.name}');
 
-    final start = _startBuilding == null ? null : polygonCenter(_startBuilding!.boundary);
-    final end = _endBuilding == null ? null : polygonCenter(_endBuilding!.boundary);
+    final start = _startBuilding == null ? null : polygonCenter(
+        _startBuilding!.boundary);
+    final end = _endBuilding == null ? null : polygonCenter(
+        _endBuilding!.boundary);
 
     await _directions.updateRoute(start: start, end: end);
 
@@ -264,33 +285,23 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
     final controller = await _controller.future;
+    final bounds = boundsForRoute(a, b);
 
-    final sw = LatLng(
-      a.latitude < b.latitude ? a.latitude : b.latitude,
-      a.longitude < b.longitude ? a.longitude : b.longitude,
-    );
-    final ne = LatLng(
-      a.latitude > b.latitude ? a.latitude : b.latitude,
-      a.longitude > b.longitude ? a.longitude : b.longitude,
-    );
-
+    // coverage:ignore-line
     await controller.animateCamera(
       CameraUpdate.newLatLngBounds(
-        LatLngBounds(southwest: sw, northeast: ne),
+        bounds,
         80,
       ),
     );
   }
 
-  void _onBuildingTapped(CampusBuilding? building)
-  {
+  void _onBuildingTapped(CampusBuilding? building) {
     debugPrint('_onBuildingTapped called with: ${building?.name}');
-    if (building == null)
-    {
+    if (building == null) {
       showModalBottomSheet(
         context: context,
-        builder: (context)
-        {
+        builder: (context) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Column(
@@ -313,8 +324,7 @@ class _HomeScreenState extends HomeScreenState {
 
     showModalBottomSheet(
       context: context,
-      builder: (context)
-      {
+      builder: (context) {
         //final bool canSetStart = _startBuilding == null || (_startBuilding?.id != building.id);
         //final bool canSetEnd = _endBuilding == null || (_endBuilding?.id != building.id);
 
@@ -325,8 +335,10 @@ class _HomeScreenState extends HomeScreenState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${building.campus.name.toUpperCase()} - ${building.name} - ${building.fullName}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                '${building.campus.name.toUpperCase()} - ${building
+                    .name} - ${building.fullName}',
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(building.description ?? 'No description available'),
@@ -349,7 +361,8 @@ class _HomeScreenState extends HomeScreenState {
               else
                 ElevatedButton(
                   onPressed: () async {
-                    debugPrint('Pressed Set as Destination for: ${building.name}');
+                    debugPrint(
+                        'Pressed Set as Destination for: ${building.name}');
                     setState(() {
                       _endBuilding = building;
                     });
@@ -391,8 +404,9 @@ class _HomeScreenState extends HomeScreenState {
       final pid = PolygonId(e.id);
       _polygonToBuilding[pid] = e;
       final bool isActiveGps = _currentBuildingFromGPS?.id == e.id;
-      if(isActiveGps) {
-        isInBuilding = isActiveGps; // As soon as there's a building we are in, global variable is set to true
+      if (isActiveGps) {
+        isInBuilding =
+            isActiveGps; // As soon as there's a building we are in, global variable is set to true
       }
       return Polygon(
         polygonId: pid,
@@ -452,7 +466,8 @@ class _HomeScreenState extends HomeScreenState {
 
     _sheetController?.close();
     _sheetController = scaffoldState.showBottomSheet(
-          (_) => const Padding(
+          (_) =>
+      const Padding(
         padding: EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -498,14 +513,15 @@ class _HomeScreenState extends HomeScreenState {
       _polygons = _polygons.map((p) {
         final isSelected = (p.polygonId == _selectedId);
         bool selectedLocatedBuilding = false;
-        if(_currentBuildingFromGPS != null) {
-          selectedLocatedBuilding = p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
-
+        if (_currentBuildingFromGPS != null) {
+          selectedLocatedBuilding =
+              p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
         }
         return p.copyWith(
           fillColorParam: isSelected
               ? const Color.fromARGB(255, 124, 115, 29)
-              : (selectedLocatedBuilding) ? const Color(0x803197F6) : Color(0x80912338),
+              : (selectedLocatedBuilding) ? const Color(0x803197F6) : Color(
+              0x80912338),
           strokeColorParam: isSelected
               ? Colors.yellow
               : (selectedLocatedBuilding) ? Colors.blue : Color(0xFF741C2C),
@@ -539,7 +555,8 @@ class _HomeScreenState extends HomeScreenState {
             _sheetController = null;
           },
           onSetDestination: () async {
-            debugPrint('Sheet: Set as Destination pressed for ${building.name}');
+            debugPrint(
+                'Sheet: Set as Destination pressed for ${building.name}');
             setState(() {
               _endBuilding = building;
             });
@@ -569,7 +586,8 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          if (_currentBuildingFromGPS != null && _startBuilding == null) _buildSetCurrentAsStartCard(),
+          if (_currentBuildingFromGPS != null &&
+              _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
         ],
       ),
@@ -630,7 +648,9 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildGpsStatusCard() {final text = _currentBuildingFromGPS?.fullName ?? _currentBuildingFromGPS?.name ?? 'Not in a building';
+  Widget _buildGpsStatusCard() {
+    final text = _currentBuildingFromGPS?.fullName ??
+        _currentBuildingFromGPS?.name ?? 'Not in a building';
     return _topCard(
       top: 12,
       elevation: 4,
@@ -654,7 +674,8 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildSetCurrentAsStartCard() {
-    if (_currentBuildingFromGPS == null || !isInBuilding || _startBuilding != null) {
+    if (_currentBuildingFromGPS == null || !isInBuilding ||
+        _startBuilding != null) {
       return const SizedBox.shrink();
     }
 
@@ -668,7 +689,8 @@ class _HomeScreenState extends HomeScreenState {
       child: UseAsStart(
         selected: _currentBuildingFromGPS!,
         onSetStart: () {
-          debugPrint('Set as Start pressed for ${_currentBuildingFromGPS?.name}');
+          debugPrint(
+              'Set as Start pressed for ${_currentBuildingFromGPS?.name}');
 
           setState(() {
             _startBuilding = _currentBuildingFromGPS;
@@ -688,7 +710,9 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _topCard({required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(12), double? elevation,}) {
+  Widget _topCard(
+      {required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets
+          .all(12), double? elevation,}) {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(12, top, 12, 0),
@@ -777,6 +801,7 @@ class _HomeScreenState extends HomeScreenState {
     _controller.future.then((ctlrer) => ctlrer.dispose());
     super.dispose();
   }
+
   //to call _updateOnTap() in tests.
   @visibleForTesting
   void simulatePolygonTap(PolygonId id, LatLng tapPoint) {
@@ -789,7 +814,7 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void triggerPolygonOnTap(PolygonId id) {
     final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
-      (p) => p != null && p.polygonId == id,
+          (p) => p != null && p.polygonId == id,
       orElse: () => null,
     );
     poly?.onTap?.call();
@@ -824,11 +849,24 @@ class _HomeScreenState extends HomeScreenState {
       _cursorPoint = tapPoint;
     });
   }
+
   @visibleForTesting
   void setCurrentBuildingFromGPS(CampusBuilding building) {
     setState(() {
       _currentBuildingFromGPS = building;
     });
   }
+}
+// For tests: Make sure we cover route-zoom math without a real map
+LatLngBounds boundsForRoute(LatLng a, LatLng b) {
+  final sw = LatLng(
+    a.latitude < b.latitude ? a.latitude : b.latitude,
+    a.longitude < b.longitude ? a.longitude : b.longitude,
+  );
+  final ne = LatLng(
+    a.latitude > b.latitude ? a.latitude : b.latitude,
+    a.longitude > b.longitude ? a.longitude : b.longitude,
+  );
 
+  return LatLngBounds(southwest: sw, northeast: ne);
 }
