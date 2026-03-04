@@ -27,11 +27,14 @@ class HomeScreen extends StatefulWidget {
   /// so [ _goToCampus ] can complete without a real map.
   final Completer<GoogleMapController>? testMapControllerCompleter;
 
+  final DirectionsController? testDirectionsController;
+
   const HomeScreen({
     super.key,
     this.dataParser,
     this.buildingLocator,
-    this.testMapControllerCompleter
+    this.testMapControllerCompleter,
+    this.testDirectionsController
   });
 
   @override
@@ -100,7 +103,7 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _initDirections() {
-    _directions = DirectionsController(
+    _directions = widget.testDirectionsController ?? DirectionsController(
       client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
     );
     assert(() {
@@ -819,6 +822,12 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _cursorBuilding = building;
       _cursorPoint = tapPoint;
+    });
+  }
+  @visibleForTesting
+  void setCurrentBuildingFromGPS(CampusBuilding building) {
+    setState(() {
+      _currentBuildingFromGPS = building;
     });
   }
 
