@@ -340,6 +340,18 @@ void main() {
     });
   });
 
+  test('boundsForRoute computes southwest and northeast correctly', () {
+    final a = const LatLng(45.0, -73.0);
+    final b = const LatLng(46.0, -74.0);
+
+    final bounds = home_screen.boundsForRoute(a, b);
+
+    expect(bounds.southwest.latitude, 45.0);
+    expect(bounds.southwest.longitude, -74.0);
+    expect(bounds.northeast.latitude, 46.0);
+    expect(bounds.northeast.longitude, -73.0);
+  });
+
   // -------------------------------------------------------------------------
   // HomeScreen widget
   // -------------------------------------------------------------------------
@@ -1085,18 +1097,17 @@ void main() {
           expect(find.text('HALL'), findsOneWidget);
         });
 
+        test('boundsForRoute computes southwest and northeast correctly', () {
+          final a = const LatLng(45.0, -73.0);
+          final b = const LatLng(46.0, -74.0);
 
-    test('boundsForRoute computes southwest and northeast correctly', () {
-      final a = const LatLng(45.0, -73.0);
-      final b = const LatLng(46.0, -74.0);
+          final bounds = home_screen.boundsForRoute(a, b);
 
-      final bounds = home_screen.boundsForRoute(a, b);
-
-      expect(bounds.southwest.latitude, 45.0);
-      expect(bounds.southwest.longitude, -74.0);
-      expect(bounds.northeast.latitude, 46.0);
-      expect(bounds.northeast.longitude, -73.0);
-    });
+          expect(bounds.southwest.latitude, 45.0);
+          expect(bounds.southwest.longitude, -74.0);
+          expect(bounds.northeast.latitude, 46.0);
+          expect(bounds.northeast.longitude, -73.0);
+        });
 
   });
 }
