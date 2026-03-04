@@ -740,7 +740,6 @@ void main() {
 
       when(mockDataParser.getBuildingInfoFromJSON())
           .thenAnswer((_) async => [building]);
-      when(mockDataParser.buildingsPresent).thenReturn([building]);
 
       await tester.pumpWidget(wrap(home_screen.HomeScreen(
         dataParser: mockDataParser,
@@ -760,8 +759,12 @@ void main() {
       await tester.tap(find.text('HALL'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Set as Start'), findsOneWidget);
-      await tester.tap(find.text('Set as Start'));
+      // tap the actual button widget, not just the text.
+      final setStartBtn = find.widgetWithText(ElevatedButton, 'Set as Start');
+      expect(setStartBtn, findsOneWidget);
+
+      await tester.tap(setStartBtn);
+      await tester.pump();
       await tester.pumpAndSettle();
 
       // Directions overlay should render when start is set.

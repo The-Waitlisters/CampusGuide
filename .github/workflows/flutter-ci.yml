@@ -24,18 +24,40 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create .env for tests
+        run: |
+          cat > .env << 'EOF'
+          DIRECTIONS_API_KEY=${{ secrets.DIRECTIONS_API_KEY }}
+          CONCORDIA_USER_ID=${{ secrets.CONCORDIA_USER_ID }}
+          CONCORDIA_API_KEY=${{ secrets.CONCORDIA_API_KEY }}
+          MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}
+          EOF
+
       - name: Analyze code
         run: flutter analyze
 
       - name: Run tests with coverage
         env:
           DIRECTIONS_API_KEY: ${{ secrets.DIRECTIONS_API_KEY }}
+          CONCORDIA_USER_ID: ${{ secrets.CONCORDIA_USER_ID }}
+          CONCORDIA_API_KEY: ${{ secrets.CONCORDIA_API_KEY }}
         run: |
+          DEFINES=""
+          
           if [ -n "$DIRECTIONS_API_KEY" ]; then
-            flutter test --coverage --dart-define=DIRECTIONS_API_KEY=$DIRECTIONS_API_KEY
-          else
-            flutter test --coverage
+            DEFINES="$DEFINES --dart-define=DIRECTIONS_API_KEY=$DIRECTIONS_API_KEY"
           fi
+          
+          if [ -n "$CONCORDIA_USER_ID" ]; then
+            DEFINES="$DEFINES --dart-define=CONCORDIA_USER_ID=$CONCORDIA_USER_ID"
+          fi
+          
+          if [ -n "$CONCORDIA_API_KEY" ]; then
+            DEFINES="$DEFINES --dart-define=CONCORDIA_API_KEY=$CONCORDIA_API_KEY"
+          fi
+          
+          flutter test --coverage $DEFINES
+
       - name: Upload LCOV artifact (for Sonar job)
         uses: actions/upload-artifact@v4
         with:
