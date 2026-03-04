@@ -105,6 +105,7 @@ class _HomeScreenState extends HomeScreenState {
     );
     assert(() {
       if (Secrets.directionsApiKey.isEmpty) {
+        // coverage:ignore-line
         debugPrint('Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
       return true;
@@ -261,19 +262,12 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
     final controller = await _controller.future;
+    final bounds = boundsForRoute(a, b);
 
-    final sw = LatLng(
-      a.latitude < b.latitude ? a.latitude : b.latitude,
-      a.longitude < b.longitude ? a.longitude : b.longitude,
-    );
-    final ne = LatLng(
-      a.latitude > b.latitude ? a.latitude : b.latitude,
-      a.longitude > b.longitude ? a.longitude : b.longitude,
-    );
-
+    // coverage:ignore-line
     await controller.animateCamera(
       CameraUpdate.newLatLngBounds(
-        LatLngBounds(southwest: sw, northeast: ne),
+        bounds,
         80,
       ),
     );
@@ -628,15 +622,15 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildGpsStatusCard() {final text = _currentBuildingFromGPS?.fullName ?? _currentBuildingFromGPS?.name ?? 'Not in a building';
-    return _topCard(
-      top: 12,
-      elevation: 4,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-      ),
-    );
+  return _topCard(
+    top: 12,
+    elevation: 4,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+    ),
+  );
   }
 
   Widget _buildCampusToggleCard() {
@@ -786,7 +780,7 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void triggerPolygonOnTap(PolygonId id) {
     final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
-      (p) => p != null && p.polygonId == id,
+          (p) => p != null && p.polygonId == id,
       orElse: () => null,
     );
     poly?.onTap?.call();
@@ -821,5 +815,21 @@ class _HomeScreenState extends HomeScreenState {
       _cursorPoint = tapPoint;
     });
   }
+
+
+	// For tests: Make sure we cover route-zoom math without a real map
+	@visibleForTesting
+	LatLngBounds boundsForRoute(LatLng a, LatLng b) {
+	  final sw = LatLng(
+	    a.latitude < b.latitude ? a.latitude : b.latitude,
+	    a.longitude < b.longitude ? a.longitude : b.longitude,
+	  );
+	  final ne = LatLng(
+	    a.latitude > b.latitude ? a.latitude : b.latitude,
+	    a.longitude > b.longitude ? a.longitude : b.longitude,
+	  );
+
+	  return LatLngBounds(southwest: sw, northeast: ne);
+	}
 
 }
