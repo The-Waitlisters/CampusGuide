@@ -877,6 +877,9 @@ void main() {
                 ),
               ),
             );
+            await tester.pump();
+            await tester.pump();
+            await tester.pumpAndSettle();
 
             expect(find.textContaining('B1'), findsOneWidget);
             expect(find.text('Test description'), findsOneWidget);
