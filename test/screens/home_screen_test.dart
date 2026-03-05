@@ -9,10 +9,11 @@ import 'package:mockito/mockito.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:proj/config/secrets.dart';
 import 'package:proj/data/data_parser.dart';
+import 'package:proj/main.dart' as main_app;
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
-import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen, isPointInPolygon, findBuildingAtPoint, boundsForRoute;
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
@@ -22,6 +23,8 @@ import 'package:proj/utilities/polygon_helper.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
 import 'package:proj/widgets/home/building_detail_content.dart';
+import 'package:proj/widgets/home/building_detail_sheet.dart';
+import 'package:proj/widgets/use_as_start.dart';
 
 import '../services/directions/directions_controller_and_strategy_test.dart';
 import 'home_screen_test.mocks.dart';
@@ -348,7 +351,7 @@ void main() {
     final a = const LatLng(45.0, -73.0);
     final b = const LatLng(46.0, -74.0);
 
-    final bounds = home_screen.boundsForRoute(a, b);
+    final bounds = boundsForRoute(a, b);
 
     expect(bounds.southwest.latitude, 45.0);
     expect(bounds.southwest.longitude, -74.0);
@@ -1101,18 +1104,6 @@ void main() {
           expect(find.text('HALL'), findsOneWidget);
         });
 
-        test('boundsForRoute computes southwest and northeast correctly', () {
-          final a = const LatLng(45.0, -73.0);
-          final b = const LatLng(46.0, -74.0);
-
-          final bounds = home_screen.boundsForRoute(a, b);
-
-          expect(bounds.southwest.latitude, 45.0);
-          expect(bounds.southwest.longitude, -74.0);
-          expect(bounds.northeast.latitude, 46.0);
-          expect(bounds.northeast.longitude, -73.0);
-        });
-
     testWidgets('prints warning when directions API key is empty',
             (WidgetTester tester) async {
           // Arrange
@@ -1204,6 +1195,7 @@ void main() {
 
               expect(find.byType(GoogleMap), findsOneWidget);
         });
+
     testWidgets('GPS polygon selection comparison executes',
             (WidgetTester tester) async {
 
@@ -1240,5 +1232,131 @@ void main() {
 
           expect(find.byType(GoogleMap), findsOneWidget);
         });
+
+    testWidgets('E2E label renders when isE2EMode is true', (WidgetTester tester) async {
+      main_app.isE2EMode = true;
+      addTearDown(() => main_app.isE2EMode = false);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key("campus_label")), findsOneWidget);
+      expect(find.textContaining("campus:"), findsOneWidget);
+    });
+
+    testWidgets('UseAsStart button sets start building and updates directions', (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'b1',
+        name: 'B1',
+        boundary: const [
+          LatLng(45.0, -73.0),
+          LatLng(45.0, -74.0),
+          LatLng(46.0, -74.0),
+          LatLng(46.0, -73.0),
+          LatLng(45.0, -73.0),
+        ],
+      );
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      // Mock GPS location is (45.4972, -73.5788), which is inside the above boundary.
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenReturn(BuildingStatus(building: building, treatedAsInside: true));
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final state = tester.state<HomeScreenState>(
+        find.byType(home_screen.HomeScreen),
+      ) as dynamic;
+
+      state.simulateBuildingSelection(building, const LatLng(45.1, -73.1));
+
+
+      await tester.pumpAndSettle();
+
+// press start button
+      await tester.tap(find.text('Set as Start'));
+      await tester.pumpAndSettle();
+
+
+      // Should show directions card
+      expect(find.text('Directions'), findsOneWidget);
+    });
+
+    testWidgets('polygon selection with GPS building hits selection logic branches', (WidgetTester tester) async {
+      final gpsB = buildTestBuilding(id: 'gps', name: 'GPS');
+      final targetB = buildTestBuilding(id: 'target', name: 'Target');
+
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [gpsB, targetB]);
+      when(mockDataParser.buildingsPresent).thenReturn([gpsB, targetB]);
+
+      await tester.pumpWidget(wrap(HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(HomeScreen));
+      state.setCurrentBuildingFromGPS(gpsB);
+      await tester.pump();
+
+      // Now tap targetB. This calls _updateOnTap -> _applyPolygonSelection.
+      state.lastTap = const LatLng(1, 1);
+      state.triggerPolygonOnTap(const PolygonId('target'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BuildingDetailSheet), findsOneWidget);
+    });
+    testWidgets('polygon color branch when gps building matches polygon',
+            (WidgetTester tester) async {
+
+          final gpsB = buildTestBuilding(id: 'b1', name: 'GPS');
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [gpsB]);
+          when(mockDataParser.buildingsPresent)
+              .thenReturn([gpsB]);
+
+          await tester.pumpWidget(wrap(HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(HomeScreen));
+
+          state.setCurrentBuildingFromGPS(gpsB);
+
+          await tester.pump();
+
+          // rebuild polygons
+          state.triggerPolygonOnTap(const PolygonId('b1'));
+
+          await tester.pumpAndSettle();
+
+          expect(find.byType(GoogleMap), findsOneWidget);
+        });
+      test('boundsForRoute computes southwest and northeast correctly', () {
+        final a = const LatLng(45.0, -73.0);
+        final b = const LatLng(46.0, -74.0);
+
+        final bounds = home_screen.boundsForRoute(a, b);
+
+        expect(bounds.southwest.latitude, 45.0);
+        expect(bounds.southwest.longitude, -74.0);
+        expect(bounds.northeast.latitude, 46.0);
+        expect(bounds.northeast.longitude, -73.0);
+      });
   });
 }
