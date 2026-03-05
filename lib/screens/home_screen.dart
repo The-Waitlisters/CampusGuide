@@ -39,21 +39,6 @@ class HomeScreen extends StatefulWidget {
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
-
-  // For tests: Make sure we cover route-zoom math without a real map
-  @visibleForTesting
-  LatLngBounds boundsForRoute(LatLng a, LatLng b) {
-    final sw = LatLng(
-      a.latitude < b.latitude ? a.latitude : b.latitude,
-      a.longitude < b.longitude ? a.longitude : b.longitude,
-    );
-    final ne = LatLng(
-      a.latitude > b.latitude ? a.latitude : b.latitude,
-      a.longitude > b.longitude ? a.longitude : b.longitude,
-    );
-
-    return LatLngBounds(southwest: sw, northeast: ne);
-  }
 }
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
