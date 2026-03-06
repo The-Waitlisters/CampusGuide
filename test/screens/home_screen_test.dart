@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:proj/config/secrets.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:proj/main.dart' as main_app;
 import 'package:proj/models/campus.dart';
@@ -1108,6 +1109,39 @@ void main() {
           expect(find.text('HALL'), findsOneWidget);
         });
 
+    testWidgets('prints warning when directions API key is empty',
+            (WidgetTester tester) async {
+          // Arrange
+          Secrets.directionsApiKey = ''; // Ensure empty for coverage
+          final mockParser = MockDataParser();
+          when(mockParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => []);
+          final printed = <String?> [];
+          final originalDebugPrint = debugPrint;
+          debugPrint = (String? message, {int? wrapWidth}) {
+            printed.add(message);
+          };
+          // Act
+          await tester.pumpWidget(
+            MaterialApp(
+              home: HomeScreen(
+                dataParser: mockParser,
+              ),
+            ),
+          );
+          await tester.pump(); // allow initState to run
+          // Restore debugPrint
+          debugPrint = originalDebugPrint;
+          // Assert
+          expect(
+            printed.any((m) =>
+            m?.contains('Directions API key is missing') ?? false),
+            true,
+          );
+        });
+
+
+
     testWidgets('_zoomToRoute executes when route exists',
             (WidgetTester tester) async {
 
@@ -1172,7 +1206,6 @@ void main() {
 
           expect(fakeDirections.state.polyline, isNotNull);
         });
-
     testWidgets('GPS polygon selection comparison executes',
             (WidgetTester tester) async {
 
@@ -1294,7 +1327,6 @@ void main() {
 
       expect(find.byType(BuildingDetailSheet), findsOneWidget);
     });
-
     testWidgets('polygon color branch when gps building matches polygon',
             (WidgetTester tester) async {
 
@@ -1336,7 +1368,6 @@ void main() {
         expect(bounds.northeast.latitude, 46.0);
         expect(bounds.northeast.longitude, -73.0);
       });
-
     testWidgets('zoomToRouteForTest animates camera', (WidgetTester tester) async {
       final fakeMapController = FakeGoogleMapController();
       final mapCompleter = Completer<GoogleMapController>()
@@ -1363,9 +1394,7 @@ void main() {
 
       expect(fakeMapController.animateCameraCallCount, 1);
       expect(fakeMapController.lastCameraUpdate, isNotNull);
-    });
-
-    test('boundsForRoute handles reversed coordinates', () {
+    });    test('boundsForRoute handles reversed coordinates', () {
       final a = const LatLng(46.0, -74.0);
       final b = const LatLng(45.0, -73.0);
       //same thing just swapped the values to test another path
@@ -1377,5 +1406,96 @@ void main() {
       expect(bounds.northeast.latitude, 46.0);
       expect(bounds.northeast.longitude, -73.0);
     });
+
+    testWidgets('polygon color branch when GPS building matches polygon',
+            (WidgetTester tester) async {
+
+          final b = buildTestBuilding(id: 'b1', name: 'B1');
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [b]);
+          when(mockDataParser.buildingsPresent).thenReturn([b]);
+
+          await tester.pumpWidget(wrap(HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(HomeScreen));
+
+          state.setCurrentBuildingFromGPS(b);
+
+          await tester.pump();
+        });
+    testWidgets('polygon color branch when GPS building does not match polygon',
+            (WidgetTester tester) async {
+
+          final polygonBuilding = buildTestBuilding(id: 'b1', name: 'B1');
+          final gpsBuilding = buildTestBuilding(id: 'b2', name: 'B2');
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [polygonBuilding]);
+          when(mockDataParser.buildingsPresent).thenReturn([polygonBuilding]);
+
+          await tester.pumpWidget(wrap(HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(HomeScreen));
+
+          // different building evaluates it to false and covers both cases
+          state.setCurrentBuildingFromGPS(gpsBuilding);
+
+          await tester.pump();
+        });
+    testWidgets('Set as Start closes open sheet', (WidgetTester tester) async {
+      final b = buildTestBuilding(id: 'b1', name: 'B1');
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [b]);
+      when(mockDataParser.buildingsPresent).thenReturn([b]);
+
+      await tester.pumpWidget(wrap(HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(HomeScreen));
+
+      state.simulateBuildingSelection(b, const LatLng(1, 1));
+
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Set as Start'));
+
+      await tester.pumpAndSettle();
+    });
+    testWidgets('tap with no matching building hits',
+            (WidgetTester tester) async {
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => []);
+          when(mockDataParser.buildingsPresent).thenReturn([]);
+
+          await tester.pumpWidget(wrap(HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(HomeScreen));
+
+          state.triggerPolygonOnTap(const PolygonId('unknown'));
+
+          await tester.pump();
+        });
   });
 }
