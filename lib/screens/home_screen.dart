@@ -764,21 +764,6 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  TransportModeStrategy _strategyForModeParam(String modeParam) {
-    switch (modeParam) {
-      case 'bicycling':
-        return BikeStrategy();
-      case 'driving':
-        return DriveStrategy();
-      case 'transit':
-        return MetroStrategy();
-      case 'shuttle':
-        return ShuttleStrategy();
-      default:
-        return WalkStrategy();
-    }
-  }
-
   Widget _buildDirectionsCard() {
     return DirectionsCard(
       startBuilding: _startBuilding,
@@ -806,7 +791,7 @@ class _HomeScreenState extends HomeScreenState {
       selectedModeParam: _directions.mode.modeParam,
       onModeChanged: (modeParam) {
         setState(() => _modeChangedByUser = true);
-        _directions.setMode(_strategyForModeParam(modeParam));
+        _directions.setMode(strategyForModeParam(modeParam));
         _updateDirectionsIfReady();
       },
     );
