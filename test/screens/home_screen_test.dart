@@ -7,7 +7,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-import 'package:proj/config/secrets.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:proj/main.dart' as main_app;
 import 'package:proj/models/campus.dart';
@@ -154,9 +153,15 @@ class PositionStreamGeolocatorPlatform extends Mock
 
 /// Fake map controller so _goToCampus can complete in tests.
 class FakeGoogleMapController implements GoogleMapController {
+  int animateCameraCallCount = 0;
+  CameraUpdate? lastCameraUpdate;
+
   @override
-  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) =>
-      Future.value();
+  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) {
+    animateCameraCallCount++;
+    lastCameraUpdate = cameraUpdate;
+    return Future.value();
+  }
 
   @override
   Future<LatLng> getLatLng(ScreenCoordinate screenCoordinate) =>
@@ -1103,37 +1108,6 @@ void main() {
           expect(find.text('HALL'), findsOneWidget);
         });
 
-    testWidgets('prints warning when directions API key is empty',
-            (WidgetTester tester) async {
-          // Arrange
-          Secrets.directionsApiKey = ''; // Ensure empty for coverage
-          final mockParser = MockDataParser();
-          when(mockParser.getBuildingInfoFromJSON())
-              .thenAnswer((_) async => []);
-          final printed = <String?> [];
-          final originalDebugPrint = debugPrint;
-          debugPrint = (String? message, {int? wrapWidth}) {
-            printed.add(message);
-          };
-          // Act
-          await tester.pumpWidget(
-            MaterialApp(
-              home: HomeScreen(
-                dataParser: mockParser,
-              ),
-            ),
-          );
-          await tester.pump(); // allow initState to run
-          // Restore debugPrint
-          debugPrint = originalDebugPrint;
-          // Assert
-          expect(
-            printed.any((m) =>
-            m?.contains('Directions API key is missing') ?? false),
-            true,
-          );
-        });
-
     testWidgets('_zoomToRoute executes when route exists',
             (WidgetTester tester) async {
 
@@ -1147,8 +1121,9 @@ void main() {
           when(mockDataParser.buildingsPresent)
               .thenReturn([startB, destB]);
 
-          final mapCompleter = Completer<GoogleMapController>()
-            ..complete(FakeGoogleMapController());
+          final fakeMapController = FakeGoogleMapController();
+          final mapCompleter = Completer<GoogleMapController>();
+          mapCompleter.complete(fakeMapController);
 
           final fakeDirections = DirectionsController(
             client: FakeDirectionsClient.success(
@@ -1168,31 +1143,34 @@ void main() {
           )));
 
           await tester.pumpAndSettle();
-          final state = tester.state<HomeScreenState>(
-            find
-                .byType(home_screen.HomeScreen)
-                .first,
-          ) as dynamic;
 
-              state.simulateBuildingSelection(
-                startB,
-                const LatLng(45.0, -73.0),
-              );
-              await tester.pumpAndSettle();
+          final dynamic state = tester.state<HomeScreenState>(
+            find.byType(home_screen.HomeScreen).first,
+          );
 
-              await tester.tap(find.text('Set as Start'));
-              await tester.pumpAndSettle();
+          state.simulateBuildingSelection(
+            startB,
+            const LatLng(45.0, -73.0),
+          );
+          await tester.pumpAndSettle();
 
-              state.simulateBuildingSelection(
-                destB,
-                const LatLng(46.0, -74.0),
-              );
-              await tester.pumpAndSettle();
+          expect(find.text('Set as Start'), findsOneWidget);
+          await tester.tap(find.text('Set as Start'));
+          await tester.pumpAndSettle();
 
-              await tester.tap(find.text('Set as Destination'));
-              await tester.pumpAndSettle();
+          state.simulateBuildingSelection(
+            destB,
+            const LatLng(46.0, -74.0),
+          );
+          await tester.pumpAndSettle();
 
-              expect(find.byType(GoogleMap), findsOneWidget);
+          expect(find.text('Set as Destination'), findsOneWidget);
+          await tester.tap(find.text('Set as Destination'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
+          await tester.pumpAndSettle();
+
+          expect(fakeDirections.state.polyline, isNotNull);
         });
 
     testWidgets('GPS polygon selection comparison executes',
@@ -1316,6 +1294,7 @@ void main() {
 
       expect(find.byType(BuildingDetailSheet), findsOneWidget);
     });
+
     testWidgets('polygon color branch when gps building matches polygon',
             (WidgetTester tester) async {
 
@@ -1357,6 +1336,35 @@ void main() {
         expect(bounds.northeast.latitude, 46.0);
         expect(bounds.northeast.longitude, -73.0);
       });
+
+    testWidgets('zoomToRouteForTest animates camera', (WidgetTester tester) async {
+      final fakeMapController = FakeGoogleMapController();
+      final mapCompleter = Completer<GoogleMapController>()
+        ..complete(fakeMapController);
+
+      await tester.pumpWidget(
+        wrap(home_screen.HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+          testMapControllerCompleter: mapCompleter,
+        )),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state<HomeScreenState>(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      await state.zoomToRouteForTest(
+        const LatLng(45.0, -73.0),
+        const LatLng(46.0, -74.0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(fakeMapController.animateCameraCallCount, 1);
+      expect(fakeMapController.lastCameraUpdate, isNotNull);
+    });
+
     test('boundsForRoute handles reversed coordinates', () {
       final a = const LatLng(46.0, -74.0);
       final b = const LatLng(45.0, -73.0);

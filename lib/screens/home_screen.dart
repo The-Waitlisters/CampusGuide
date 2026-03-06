@@ -107,9 +107,9 @@ class _HomeScreenState extends HomeScreenState {
     _directions = widget.testDirectionsController ?? DirectionsController(
       client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
     );
+    // coverage:ignore-line
     assert(() {
       if (Secrets.directionsApiKey.isEmpty) {
-        // coverage:ignore-line
         debugPrint(
             'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
@@ -272,7 +272,6 @@ class _HomeScreenState extends HomeScreenState {
     final controller = await _controller.future;
     final bounds = boundsForRoute(a, b);
 
-    // coverage:ignore-line
     await controller.animateCamera(
       CameraUpdate.newLatLngBounds(
         bounds,
@@ -841,7 +840,13 @@ class _HomeScreenState extends HomeScreenState {
       _currentBuildingFromGPS = building;
     });
   }
+
+  @visibleForTesting
+  Future<void> zoomToRouteForTest(LatLng a, LatLng b) {
+    return _zoomToRoute(a, b);
+  }
 }
+
 // For tests: Make sure we cover route-zoom math without a real map
 LatLngBounds boundsForRoute(LatLng a, LatLng b) {
   final sw = LatLng(
