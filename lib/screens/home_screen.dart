@@ -360,6 +360,26 @@ class _HomeScreenState extends HomeScreenState {
     }
   }
 
+  Future<void> _handleSetAsStart(CampusBuilding building) async {
+    debugPrint('Set as Start: ${building.name}');
+    setState(() {
+      _startBuilding = building;
+      _endBuilding = null;
+      _startFromCurrentLocation = false;
+      _locationRequiredMessage = null;
+    });
+    await _updateDirectionsIfReady();
+  }
+
+  Future<void> _handleSetAsDestination(CampusBuilding building) async {
+    debugPrint('Set as Destination: ${building.name}');
+    setState(() {
+      _endBuilding = building;
+      if (_startBuilding == null) _startFromCurrentLocation = true;
+    });
+    await _updateDirectionsIfReady();
+  }
+
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
     final controller = await _controller.future;
 
@@ -437,15 +457,8 @@ class _HomeScreenState extends HomeScreenState {
                     onPressed: _startBuilding?.id == building.id
                         ? null
                         : () async {
-                            debugPrint('Pressed Set as Start for: ${building.name}');
-                            setState(() {
-                              _startBuilding = building;
-                              _endBuilding = null;
-                              _startFromCurrentLocation = false;
-                              _locationRequiredMessage = null;
-                            });
                             Navigator.pop(context);
-                            await _updateDirectionsIfReady();
+                            await _handleSetAsStart(building);
                           },
                     child: const Text('Set as Start'),
                   ),
@@ -454,13 +467,8 @@ class _HomeScreenState extends HomeScreenState {
                     onPressed: _endBuilding?.id == building.id
                         ? null
                         : () async {
-                            debugPrint('Pressed Set as Destination for: ${building.name}');
-                            setState(() {
-                              _endBuilding = building;
-                              if (_startBuilding == null) _startFromCurrentLocation = true;
-                            });
                             Navigator.pop(context);
-                            await _updateDirectionsIfReady();
+                            await _handleSetAsDestination(building);
                           },
                     child: const Text('Set as Destination'),
                   ),
@@ -621,24 +629,12 @@ class _HomeScreenState extends HomeScreenState {
           startBuilding: _startBuilding,
           endBuilding: _endBuilding,
           onSetStart: () async {
-            debugPrint('Sheet: Set as Start pressed for ${building.name}');
-            setState(() {
-              _startBuilding = building;
-              _endBuilding = null;
-              _startFromCurrentLocation = false;
-              _locationRequiredMessage = null;
-            });
-            await _updateDirectionsIfReady();
+            await _handleSetAsStart(building);
             _sheetController?.close();
             _sheetController = null;
           },
           onSetDestination: () async {
-            debugPrint('Sheet: Set as Destination pressed for ${building.name}');
-            setState(() {
-              _endBuilding = building;
-              if (_startBuilding == null) _startFromCurrentLocation = true;
-            });
-            await _updateDirectionsIfReady();
+            await _handleSetAsDestination(building);
             _sheetController?.close();
             _sheetController = null;
           },
