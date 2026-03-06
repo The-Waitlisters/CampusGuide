@@ -17,15 +17,11 @@ import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen,
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
-import 'package:proj/services/directions/directions_controller.dart';
-import 'package:proj/services/directions/transport_mode_strategy.dart';
 import 'package:proj/utilities/polygon_helper.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
 import 'package:proj/widgets/home/building_detail_content.dart';
 import 'package:proj/widgets/home/building_detail_sheet.dart';
-
-import '../services/directions/directions_controller_and_strategy_test.dart';
 import 'home_screen_test.mocks.dart';
 
 
