@@ -117,6 +117,21 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  bool _isLocationPermissionDenied(LocationPermission permission) {
+    return permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever;
+  }
+
+  Future<LocationPermission> _checkAndMaybeRequestLocationPermission({
+    required bool requestIfDenied,
+  }) async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (requestIfDenied && permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    return permission;
+  }
+
   Future<void> _tryInitLocationTracking() async {
     if (isE2EMode) {
       return;
@@ -128,13 +143,11 @@ class _HomeScreenState extends HomeScreenState {
       return;
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
+    final permission = await _checkAndMaybeRequestLocationPermission(
+      requestIfDenied: true,
+    );
 
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+    if (_isLocationPermissionDenied(permission)) {
       debugPrint('Location permission denied.');
       return;
     }
@@ -297,9 +310,10 @@ class _HomeScreenState extends HomeScreenState {
     }
     if (!_startFromCurrentLocation) return null;
     try {
-      final permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      final permission = await _checkAndMaybeRequestLocationPermission(
+        requestIfDenied: false,
+      );
+      if (_isLocationPermissionDenied(permission)) {
         return null;
       }
       final position = await Geolocator.getCurrentPosition().timeout(
