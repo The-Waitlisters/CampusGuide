@@ -349,7 +349,7 @@ class _HomeScreenState extends HomeScreenState {
 
     setState(() => _locationRequiredMessage = null);
 
-    final startCampus = _startBuilding?.campus ?? (start != null ? _campusAtPoint(start!) : null);
+    final startCampus = _startBuilding?.campus ?? (start != null ? _campusAtPoint(start) : null);
     final endCampus = _endBuilding!.campus;
     _applyDefaultTransportMode(
       endCampus: endCampus,
