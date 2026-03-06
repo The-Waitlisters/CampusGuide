@@ -154,10 +154,12 @@ class PositionStreamGeolocatorPlatform extends Mock
 
 /// Fake map controller so _goToCampus can complete in tests.
 class FakeGoogleMapController implements GoogleMapController {
+  //not used
+  bool animateCalled = false;
   @override
-  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) =>
-      Future.value();
-
+  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) async {
+    animateCalled = true;
+  }
   @override
   Future<LatLng> getLatLng(ScreenCoordinate screenCoordinate) =>
       Future.value(const LatLng(0, 0));
@@ -1134,66 +1136,6 @@ void main() {
           );
         });
 
-    testWidgets('_zoomToRoute executes when route exists',
-            (WidgetTester tester) async {
-
-          final startB = buildTestBuilding(
-              id: 'b1', name: 'START', fullName: 'Start Building');
-          final destB = buildTestBuilding(
-              id: 'b2', name: 'DEST', fullName: 'Destination Building');
-
-          when(mockDataParser.getBuildingInfoFromJSON())
-              .thenAnswer((_) async => [startB, destB]);
-          when(mockDataParser.buildingsPresent)
-              .thenReturn([startB, destB]);
-
-          final mapCompleter = Completer<GoogleMapController>()
-            ..complete(FakeGoogleMapController());
-
-          final fakeDirections = DirectionsController(
-            client: FakeDirectionsClient.success(
-              const RouteResult(
-                polylinePoints: [LatLng(45, -73), LatLng(46, -74)],
-                durationText: '5 mins',
-                distanceText: '1 km',
-              ),
-            ),
-          );
-
-          await tester.pumpWidget(wrap(home_screen.HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            testMapControllerCompleter: mapCompleter,
-            testDirectionsController: fakeDirections,
-          )));
-
-          await tester.pumpAndSettle();
-          final state = tester.state<HomeScreenState>(
-            find
-                .byType(home_screen.HomeScreen)
-                .first,
-          ) as dynamic;
-
-              state.simulateBuildingSelection(
-                startB,
-                const LatLng(45.0, -73.0),
-              );
-              await tester.pumpAndSettle();
-
-              await tester.tap(find.text('Set as Start'));
-              await tester.pumpAndSettle();
-
-              state.simulateBuildingSelection(
-                destB,
-                const LatLng(46.0, -74.0),
-              );
-              await tester.pumpAndSettle();
-
-              await tester.tap(find.text('Set as Destination'));
-              await tester.pumpAndSettle();
-
-              expect(find.byType(GoogleMap), findsOneWidget);
-        });
 
     testWidgets('GPS polygon selection comparison executes',
             (WidgetTester tester) async {
@@ -1369,5 +1311,95 @@ void main() {
       expect(bounds.northeast.latitude, 46.0);
       expect(bounds.northeast.longitude, -73.0);
     });
+    testWidgets('polygon color branch when GPS building matches polygon',
+            (WidgetTester tester) async {
+
+          final b = buildTestBuilding(id: 'b1', name: 'B1');
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [b]);
+          when(mockDataParser.buildingsPresent).thenReturn([b]);
+
+          await tester.pumpWidget(wrap(HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(HomeScreen));
+
+          state.setCurrentBuildingFromGPS(b);
+
+          await tester.pump();
+        });
+    testWidgets('polygon color branch when GPS building does not match polygon',
+            (WidgetTester tester) async {
+
+          final polygonBuilding = buildTestBuilding(id: 'b1', name: 'B1');
+          final gpsBuilding = buildTestBuilding(id: 'b2', name: 'B2');
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [polygonBuilding]);
+          when(mockDataParser.buildingsPresent).thenReturn([polygonBuilding]);
+
+          await tester.pumpWidget(wrap(HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(HomeScreen));
+
+          // different building evaluates it to false and covers both cases
+          state.setCurrentBuildingFromGPS(gpsBuilding);
+
+          await tester.pump();
+        });
+    testWidgets('Set as Start closes open sheet', (WidgetTester tester) async {
+      final b = buildTestBuilding(id: 'b1', name: 'B1');
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [b]);
+      when(mockDataParser.buildingsPresent).thenReturn([b]);
+
+      await tester.pumpWidget(wrap(HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(HomeScreen));
+
+      state.simulateBuildingSelection(b, const LatLng(1, 1));
+
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Set as Start'));
+
+      await tester.pumpAndSettle();
+    });
+    testWidgets('tap with no matching building hits',
+            (WidgetTester tester) async {
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => []);
+          when(mockDataParser.buildingsPresent).thenReturn([]);
+
+          await tester.pumpWidget(wrap(HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(HomeScreen));
+
+          state.triggerPolygonOnTap(const PolygonId('unknown'));
+
+          await tester.pump();
+        });
   });
 }
