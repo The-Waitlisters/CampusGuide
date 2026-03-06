@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -15,6 +16,19 @@ class DirectionsCard extends StatelessWidget {
   final VoidCallback onCancel;
   final VoidCallback onRetry;
 
+  /// True when route start is user's current location (destination-first flow).
+  final bool useCurrentLocationAsStart;
+  /// Shown when destination-first but location permission unavailable.
+  final String? locationRequiredMessage;
+
+  /// Placeholder message when mode doesn't use Directions API (e.g. Shuttle).
+  final String? placeholderMessage;
+
+  /// Current transport mode param (e.g. 'walking'). Used to show selected mode.
+  final String selectedModeParam;
+  /// Called when user picks a mode; [modeParam] is e.g. 'walking', 'bicycling', 'driving', 'transit'.
+  final void Function(String modeParam) onModeChanged;
+
   const DirectionsCard({
     super.key,
     required this.startBuilding,
@@ -26,21 +40,40 @@ class DirectionsCard extends StatelessWidget {
     required this.distanceText,
     required this.onCancel,
     required this.onRetry,
+    this.useCurrentLocationAsStart = false,
+    this.locationRequiredMessage,
+    this.placeholderMessage,
+    required this.selectedModeParam,
+    required this.onModeChanged,
   });
+
+  static const List<({String label, String modeParam})> _transportModes = [
+    (label: 'Walk', modeParam: 'walking'),
+    (label: 'Bike', modeParam: 'bicycling'),
+    (label: 'Drive', modeParam: 'driving'),
+    (label: 'Transit', modeParam: 'transit'),
+    (label: 'Shuttle', modeParam: 'shuttle'),
+  ];
+
+  static String _campusLabel(Campus c) => c == Campus.sgw ? 'SGW' : 'Loyola';
 
   @override
   Widget build(BuildContext context) {
-    if (startBuilding == null) {
+    if (startBuilding == null && endBuilding == null) {
       return const SizedBox.shrink();
     }
 
-    final startLabel = startBuilding!.fullName ?? startBuilding!.name;
-    final endLabel = endBuilding?.fullName ?? "Not set";
+    final startLabel = startBuilding != null
+        ? '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}'
+        : (useCurrentLocationAsStart ? 'Current location' : 'Not set');
+    final endLabel = endBuilding != null
+        ? '${_campusLabel(endBuilding!.campus)} - ${endBuilding!.fullName ?? endBuilding!.name}'
+        : 'Not set';
 
     return Positioned(
-      top: 150,
       left: 12,
       right: 12,
+      bottom: 12,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -64,12 +97,37 @@ class DirectionsCard extends StatelessWidget {
               Text("Start: $startLabel"),
               const SizedBox(height: 6),
               Text("Destination: $endLabel"),
+              if (endBuilding != null) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: _transportModes.map((m) {
+                    final selected = selectedModeParam == m.modeParam;
+                    return ChoiceChip(
+                      label: Text(m.label),
+                      selected: selected,
+                      onSelected: (_) => onModeChanged(m.modeParam),
+                    );
+                  }).toList(),
+                ),
+              ],
               const SizedBox(height: 8),
 
               if (endBuilding == null)
                 const Text(
                   'Select a destination to see a route.',
                   style: TextStyle(fontStyle: FontStyle.italic),
+                )
+              else if (locationRequiredMessage != null)
+                Text(
+                  locationRequiredMessage!,
+                  style: const TextStyle(fontSize: 12),
+                )
+              else if (placeholderMessage != null)
+                Text(
+                  placeholderMessage!,
+                  style: const TextStyle(fontStyle: FontStyle.italic),
                 )
               else if (isLoading)
                 const Row(
@@ -85,10 +143,18 @@ class DirectionsCard extends StatelessWidget {
                 )
               else if (errorMessage != null)
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.error_outline, size: 18),
                       const SizedBox(width: 8),
-                      const Expanded(child: Text('Directions unavailable')),
+                      Expanded(
+                        child: Text(
+                          errorMessage!,
+                          style: const TextStyle(fontSize: 12),
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       TextButton(
                         onPressed: onRetry,
                         child: const Text('Retry'),

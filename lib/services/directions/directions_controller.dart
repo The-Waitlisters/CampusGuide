@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../models/campus.dart';
 import 'transport_mode_strategy.dart';
 
 @immutable
@@ -11,6 +12,7 @@ class DirectionsViewState {
     required this.polyline,
     required this.durationText,
     required this.distanceText,
+    this.placeholderMessage,
   });
 
   final bool isLoading;
@@ -18,6 +20,8 @@ class DirectionsViewState {
   final Polyline? polyline;
   final String? durationText;
   final String? distanceText;
+  /// When set (e.g. for Shuttle mode), UI shows this instead of route; no API call.
+  final String? placeholderMessage;
 
   factory DirectionsViewState.initial() => const DirectionsViewState(
     isLoading: false,
@@ -25,6 +29,7 @@ class DirectionsViewState {
     polyline: null,
     durationText: null,
     distanceText: null,
+    placeholderMessage: null,
   );
 }
 
@@ -48,10 +53,23 @@ class DirectionsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _shuttlePlaceholderMessage(Campus? startCampus, Campus? endCampus) {
+    if (startCampus == null || endCampus == null) {
+      return 'Shuttle routing coming next';
+    }
+    if (startCampus != endCampus) {
+      return 'Shuttle service is coming soon for SGW ↔ Loyola travel';
+    }
+    return 'Shuttle is only available for cross-campus travel';
+  }
+
   /// Call this whenever start/end changes.
+  /// [startCampus] and [endCampus] are used for Shuttle mode placeholder messages.
   Future<void> updateRoute({
     required LatLng? start,
     required LatLng? end,
+    Campus? startCampus,
+    Campus? endCampus,
   }) async {
     // Acceptance criteria: if missing start/end -> no route shown
     if (start == null || end == null) {
@@ -60,13 +78,29 @@ class DirectionsController extends ChangeNotifier {
       return;
     }
 
-    _state = DirectionsViewState(
-      isLoading: true,
-      errorMessage: null,
-      polyline: _state.polyline, // keep old route while loading (optional)
-      durationText: _state.durationText,
-      distanceText: _state.distanceText,
-    );
+    // Shuttle: no API call; show campus-aware placeholder
+    if (_mode is ShuttleStrategy) {
+      final msg = _shuttlePlaceholderMessage(startCampus, endCampus);
+      _state = DirectionsViewState(
+        isLoading: false,
+        errorMessage: null,
+        polyline: null,
+        durationText: null,
+        distanceText: null,
+        placeholderMessage: msg,
+      );
+      notifyListeners();
+      return;
+    }
+
+      _state = DirectionsViewState(
+        isLoading: true,
+        errorMessage: null,
+        polyline: _state.polyline, // keep old route while loading (optional)
+        durationText: _state.durationText,
+        distanceText: _state.distanceText,
+        placeholderMessage: null,
+      );
     notifyListeners();
 
     try {

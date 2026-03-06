@@ -42,6 +42,13 @@ class MetroStrategy implements TransportModeStrategy {
   String get modeParam => 'transit';
 }
 
+/// Shuttle mode: campus shuttle routing (not yet implemented).
+/// Does not call Directions API; shows placeholder in UI instead.
+class ShuttleStrategy implements TransportModeStrategy {
+  @override
+  String get modeParam => 'shuttle';
+}
+
 /// Abstraction for testability & decoupling from Google API
 abstract class DirectionsClient {
   Future<RouteResult> getRoute({

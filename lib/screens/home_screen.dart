@@ -55,6 +55,12 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+  /// True when user chose destination first; route start is current GPS location.
+  bool _startFromCurrentLocation = false;
+  /// Shown when destination-first but location is unavailable.
+  String? _locationRequiredMessage;
+  /// When true, do not auto-apply default transport mode (user chose manually).
+  bool _modeChangedByUser = false;
   late Future<List<CampusBuilding>> _buildingsFuture;
   final TextEditingController _searchController = TextEditingController();
   List<CampusBuilding> buildingsPresent = [];
@@ -236,18 +242,120 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  /// Returns which campus (if any) contains [point] using building boundaries.
+  Campus? _campusAtPoint(LatLng point) {
+    if (findBuildingAtPoint(point, buildingsPresent, Campus.sgw) != null) {
+      return Campus.sgw;
+    }
+    if (findBuildingAtPoint(point, buildingsPresent, Campus.loyola) != null) {
+      return Campus.loyola;
+    }
+    return null;
+  }
+
+  static const double _currentLocationDefaultModeThresholdMeters = 2500;
+
+  /// Applies default transport mode. No-op if user changed mode or no destination.
+  /// - Building-to-building: same campus → Walk, different campuses → Shuttle.
+  /// - Current-location start: distance < 2.5 km → Walk, else → Shuttle.
+  void _applyDefaultTransportMode({
+    required Campus? endCampus,
+    Campus? startCampus,
+    LatLng? startPoint,
+    LatLng? endPoint,
+    required bool isCurrentLocationStart,
+  }) {
+    if (_modeChangedByUser || endCampus == null) return;
+
+    if (isCurrentLocationStart && startPoint != null && endPoint != null) {
+      final distanceMeters = Geolocator.distanceBetween(
+        startPoint.latitude,
+        startPoint.longitude,
+        endPoint.latitude,
+        endPoint.longitude,
+      );
+      if (distanceMeters < _currentLocationDefaultModeThresholdMeters) {
+        _directions.setMode(WalkStrategy());
+      } else {
+        _directions.setMode(ShuttleStrategy());
+      }
+      return;
+    }
+
+    if (startCampus == null) return;
+    if (startCampus == endCampus) {
+      _directions.setMode(WalkStrategy());
+    } else {
+      _directions.setMode(ShuttleStrategy());
+    }
+  }
+
+  /// Resolves the route start point: from selected building or from current GPS when destination-first.
+  Future<LatLng?> _getRouteStartPoint() async {
+    if (_startBuilding != null) {
+      return polygonCenter(_startBuilding!.boundary);
+    }
+    if (!_startFromCurrentLocation) return null;
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw Exception('location timeout'),
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _updateDirectionsIfReady() async {
     debugPrint('_updateDirectionsIfReady start=${_startBuilding?.name} end=${_endBuilding?.name}');
 
-    final start = _startBuilding == null ? null : polygonCenter(_startBuilding!.boundary);
-    final end = _endBuilding == null ? null : polygonCenter(_endBuilding!.boundary);
+    if (_endBuilding == null) {
+      setState(() => _locationRequiredMessage = null);
+      await _directions.updateRoute(start: null, end: null);
+      return;
+    }
 
-    await _directions.updateRoute(start: start, end: end);
+    final start = await _getRouteStartPoint();
+    final end = polygonCenter(_endBuilding!.boundary);
+
+    if (_startFromCurrentLocation && start == null) {
+      setState(() {
+        _locationRequiredMessage =
+            'To create a route from your current location, please allow location access.';
+      });
+      await _directions.updateRoute(start: null, end: null);
+      return;
+    }
+
+    setState(() => _locationRequiredMessage = null);
+
+    final startCampus = _startBuilding?.campus ?? (start != null ? _campusAtPoint(start!) : null);
+    final endCampus = _endBuilding!.campus;
+    _applyDefaultTransportMode(
+      endCampus: endCampus,
+      startCampus: startCampus,
+      startPoint: start,
+      endPoint: end,
+      isCurrentLocationStart: _startFromCurrentLocation,
+    );
+
+    await _directions.updateRoute(
+      start: start,
+      end: end,
+      startCampus: startCampus,
+      endCampus: endCampus,
+    );
 
     debugPrint('Directions done: err=${_directions.state.errorMessage} '
         'points=${_directions.state.polyline?.points.length}');
 
-    if (start != null && end != null && _directions.state.polyline != null) {
+    if (start != null && _directions.state.polyline != null) {
       await _zoomToRoute(start, end);
     }
   }
@@ -323,32 +431,41 @@ class _HomeScreenState extends HomeScreenState {
 
               const SizedBox(height: 16),
 
-              if (_startBuilding == null)
-                ElevatedButton(
-                  onPressed: () async {
-                    debugPrint('Pressed Set as Start for: ${building.name}');
-                    setState(() {
-                      _startBuilding = building;
-                      _endBuilding = null;
-                    });
-                    Navigator.pop(context);
-                    await _updateDirectionsIfReady();
-                  },
-                  child: const Text('Set as Start'),
-                )
-              else
-                ElevatedButton(
-                  onPressed: () async {
-                    debugPrint('Pressed Set as Destination for: ${building.name}');
-                    setState(() {
-                      _endBuilding = building;
-                    });
-                    Navigator.pop(context);
-                    await _updateDirectionsIfReady();
-                  },
-                  child: const Text('Set as Destination'),
-                ),
-
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _startBuilding?.id == building.id
+                        ? null
+                        : () async {
+                            debugPrint('Pressed Set as Start for: ${building.name}');
+                            setState(() {
+                              _startBuilding = building;
+                              _endBuilding = null;
+                              _startFromCurrentLocation = false;
+                              _locationRequiredMessage = null;
+                            });
+                            Navigator.pop(context);
+                            await _updateDirectionsIfReady();
+                          },
+                    child: const Text('Set as Start'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _endBuilding?.id == building.id
+                        ? null
+                        : () async {
+                            debugPrint('Pressed Set as Destination for: ${building.name}');
+                            setState(() {
+                              _endBuilding = building;
+                              if (_startBuilding == null) _startFromCurrentLocation = true;
+                            });
+                            Navigator.pop(context);
+                            await _updateDirectionsIfReady();
+                          },
+                    child: const Text('Set as Destination'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -508,6 +625,8 @@ class _HomeScreenState extends HomeScreenState {
             setState(() {
               _startBuilding = building;
               _endBuilding = null;
+              _startFromCurrentLocation = false;
+              _locationRequiredMessage = null;
             });
             await _updateDirectionsIfReady();
             _sheetController?.close();
@@ -517,6 +636,7 @@ class _HomeScreenState extends HomeScreenState {
             debugPrint('Sheet: Set as Destination pressed for ${building.name}');
             setState(() {
               _endBuilding = building;
+              if (_startBuilding == null) _startFromCurrentLocation = true;
             });
             await _updateDirectionsIfReady();
             _sheetController?.close();
@@ -644,10 +764,27 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
+  TransportModeStrategy _strategyForModeParam(String modeParam) {
+    switch (modeParam) {
+      case 'bicycling':
+        return BikeStrategy();
+      case 'driving':
+        return DriveStrategy();
+      case 'transit':
+        return MetroStrategy();
+      case 'shuttle':
+        return ShuttleStrategy();
+      default:
+        return WalkStrategy();
+    }
+  }
+
   Widget _buildDirectionsCard() {
     return DirectionsCard(
       startBuilding: _startBuilding,
       endBuilding: _endBuilding,
+      useCurrentLocationAsStart: _startFromCurrentLocation && _startBuilding == null,
+      locationRequiredMessage: _locationRequiredMessage,
       isLoading: _directions.state.isLoading,
       errorMessage: _directions.state.errorMessage,
       polyline: _directions.state.polyline,
@@ -657,11 +794,21 @@ class _HomeScreenState extends HomeScreenState {
         setState(() {
           _startBuilding = null;
           _endBuilding = null;
+          _startFromCurrentLocation = false;
+          _locationRequiredMessage = null;
+          _modeChangedByUser = false;
         });
         _directions.updateRoute(start: null, end: null);
         debugPrint('Directions cancelled');
       },
       onRetry: _updateDirectionsIfReady,
+      placeholderMessage: _directions.state.placeholderMessage,
+      selectedModeParam: _directions.mode.modeParam,
+      onModeChanged: (modeParam) {
+        setState(() => _modeChangedByUser = true);
+        _directions.setMode(_strategyForModeParam(modeParam));
+        _updateDirectionsIfReady();
+      },
     );
   }
 
