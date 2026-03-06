@@ -269,15 +269,12 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
-    final controller = await _controller.future;
-    // coverage:ignore-line
+    final completer = widget.testMapControllerCompleter ?? _controller;
+    final controller = await completer.future;
     final bounds = boundsForRoute(a, b);
-    // coverage:ignore-line
+
     await controller.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        bounds,
-        80,
-      ),
+      CameraUpdate.newLatLngBounds(bounds, 80),
     );
   }
 
