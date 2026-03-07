@@ -878,6 +878,20 @@ class _HomeScreenState extends HomeScreenState {
   Future<void> zoomToRouteForTest(LatLng a, LatLng b) {
     return _zoomToRoute(a, b);
   }
+
+  @visibleForTesting
+  void setIsInBuildingForTest(bool value) {
+    setState(() {
+      isInBuilding = value;
+    });
+  }
+
+  @visibleForTesting
+  void setShowScheduleOverlayForTest(bool value) {
+    setState(() {
+      _showScheduleOverlay = value;
+    });
+  }
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
