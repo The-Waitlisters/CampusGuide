@@ -1562,19 +1562,44 @@ void main() {
     });
 
     testWidgets('schedule overlay closes from callback path', (WidgetTester tester) async {
-      await tester.pumpWidget(wrap(HomeScreen(
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
         dataParser: mockDataParser,
         buildingLocator: mockBuildingLocator,
       )));
       await tester.pumpAndSettle();
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
+      final dynamic state = tester.state(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
       state.setShowScheduleOverlayForTest(true);
       await tester.pumpAndSettle();
 
       expect(find.byType(ScheduleOverlay), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsNothing);
+    });
+
+    testWidgets('schedule overlay selected-room callback path hides overlay', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      state.setShowScheduleOverlayForTest(true);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+
+      state.closeScheduleOverlayForSelectedRoomTest();
       await tester.pumpAndSettle();
 
       expect(find.byType(ScheduleOverlay), findsNothing);

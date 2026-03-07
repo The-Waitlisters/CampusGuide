@@ -892,6 +892,13 @@ class _HomeScreenState extends HomeScreenState {
       _showScheduleOverlay = value;
     });
   }
+
+  @visibleForTesting
+  void closeScheduleOverlayForSelectedRoomTest() {
+    setState(() {
+      _showScheduleOverlay = false;
+    });
+  }
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
