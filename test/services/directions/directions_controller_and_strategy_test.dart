@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:proj/models/campus.dart';
 
 import 'package:proj/services/directions/directions_controller.dart';
 import 'package:proj/services/directions/transport_mode_strategy.dart';
@@ -79,9 +80,42 @@ void main() {
       expect(BikeStrategy().modeParam, 'bicycling');
       expect(DriveStrategy().modeParam, 'driving');
       expect(MetroStrategy().modeParam, 'transit');
+      expect(ShuttleStrategy().modeParam, 'shuttle');
     });
   });
+  group('strategyForModeParam', () {
 
+    test('returns WalkStrategy for walking', () {
+      final strategy = strategyForModeParam(kModeWalking);
+      expect(strategy, isA<WalkStrategy>());
+    });
+
+    test('returns BikeStrategy for bicycling', () {
+      final strategy = strategyForModeParam(kModeBicycling);
+      expect(strategy, isA<BikeStrategy>());
+    });
+
+    test('returns DriveStrategy for driving', () {
+      final strategy = strategyForModeParam(kModeDriving);
+      expect(strategy, isA<DriveStrategy>());
+    });
+
+    test('returns MetroStrategy for transit', () {
+      final strategy = strategyForModeParam(kModeTransit);
+      expect(strategy, isA<MetroStrategy>());
+    });
+
+    test('returns ShuttleStrategy for shuttle', () {
+      final strategy = strategyForModeParam(kModeShuttle);
+      expect(strategy, isA<ShuttleStrategy>());
+    });
+
+    test('defaults to WalkStrategy for unknown mode', () {
+      final strategy = strategyForModeParam('unknown');
+      expect(strategy, isA<WalkStrategy>());
+    });
+
+  });
   group('decodePolyline', () {
     test('decodes a known Google encoded polyline sample', () {
       // Official sample polyline used in many docs/examples.
@@ -398,6 +432,81 @@ void main() {
       await future;
       expect(c2.state.isLoading, isFalse);
       expect(c2.state.polyline!.points, const [LatLng(9, 9), LatLng(8, 8)]);
+    });
+    test('Shuttle mode shows placeholder and does not call API', () async {
+      final fake = FakeDirectionsClient.success(
+        const RouteResult(
+          polylinePoints: [LatLng(1,1)],
+          durationText: 'x',
+          distanceText: 'y',
+        ),
+      );
+
+      final c = DirectionsController(client: fake);
+
+      c.setMode(ShuttleStrategy());
+
+      await c.updateRoute(
+        start: const LatLng(1,1),
+        end: const LatLng(2,2),
+      );
+
+      expect(fake.calls, 0); // API not called
+      expect(c.state.placeholderMessage, isNotNull);
+      expect(c.state.polyline, isNull);
+    });
+    test('Shuttle mode shows same-campus message', () async {
+      final fake = FakeDirectionsClient.success(
+        const RouteResult(
+          polylinePoints: [LatLng(1,1)],
+          durationText: 'x',
+          distanceText: 'y',
+        ),
+      );
+
+      final c = DirectionsController(client: fake);
+
+      c.setMode(ShuttleStrategy());
+
+      await c.updateRoute(
+        start: const LatLng(1,1),
+        end: const LatLng(2,2),
+        startCampus: Campus.sgw,
+        endCampus: Campus.sgw,
+      );
+
+      expect(
+        c.state.placeholderMessage,
+        'Shuttle is only available for cross-campus travel',
+      );
+    });
+    test('Shuttle mode shows cross-campus placeholder message', () async {
+      final fake = FakeDirectionsClient.success(
+        const RouteResult(
+          polylinePoints: [LatLng(1,1)],
+          durationText: 'x',
+          distanceText: 'y',
+        ),
+      );
+
+      final c = DirectionsController(client: fake);
+
+      c.setMode(ShuttleStrategy());
+
+      final campusA = Campus.sgw;
+      final campusB = Campus.loyola;
+
+      await c.updateRoute(
+        start: const LatLng(1,1),
+        end: const LatLng(2,2),
+        startCampus: campusA,
+        endCampus: campusB,
+      );
+
+      expect(
+        c.state.placeholderMessage,
+        'Shuttle service is coming soon for SGW ↔ Loyola travel',
+      );
     });
   });
 }

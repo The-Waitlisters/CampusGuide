@@ -11,7 +11,7 @@ import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
-import 'package:proj/screens/home_screen.dart' show HomeScreenState;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
@@ -338,6 +338,7 @@ void main() {
       );
       expect(result, isNull);
     });
+
   });
 
   // -------------------------------------------------------------------------
@@ -727,7 +728,7 @@ void main() {
       expect(find.textContaining('Full B1'), findsOneWidget);
       expect(find.byType(BuildingDetailContent), findsOneWidget);
     });
-
+    //probably refactor into directions card test not sure
     testWidgets(
         'search debounce shows results; selecting result opens sheet; Set as Start renders Directions card',
         (WidgetTester tester) async {
@@ -1082,5 +1083,71 @@ void main() {
           expect(find.text('HALL'), findsOneWidget);
         });
 
+    testWidgets('campusAtPoint detects SGW building', (tester) async {
+      final building = CampusBuilding(
+        id: 'b1',
+        name: 'H',
+        fullName: 'Hall',
+        campus: Campus.sgw,
+        description: '',
+        boundary: [
+          const LatLng(0,0),
+          const LatLng(0,1),
+          const LatLng(1,1),
+          const LatLng(1,0),
+        ],
+      );
+
+      final mockParser = MockDataParser();
+
+      when(mockParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(dataParser: mockParser),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
+
+      final campus = state.campusAtPoint(const LatLng(0.5,0.5));
+
+      expect(campus, Campus.sgw);
+    });
+    //test has issue with timerPending need to dispose of the timer
+
+    // testWidgets('same campus defaults to walking', (tester) async {
+    //   await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    //   await tester.pump();
+    //   final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
+    //
+    //   state.applyDefaultTransportMode(
+    //     startCampus: Campus.sgw,
+    //     endCampus: Campus.sgw,
+    //     startPoint: null,
+    //     endPoint: null,
+    //     isCurrentLocationStart: false,
+    //   );
+    //
+    //   expect(state.directionsForTest.mode.modeParam, 'walking');
+    // });
+    // testWidgets('different campus defaults to shuttle', (tester) async {
+    //   await tester.pumpWidget(MaterialApp(home: HomeScreen()));
+    //   final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
+    //
+    //   state.applyDefaultTransportMode(
+    //     startCampus: Campus.sgw,
+    //     endCampus: Campus.loyola,
+    //     startPoint: null,
+    //     endPoint: null,
+    //     isCurrentLocationStart: false,
+    //   );
+    //
+    //   expect(state.directionsForTest.mode.modeParam, 'shuttle');
+    //
+    // });
   });
 }

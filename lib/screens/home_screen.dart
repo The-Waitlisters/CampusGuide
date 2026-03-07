@@ -43,6 +43,14 @@ abstract class HomeScreenState extends State<HomeScreen> {
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
   /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
   void handleMapTap(LatLng point, [BuildContext? sheetContext]);
+  Campus? campusAtPoint(LatLng point);
+  void applyDefaultTransportMode({
+    required Campus? endCampus,
+    Campus? startCampus,
+    LatLng? startPoint,
+    LatLng? endPoint,
+    required bool isCurrentLocationStart,});
+  DirectionsController get directionsForTest;
 }
 
 class _HomeScreenState extends HomeScreenState {
@@ -116,6 +124,8 @@ class _HomeScreenState extends HomeScreenState {
       setState(() {}); // reflect polyline/loading/error in UI
     });
   }
+  @visibleForTesting
+  DirectionsController get directionsForTest => _directions;
 
   bool _isLocationPermissionDenied(LocationPermission permission) {
     return permission == LocationPermission.denied ||
@@ -265,7 +275,10 @@ class _HomeScreenState extends HomeScreenState {
     }
     return null;
   }
-
+  @visibleForTesting
+  Campus? campusAtPoint(LatLng point) {
+    return _campusAtPoint(point);
+  }
   static const double _currentLocationDefaultModeThresholdMeters = 2500;
 
   /// Applies default transport mode. No-op if user changed mode or no destination.
@@ -292,7 +305,6 @@ class _HomeScreenState extends HomeScreenState {
       } else {
         _directions.setMode(ShuttleStrategy());
       }
-      return;
     }
 
     if (startCampus == null) return;
@@ -302,7 +314,22 @@ class _HomeScreenState extends HomeScreenState {
       _directions.setMode(ShuttleStrategy());
     }
   }
-
+  @visibleForTesting
+  void applyDefaultTransportMode({
+    required Campus? endCampus,
+    Campus? startCampus,
+    LatLng? startPoint,
+    LatLng? endPoint,
+    required bool isCurrentLocationStart,
+  }) {
+    _applyDefaultTransportMode(
+      endCampus: endCampus,
+      startCampus: startCampus,
+      startPoint: startPoint,
+      endPoint: endPoint,
+      isCurrentLocationStart: isCurrentLocationStart,
+    );
+  }
   /// Resolves the route start point: from selected building or from current GPS when destination-first.
   Future<LatLng?> _getRouteStartPoint() async {
     if (_startBuilding != null) {
