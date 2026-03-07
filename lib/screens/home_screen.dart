@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -18,6 +19,11 @@ import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
+import '../widgets/use_as_start.dart';
+import '../widgets/schedule/schedule_overlay.dart';
+import '../models/course_schedule_entry.dart';
+import '../services/concordia_api.dart';
+import '../services/schedule_lookup.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -26,11 +32,14 @@ class HomeScreen extends StatefulWidget {
   /// so [ _goToCampus ] can complete without a real map.
   final Completer<GoogleMapController>? testMapControllerCompleter;
 
+  final DirectionsController? testDirectionsController;
+
   const HomeScreen({
     super.key,
     this.dataParser,
     this.buildingLocator,
-    this.testMapControllerCompleter
+    this.testMapControllerCompleter,
+    this.testDirectionsController
   });
 
   @override
@@ -48,7 +57,8 @@ abstract class HomeScreenState extends State<HomeScreen> {
 class _HomeScreenState extends HomeScreenState {
   bool? isAnnex;
   late DataParser data;
-  final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
+  final Completer<GoogleMapController> _controller = Completer<
+      GoogleMapController>();
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   LatLng? lastTap;
@@ -70,11 +80,15 @@ class _HomeScreenState extends HomeScreenState {
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
+  static const double _sheetLiftMax = 210.0;
 
   late BuildingLocator _buildingLocator;
 
   StreamSubscription<Position>? _gpsSub;
   CampusBuilding? _currentBuildingFromGPS;
+
+  bool isInBuilding = false;
+  bool _showScheduleOverlay = false;
 
   @override
   void initState() {
@@ -96,12 +110,14 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _initDirections() {
-    _directions = DirectionsController(
+    _directions = widget.testDirectionsController ?? DirectionsController(
       client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
     );
+    // coverage:ignore-line
     assert(() {
       if (Secrets.directionsApiKey.isEmpty) {
-        debugPrint('Directions API key is missing (DIRECTIONS_API_KEY not set).');
+        debugPrint(
+            'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
       return true;
     }());
@@ -154,6 +170,9 @@ class _HomeScreenState extends HomeScreenState {
 
           setState(() {
             _currentBuildingFromGPS = result.building;
+
+            final CampusBuilding? b = result.building;
+            isInBuilding = b != null && isPointInPolygon(userPoint, b.boundary);
           });
 
           if (oldId != newId) {
@@ -195,12 +214,12 @@ class _HomeScreenState extends HomeScreenState {
 
       String address = '';
 
-      if(placemarks.isNotEmpty) {
-        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ?? ''}, ' '${placemarks[0].postalCode ?? ''}';
+      if (placemarks.isNotEmpty) {
+        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ??
+            ''}, ' '${placemarks[0].postalCode ?? ''}';
       }
 
       return address;
-
     } catch (e) {
       debugPrint("Error getting placemarks: $e");
       return "No Address";
@@ -237,10 +256,13 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _updateDirectionsIfReady() async {
-    debugPrint('_updateDirectionsIfReady start=${_startBuilding?.name} end=${_endBuilding?.name}');
+    debugPrint('_updateDirectionsIfReady start=${_startBuilding
+        ?.name} end=${_endBuilding?.name}');
 
-    final start = _startBuilding == null ? null : polygonCenter(_startBuilding!.boundary);
-    final end = _endBuilding == null ? null : polygonCenter(_endBuilding!.boundary);
+    final start = _startBuilding == null ? null : polygonCenter(
+        _startBuilding!.boundary);
+    final end = _endBuilding == null ? null : polygonCenter(
+        _endBuilding!.boundary);
 
     await _directions.updateRoute(start: start, end: end);
 
@@ -253,34 +275,21 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
-    final controller = await _controller.future;
-
-    final sw = LatLng(
-      a.latitude < b.latitude ? a.latitude : b.latitude,
-      a.longitude < b.longitude ? a.longitude : b.longitude,
-    );
-    final ne = LatLng(
-      a.latitude > b.latitude ? a.latitude : b.latitude,
-      a.longitude > b.longitude ? a.longitude : b.longitude,
-    );
+    final completer = widget.testMapControllerCompleter ?? _controller;
+    final controller = await completer.future;
+    final bounds = boundsForRoute(a, b);
 
     await controller.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(southwest: sw, northeast: ne),
-        80,
-      ),
+      CameraUpdate.newLatLngBounds(bounds, 80),
     );
   }
 
-  void _onBuildingTapped(CampusBuilding? building)
-  {
+  void _onBuildingTapped(CampusBuilding? building) {
     debugPrint('_onBuildingTapped called with: ${building?.name}');
-    if (building == null)
-    {
+    if (building == null) {
       showModalBottomSheet(
         context: context,
-        builder: (context)
-        {
+        builder: (context) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Column(
@@ -303,8 +312,7 @@ class _HomeScreenState extends HomeScreenState {
 
     showModalBottomSheet(
       context: context,
-      builder: (context)
-      {
+      builder: (context) {
         //final bool canSetStart = _startBuilding == null || (_startBuilding?.id != building.id);
         //final bool canSetEnd = _endBuilding == null || (_endBuilding?.id != building.id);
 
@@ -315,8 +323,10 @@ class _HomeScreenState extends HomeScreenState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${building.campus.name.toUpperCase()} - ${building.name} - ${building.fullName}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                '${building.campus.name.toUpperCase()} - ${building
+                    .name} - ${building.fullName}',
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(building.description ?? 'No description available'),
@@ -339,7 +349,8 @@ class _HomeScreenState extends HomeScreenState {
               else
                 ElevatedButton(
                   onPressed: () async {
-                    debugPrint('Pressed Set as Destination for: ${building.name}');
+                    debugPrint(
+                        'Pressed Set as Destination for: ${building.name}');
                     setState(() {
                       _endBuilding = building;
                     });
@@ -381,7 +392,10 @@ class _HomeScreenState extends HomeScreenState {
       final pid = PolygonId(e.id);
       _polygonToBuilding[pid] = e;
       final bool isActiveGps = _currentBuildingFromGPS?.id == e.id;
-
+      if (isActiveGps) {
+        isInBuilding =
+            isActiveGps; // As soon as there's a building we are in, global variable is set to true
+      }
       return Polygon(
         polygonId: pid,
         points: e.boundary,
@@ -440,7 +454,8 @@ class _HomeScreenState extends HomeScreenState {
 
     _sheetController?.close();
     _sheetController = scaffoldState.showBottomSheet(
-          (_) => const Padding(
+          (_) =>
+      const Padding(
         padding: EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -456,7 +471,15 @@ class _HomeScreenState extends HomeScreenState {
         ),
       ),
     );
+    _attachSheetAnimation(_sheetController);
   }
+
+  void _attachSheetAnimation(PersistentBottomSheetController? controller) {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
 
   void _updateOnTap(PolygonId id) {
     final building = _polygonToBuilding[id];
@@ -477,13 +500,19 @@ class _HomeScreenState extends HomeScreenState {
       _cursorBuilding = building;
       _polygons = _polygons.map((p) {
         final isSelected = (p.polygonId == _selectedId);
+        bool selectedLocatedBuilding = false;
+        if (_currentBuildingFromGPS != null) {
+          selectedLocatedBuilding =
+              p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
+        }
         return p.copyWith(
           fillColorParam: isSelected
               ? const Color.fromARGB(255, 124, 115, 29)
-              : const Color(0x80912338),
+              : (selectedLocatedBuilding) ? const Color(0x803197F6) : Color(
+              0x80912338),
           strokeColorParam: isSelected
               ? Colors.yellow
-              : const Color(0xFF741C2C),
+              : (selectedLocatedBuilding) ? Colors.blue : Color(0xFF741C2C),
         );
       }).toSet();
     });
@@ -514,7 +543,8 @@ class _HomeScreenState extends HomeScreenState {
             _sheetController = null;
           },
           onSetDestination: () async {
-            debugPrint('Sheet: Set as Destination pressed for ${building.name}');
+            debugPrint(
+                'Sheet: Set as Destination pressed for ${building.name}');
             setState(() {
               _endBuilding = building;
             });
@@ -524,6 +554,7 @@ class _HomeScreenState extends HomeScreenState {
           },
         );
       });
+      _attachSheetAnimation(_sheetController);
 
       _sheetController!.closed.then((_) {
         if (mounted) _sheetController = null;
@@ -543,7 +574,31 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
+          if (_currentBuildingFromGPS != null &&
+              _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
+
+          if (_showScheduleOverlay)
+            ScheduleOverlay(
+              onClose: () {
+                setState(() {
+                  _showScheduleOverlay = false;
+                });
+              },
+              onRoomSelected: (CourseScheduleEntry entry) {
+                debugPrint('Selected room: ${entry.room}');
+
+                setState(() {
+                  _showScheduleOverlay = false;
+                });
+                },
+              lookupService: ScheduleLookupService(
+                api: ConcordiaApiService(
+                  userId: dotenv.env['CONCORDIA_USER_ID'] ?? '',
+                  apiKey: dotenv.env['CONCORDIA_API_KEY'] ?? '',
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -603,7 +658,9 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildGpsStatusCard() {final text = _currentBuildingFromGPS?.fullName ?? _currentBuildingFromGPS?.name ?? 'Not in a building';
+  Widget _buildGpsStatusCard() {
+    final text = _currentBuildingFromGPS?.fullName ??
+        _currentBuildingFromGPS?.name ?? 'Not in a building';
     return _topCard(
       top: 12,
       elevation: 4,
@@ -626,7 +683,46 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _topCard({required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(12), double? elevation,}) {
+  Widget _buildSetCurrentAsStartCard() {
+    if (_currentBuildingFromGPS == null || !isInBuilding ||
+        _startBuilding != null) {
+      return const SizedBox.shrink();
+    }
+
+    final bool sheetOpen = _sheetController != null;
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      left: 0,
+      bottom: sheetOpen ? _sheetLiftMax : 0,
+      child: UseAsStart(
+        selected: _currentBuildingFromGPS!,
+        onSetStart: () {
+          debugPrint(
+              'Set as Start pressed for ${_currentBuildingFromGPS?.name}');
+
+          setState(() {
+            _startBuilding = _currentBuildingFromGPS;
+            _endBuilding = null;
+          });
+
+          _updateDirectionsIfReady();
+
+          if (_sheetController != null) {
+            _sheetController?.close();
+            setState(() {
+              _sheetController = null;
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _topCard(
+      {required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets
+          .all(12), double? elevation,}) {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(12, top, 12, 0),
@@ -685,6 +781,13 @@ class _HomeScreenState extends HomeScreenState {
           _showSearchResults = false;
         });
       },
+      onMenuSelected: (String value) {
+        if (value == 'schedule') {
+          setState(() {
+            _showScheduleOverlay = true;
+          });
+        }
+      },
       onSelectResult: (b) {
         debugPrint('Tapped search result: ${b.name}');
         _searchController.text = b.name;
@@ -712,8 +815,10 @@ class _HomeScreenState extends HomeScreenState {
     _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
+    _controller.future.then((ctlrer) => ctlrer.dispose());
     super.dispose();
   }
+
   //to call _updateOnTap() in tests.
   @visibleForTesting
   void simulatePolygonTap(PolygonId id, LatLng tapPoint) {
@@ -726,7 +831,7 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void triggerPolygonOnTap(PolygonId id) {
     final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
-      (p) => p != null && p.polygonId == id,
+          (p) => p != null && p.polygonId == id,
       orElse: () => null,
     );
     poly?.onTap?.call();
@@ -762,4 +867,50 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  @visibleForTesting
+  void setCurrentBuildingFromGPS(CampusBuilding building) {
+    setState(() {
+      _currentBuildingFromGPS = building;
+    });
+  }
+
+  @visibleForTesting
+  Future<void> zoomToRouteForTest(LatLng a, LatLng b) {
+    return _zoomToRoute(a, b);
+  }
+
+  @visibleForTesting
+  void setIsInBuildingForTest(bool value) {
+    setState(() {
+      isInBuilding = value;
+    });
+  }
+
+  @visibleForTesting
+  void setShowScheduleOverlayForTest(bool value) {
+    setState(() {
+      _showScheduleOverlay = value;
+    });
+  }
+
+  @visibleForTesting
+  void closeScheduleOverlayForSelectedRoomTest() {
+    setState(() {
+      _showScheduleOverlay = false;
+    });
+  }
+}
+
+// For tests: Make sure we cover route-zoom math without a real map
+LatLngBounds boundsForRoute(LatLng a, LatLng b) {
+  final sw = LatLng(
+    a.latitude < b.latitude ? a.latitude : b.latitude,
+    a.longitude < b.longitude ? a.longitude : b.longitude,
+  );
+  final ne = LatLng(
+    a.latitude > b.latitude ? a.latitude : b.latitude,
+    a.longitude > b.longitude ? a.longitude : b.longitude,
+  );
+
+  return LatLngBounds(southwest: sw, northeast: ne);
 }
