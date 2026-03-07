@@ -19,6 +19,8 @@ import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
 import '../widgets/use_as_start.dart';
+import '../widgets/schedule/schedule_overlay.dart';
+import '../models/course_schedule_entry.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -83,6 +85,7 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _currentBuildingFromGPS;
 
   bool isInBuilding = false;
+  bool _showScheduleOverlay = false;
 
   @override
   void initState() {
@@ -566,11 +569,30 @@ class _HomeScreenState extends HomeScreenState {
           _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
+          _buildScheduleButtonCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
           if (_currentBuildingFromGPS != null &&
               _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
+
+          if (_showScheduleOverlay)
+            ScheduleOverlay(
+              onClose: () {
+                setState(() {
+                  _showScheduleOverlay = false;
+                });
+              },
+              onRoomSelected: (CourseScheduleEntry entry) {
+                debugPrint('Selected room: ${entry.room}');
+
+                setState(() {
+                  _showScheduleOverlay = false;
+                });
+
+                // later you will route to the building here
+              },
+            ),
         ],
       ),
     );
@@ -651,6 +673,22 @@ class _HomeScreenState extends HomeScreenState {
       child: CampusToggle(
         selected: _campus,
         onChanged: _goToCampus,
+      ),
+    );
+  }
+
+  Widget _buildScheduleButtonCard() {
+    return _topCard(
+      top: 128,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: TextButton.icon(
+        onPressed: () {
+          setState(() {
+            _showScheduleOverlay = true;
+          });
+        },
+        icon: const Icon(Icons.schedule),
+        label: const Text('Schedule'),
       ),
     );
   }
