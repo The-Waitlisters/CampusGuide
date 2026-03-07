@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/services/schedule_lookup.dart';
+import 'package:proj/widgets/home/search_overlay.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 
 import 'schedule_overlay_test.mocks.dart';
@@ -191,5 +193,40 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(mockLookup.searchCourse('SOEN 363')).called(greaterThanOrEqualTo(1));
+  });
+
+  testWidgets('menu button builds schedule item and calls onMenuSelected', (WidgetTester tester) async {
+    String? selectedValue;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SearchOverlay(
+            controller: TextEditingController(),
+            showResults: false,
+            results: const <CampusBuilding>[],
+            onChanged: (_) {},
+            onClear: () {},
+            onMenuSelected: (String value) {
+              selectedValue = value;
+            },
+            onTapField: () {},
+            onSelectResult: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Schedule'), findsOneWidget);
+
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+
+    expect(selectedValue, 'schedule');
   });
 }
