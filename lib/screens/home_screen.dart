@@ -569,7 +569,6 @@ class _HomeScreenState extends HomeScreenState {
           _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
-          _buildScheduleButtonCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
           if (_currentBuildingFromGPS != null &&
@@ -677,22 +676,6 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildScheduleButtonCard() {
-    return _topCard(
-      top: 128,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: TextButton.icon(
-        onPressed: () {
-          setState(() {
-            _showScheduleOverlay = true;
-          });
-        },
-        icon: const Icon(Icons.schedule),
-        label: const Text('Schedule'),
-      ),
-    );
-  }
-
   Widget _buildSetCurrentAsStartCard() {
     if (_currentBuildingFromGPS == null || !isInBuilding ||
         _startBuilding != null) {
@@ -790,6 +773,13 @@ class _HomeScreenState extends HomeScreenState {
           _searchResults.clear();
           _showSearchResults = false;
         });
+      },
+      onMenuSelected: (String value) {
+        if (value == 'schedule') {
+          setState(() {
+            _showScheduleOverlay = true;
+          });
+        }
       },
       onSelectResult: (b) {
         debugPrint('Tapped search result: ${b.name}');
