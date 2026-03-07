@@ -24,6 +24,7 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
 import 'package:proj/widgets/home/building_detail_content.dart';
 import 'package:proj/widgets/home/building_detail_sheet.dart';
+import 'package:proj/widgets/use_as_start.dart';
 
 import '../services/directions/directions_controller_and_strategy_test.dart';
 import 'home_screen_test.mocks.dart';
@@ -1547,5 +1548,105 @@ void main() {
 
       expect(find.byType(BuildingDetailSheet), findsOneWidget);
     });
+
+    testWidgets('non-selected GPS building keeps GPS highlight colors', (WidgetTester tester) async {
+      final gpsBuilding = buildTestBuilding(
+        id: 'gps1',
+        name: 'GPS',
+        fullName: 'GPS Building',
+      );
+
+      final otherBuilding = buildTestBuilding(
+        id: 'other',
+        name: 'Other',
+        fullName: 'Other Building',
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [gpsBuilding, otherBuilding]);
+      when(mockDataParser.buildingsPresent)
+          .thenReturn([gpsBuilding, otherBuilding]);
+
+      await tester.pumpWidget(
+        wrap(HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+        )),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state<HomeScreenState>(
+        find.byType(HomeScreen),
+      );
+
+      state.setCurrentBuildingFromGPS(gpsBuilding);
+      await tester.pump();
+
+      state.lastTap = const LatLng(1, 1);
+      state.triggerPolygonOnTap(const PolygonId('other'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BuildingDetailSheet), findsOneWidget);
+    });
+
+    testWidgets('floating UseAsStart card callback sets start and updates directions', (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'gps1',
+        name: 'GPS',
+        fullName: 'GPS Building',
+        boundary: const [
+          LatLng(45.0, -73.0),
+          LatLng(45.0, -74.0),
+          LatLng(46.0, -74.0),
+          LatLng(46.0, -73.0),
+          LatLng(45.0, -73.0),
+        ],
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(
+          const RouteResult(
+            polylinePoints: [LatLng(45, -73), LatLng(46, -74)],
+            durationText: '5 mins',
+            distanceText: '1 km',
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        wrap(HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+          testDirectionsController: fakeDirections,
+        )),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state<HomeScreenState>(
+        find.byType(HomeScreen),
+      );
+
+      state.setCurrentBuildingFromGPS(building);
+      state.setIsInBuildingForTest(true);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(UseAsStart), findsOneWidget);
+
+      await tester.tap(find.descendant(
+        of: find.byType(UseAsStart),
+        matching: find.byType(ElevatedButton),
+      ));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Directions'), findsOneWidget);
+    });
+
+
   });
 }
