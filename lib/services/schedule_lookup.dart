@@ -85,7 +85,7 @@ class ScheduleLookupService {
   String _extractDayText(Map<String, dynamic> map) {
     final List<String> days = <String>[];
 
-    if ('${map['modays'] ?? ''}' == 'Y') {
+    if ('${map['mondays'] ?? ''}' == 'Y') {
       days.add('Mon');
     }
     if ('${map['tuesdays'] ?? ''}' == 'Y') {
