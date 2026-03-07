@@ -46,7 +46,7 @@ class ScheduleLookupService {
     if (result is! List) {
       return <CourseScheduleEntry>[];
     }
-    // coverage:ignore-start
+    // coverage:ignore-end
 
     return result.map<CourseScheduleEntry>((dynamic item) {
       final map = item as Map<String, dynamic>;
