@@ -26,6 +26,7 @@ import 'package:proj/widgets/home/building_detail_content.dart';
 import 'package:proj/widgets/home/building_detail_sheet.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 import 'package:proj/widgets/use_as_start.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../services/directions/directions_controller_and_strategy_test.dart';
 import 'home_screen_test.mocks.dart';
@@ -256,7 +257,10 @@ CampusBuilding buildTestBuilding({
 }
 
 @GenerateMocks([DataParser, BuildingLocator])
-void main() {
+Future<void> main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+
   // geocoding method channel used by `geocoding`.
   const MethodChannel geocodingChannel = MethodChannel('flutter.baseflow.com/geocoding');
 
