@@ -77,15 +77,23 @@ class ScheduleResultsList extends StatelessWidget {
               ],
             ),
           ),
-          ...results.map(
-                (CourseScheduleEntry entry) {
-              return ScheduleResultTile(
-                entry: entry,
-                onTap: () {
-                  onResultTap(entry);
+          Expanded(
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: ListView.builder(
+                itemCount: results.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final CourseScheduleEntry entry = results[index];
+
+                  return ScheduleResultTile(
+                    entry: entry,
+                    onTap: () {
+                      onResultTap(entry);
+                    },
+                  );
                 },
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),

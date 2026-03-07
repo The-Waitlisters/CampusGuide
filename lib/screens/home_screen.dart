@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -21,6 +22,8 @@ import '../widgets/home/search_overlay.dart';
 import '../widgets/use_as_start.dart';
 import '../widgets/schedule/schedule_overlay.dart';
 import '../models/course_schedule_entry.dart';
+import '../services/concordia_api.dart';
+import '../services/schedule_lookup.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -588,9 +591,13 @@ class _HomeScreenState extends HomeScreenState {
                 setState(() {
                   _showScheduleOverlay = false;
                 });
-
-                // later you will route to the building here
-              },
+                },
+              lookupService: ScheduleLookupService(
+                api: ConcordiaApiService(
+                  userId: dotenv.env['CONCORDIA_USER_ID'] ?? '',
+                  apiKey: dotenv.env['CONCORDIA_API_KEY'] ?? '',
+                ),
+              ),
             ),
         ],
       ),

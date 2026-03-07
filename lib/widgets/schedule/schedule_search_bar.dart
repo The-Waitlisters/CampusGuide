@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class ScheduleSearchBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
 
   const ScheduleSearchBar({
     super.key,
     required this.controller,
     required this.onChanged,
+    required this.onSubmitted,
   });
 
   @override
@@ -23,7 +25,9 @@ class ScheduleSearchBar extends StatelessWidget {
       child: TextField(
         controller: controller,
         onChanged: onChanged,
+        onSubmitted: onSubmitted,
         textCapitalization: TextCapitalization.characters,
+        textInputAction: TextInputAction.search,
         decoration: const InputDecoration(
           border: InputBorder.none,
           hintText: 'Enter Course Name',
