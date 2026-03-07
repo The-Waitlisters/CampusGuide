@@ -201,17 +201,21 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SearchOverlay(
-            controller: TextEditingController(),
-            showResults: false,
-            results: const <CampusBuilding>[],
-            onChanged: (_) {},
-            onClear: () {},
-            onMenuSelected: (String value) {
-              selectedValue = value;
-            },
-            onTapField: () {},
-            onSelectResult: (_) {},
+          body: Stack(
+            children: [
+              SearchOverlay(
+                controller: TextEditingController(),
+                showResults: false,
+                results: const <CampusBuilding>[],
+                onChanged: (_) {},
+                onClear: () {},
+                onMenuSelected: (String value) {
+                  selectedValue = value;
+                },
+                onTapField: () {},
+                onSelectResult: (_) {},
+              ),
+            ],
           ),
         ),
       ),
