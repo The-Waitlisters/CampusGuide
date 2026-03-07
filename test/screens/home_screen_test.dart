@@ -1497,5 +1497,55 @@ void main() {
 
           await tester.pump();
         });
+
+    testWidgets('GPS building stays blue while another polygon is selected', (WidgetTester tester) async {
+      final gpsB = buildTestBuilding(id: 'gps', name: 'GPS');
+      final targetB = buildTestBuilding(id: 'target', name: 'Target');
+
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [gpsB, targetB]);
+      when(mockDataParser.buildingsPresent).thenReturn([gpsB, targetB]);
+
+      await tester.pumpWidget(wrap(HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(HomeScreen));
+
+      state.setCurrentBuildingFromGPS(gpsB);
+      await tester.pump();
+
+      state.lastTap = const LatLng(1, 1);
+      state.triggerPolygonOnTap(const PolygonId('target'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BuildingDetailSheet), findsOneWidget);
+    });
+
+    testWidgets('GPS building stays blue while another polygon is selected', (WidgetTester tester) async {
+      final gpsB = buildTestBuilding(id: 'gps', name: 'GPS');
+      final targetB = buildTestBuilding(id: 'target', name: 'Target');
+
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [gpsB, targetB]);
+      when(mockDataParser.buildingsPresent).thenReturn([gpsB, targetB]);
+
+      await tester.pumpWidget(wrap(HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(HomeScreen));
+
+      state.setCurrentBuildingFromGPS(gpsB);
+      await tester.pump();
+
+      state.lastTap = const LatLng(1, 1);
+      state.triggerPolygonOnTap(const PolygonId('target'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BuildingDetailSheet), findsOneWidget);
+    });
   });
 }
