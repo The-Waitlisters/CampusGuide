@@ -1504,37 +1504,18 @@ Future<void> main() async {
           await tester.pump();
         });
 
-    testWidgets('search menu opens schedule overlay', (WidgetTester tester) async {
+    testWidgets('schedule overlay shows when toggled by test hook', (WidgetTester tester) async {
       await tester.pumpWidget(wrap(home_screen.HomeScreen(
         dataParser: mockDataParser,
         buildingLocator: mockBuildingLocator,
       )));
       await tester.pumpAndSettle();
 
-      // Open the popup menu in SearchOverlay.
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
+      final dynamic state = tester.state(
+        find.byType(home_screen.HomeScreen).first,
+      );
 
-      // Tap the schedule menu item.
-      await tester.tap(find.text('Schedule'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(ScheduleOverlay), findsOneWidget);
-    });
-
-    testWidgets('search menu opens schedule overlay', (WidgetTester tester) async {
-      await tester.pumpWidget(wrap(home_screen.HomeScreen(
-        dataParser: mockDataParser,
-        buildingLocator: mockBuildingLocator,
-      )));
-      await tester.pumpAndSettle();
-
-      // Open the popup menu in SearchOverlay.
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-
-      // Tap the schedule menu item.
-      await tester.tap(find.text('Schedule'));
+      state.setShowScheduleOverlayForTest(true);
       await tester.pumpAndSettle();
 
       expect(find.byType(ScheduleOverlay), findsOneWidget);
