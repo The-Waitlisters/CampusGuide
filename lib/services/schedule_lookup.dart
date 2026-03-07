@@ -58,7 +58,7 @@ class ScheduleLookupService {
       final String buildingCode = '${map['buildingCode'] ?? ''}'.trim();
       final String room = roomCode.isNotEmpty
           ? roomCode
-          : '${buildingCode}${map['room'] ?? ''}'.trim();
+          : '$buildingCode${map['room'] ?? ''}'.trim();
 
       final String campus = '${map['locationCode'] ?? ''}'.trim();
 
