@@ -538,7 +538,11 @@ class _HomeScreenState extends HomeScreenState {
       appBar: AppBar(title: const Text('The Waitlisters')),
       body: Stack(
         children: [
-          _buildMapLayer(),
+          // TEST FIX: GoogleMap uses a native Android platform view which cannot
+          // initialize in `flutter test -d` mode. Skipping it in E2E mode prevents
+          // the MissingPluginException that would crash the binding and poison every
+          // subsequent test in the file.
+          if (!isE2EMode) _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
@@ -604,15 +608,15 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildGpsStatusCard() {final text = _currentBuildingFromGPS?.fullName ?? _currentBuildingFromGPS?.name ?? 'Not in a building';
-    return _topCard(
-      top: 12,
-      elevation: 4,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-      ),
-    );
+  return _topCard(
+    top: 12,
+    elevation: 4,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+    ),
+  );
   }
 
   Widget _buildCampusToggleCard() {
@@ -726,7 +730,7 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void triggerPolygonOnTap(PolygonId id) {
     final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
-      (p) => p != null && p.polygonId == id,
+          (p) => p != null && p.polygonId == id,
       orElse: () => null,
     );
     poly?.onTap?.call();
@@ -761,5 +765,34 @@ class _HomeScreenState extends HomeScreenState {
       _cursorPoint = tapPoint;
     });
   }
+
+  @visibleForTesting
+  void simulateCampusChange(Campus campus) {
+    setState(() {
+      _campus = campus;
+      _buildingLocator.reset();
+      _currentBuildingFromGPS = null;
+      _polygons = _buildPolygons(buildingsPresent);
+    });
+  }
+
+  @visibleForTesting
+  void simulateGpsLocation(LatLng point) {
+    final result = _buildingLocator.update(
+      userPoint: point,
+      campus: _campus,
+      buildings: buildingsPresent,
+    );
+    setState(() {
+      _currentBuildingFromGPS = result.building;
+      _polygons = _buildPolygons(buildingsPresent);
+    });
+  }
+
+  /// For tests: exposes the private _polygons set so tests can assert on
+  /// how many polygons are rendered without relying on dynamic field access
+  /// (which Dart's library-private rules block from other files).
+  @visibleForTesting
+  Set<Polygon> get testPolygons => _polygons;
 
 }
