@@ -13,6 +13,7 @@ import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
+import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
@@ -43,14 +44,6 @@ abstract class HomeScreenState extends State<HomeScreen> {
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
   /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
   void handleMapTap(LatLng point, [BuildContext? sheetContext]);
-  Campus? campusAtPoint(LatLng point);
-  void applyDefaultTransportMode({
-    required Campus? endCampus,
-    Campus? startCampus,
-    LatLng? startPoint,
-    LatLng? endPoint,
-    required bool isCurrentLocationStart,});
-  DirectionsController get directionsForTest;
 }
 
 class _HomeScreenState extends HomeScreenState {
@@ -124,8 +117,6 @@ class _HomeScreenState extends HomeScreenState {
       setState(() {}); // reflect polyline/loading/error in UI
     });
   }
-  @visibleForTesting
-  DirectionsController get directionsForTest => _directions;
 
   bool _isLocationPermissionDenied(LocationPermission permission) {
     return permission == LocationPermission.denied ||
@@ -266,19 +257,8 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   /// Returns which campus (if any) contains [point] using building boundaries.
-  Campus? _campusAtPoint(LatLng point) {
-    if (findBuildingAtPoint(point, buildingsPresent, Campus.sgw) != null) {
-      return Campus.sgw;
-    }
-    if (findBuildingAtPoint(point, buildingsPresent, Campus.loyola) != null) {
-      return Campus.loyola;
-    }
-    return null;
-  }
-  @visibleForTesting
-  Campus? campusAtPoint(LatLng point) {
-    return _campusAtPoint(point);
-  }
+  Campus? _campusAtPoint(LatLng point) =>
+      RouteLogic.campusAtPoint(point, buildingsPresent);
   static const double _currentLocationDefaultModeThresholdMeters = 2500;
 
   /// Applies default transport mode. No-op if user changed mode or no destination.
@@ -286,50 +266,23 @@ class _HomeScreenState extends HomeScreenState {
   /// - Current-location start: distance < 2.5 km → Walk, else → Shuttle.
   void _applyDefaultTransportMode({
     required Campus? endCampus,
-    Campus? startCampus,
-    LatLng? startPoint,
-    LatLng? endPoint,
+    required Campus? startCampus,
+    required LatLng? startPoint,
+    required LatLng? endPoint,
     required bool isCurrentLocationStart,
   }) {
-    if (_modeChangedByUser || endCampus == null) return;
-
-    if (isCurrentLocationStart && startPoint != null && endPoint != null) {
-      final distanceMeters = Geolocator.distanceBetween(
-        startPoint.latitude,
-        startPoint.longitude,
-        endPoint.latitude,
-        endPoint.longitude,
-      );
-      if (distanceMeters < _currentLocationDefaultModeThresholdMeters) {
-        _directions.setMode(WalkStrategy());
-      } else {
-        _directions.setMode(ShuttleStrategy());
-      }
-    }
-
-    if (startCampus == null) return;
-    if (startCampus == endCampus) {
-      _directions.setMode(WalkStrategy());
-    } else {
-      _directions.setMode(ShuttleStrategy());
-    }
-  }
-  @visibleForTesting
-  void applyDefaultTransportMode({
-    required Campus? endCampus,
-    Campus? startCampus,
-    LatLng? startPoint,
-    LatLng? endPoint,
-    required bool isCurrentLocationStart,
-  }) {
-    _applyDefaultTransportMode(
-      endCampus: endCampus,
-      startCampus: startCampus,
-      startPoint: startPoint,
-      endPoint: endPoint,
-      isCurrentLocationStart: isCurrentLocationStart,
+    if (_modeChangedByUser) return;
+    final mode = RouteLogic.defaultMode(
+    endCampus: endCampus,
+    startCampus: startCampus,
+    startPoint: startPoint,
+    endPoint: endPoint,
+    isCurrentLocationStart: isCurrentLocationStart,
     );
+    if (mode != null) _directions.setMode(mode);
   }
+
+
   /// Resolves the route start point: from selected building or from current GPS when destination-first.
   Future<LatLng?> _getRouteStartPoint() async {
     if (_startBuilding != null) {
