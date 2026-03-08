@@ -563,10 +563,6 @@ class _HomeScreenState extends HomeScreenState {
       appBar: AppBar(title: const Text('The Waitlisters')),
       body: Stack(
         children: [
-          // TEST FIX: GoogleMap uses a native Android platform view which cannot
-          // initialize in `flutter test -d` mode. Skipping it in E2E mode prevents
-          // the MissingPluginException that would crash the binding and poison every
-          // subsequent test in the file.
           if (!isE2EMode) _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
@@ -840,6 +836,9 @@ class _HomeScreenState extends HomeScreenState {
   void setCurrentBuildingFromGPS(CampusBuilding building) {
     setState(() {
       _currentBuildingFromGPS = building;
+    });
+  }
+  @visibleForTesting
   void simulateCampusChange(Campus campus) {
     setState(() {
       _campus = campus;
@@ -849,6 +848,21 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  @visibleForTesting
+  void simulateGpsLocation(LatLng point) {
+    final result = _buildingLocator.update(
+      userPoint: point,
+      campus: _campus,
+      buildings: buildingsPresent,
+    );
+    setState(() {
+      _currentBuildingFromGPS = result.building;
+      _polygons = _buildPolygons(buildingsPresent);
+    });
+  }
+
+  @visibleForTesting
+  Set<Polygon> get testPolygons => _polygons;
   @visibleForTesting
   Future<void> zoomToRouteForTest(LatLng a, LatLng b) {
     return _zoomToRoute(a, b);
@@ -874,23 +888,4 @@ LatLngBounds boundsForRoute(LatLng a, LatLng b) {
   );
 
   return LatLngBounds(southwest: sw, northeast: ne);
-}
-  void simulateGpsLocation(LatLng point) {
-    final result = _buildingLocator.update(
-      userPoint: point,
-      campus: _campus,
-      buildings: buildingsPresent,
-    );
-    setState(() {
-      _currentBuildingFromGPS = result.building;
-      _polygons = _buildPolygons(buildingsPresent);
-    });
-  }
-
-  /// For tests: exposes the private _polygons set so tests can assert on
-  /// how many polygons are rendered without relying on dynamic field access
-  /// (which Dart's library-private rules block from other files).
-  @visibleForTesting
-  Set<Polygon> get testPolygons => _polygons;
-
 }
