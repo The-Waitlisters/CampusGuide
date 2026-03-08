@@ -61,7 +61,10 @@ class MapLayer<T> extends StatelessWidget {
             );
 
             final controller = await controllerFuture;
+            if (mapKey.currentContext == null) return;
+
             final latLng = await controller.getLatLng(screenCoordinate);
+            if (mapKey.currentContext == null) return;
 
             onMapTapLatLng(latLng);
           },
