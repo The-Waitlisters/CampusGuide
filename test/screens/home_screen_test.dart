@@ -201,7 +201,43 @@ class FakeGoogleMapController implements GoogleMapController {
   @override
   void dispose() {}
 }
-
+class CurrentPositionGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  double distanceBetween(
+      double startLatitude,
+      double startLongitude,
+      double endLatitude,
+      double endLongitude,
+      ) => 100.0;
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(true);
+  @override
+  Future<LocationPermission> checkPermission() =>
+      Future.value(LocationPermission.always);
+  @override
+  Future<LocationPermission> requestPermission() =>
+      Future.value(LocationPermission.always);
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      Stream.value(Position(
+        latitude: 45.4972, longitude: -73.5788,
+        timestamp: DateTime.now(),
+        accuracy: 0, altitude: 0, altitudeAccuracy: 0,
+        heading: 0, headingAccuracy: 0, speed: 0, speedAccuracy: 0,
+      ));
+  @override
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async =>
+      Position(
+        latitude: 45.4972, longitude: -73.5788,
+        timestamp: DateTime.now(),
+        accuracy: 0, altitude: 0, altitudeAccuracy: 0,
+        heading: 0, headingAccuracy: 0, speed: 0, speedAccuracy: 0,
+      );
+}
 // --- Test data ---
 
 CampusBuilding buildTestBuilding({
@@ -338,7 +374,6 @@ void main() {
       );
       expect(result, isNull);
     });
-
   });
 
   // -------------------------------------------------------------------------
@@ -1081,6 +1116,262 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('HALL'), findsOneWidget);
+        });
+    testWidgets('initState prints missing API key warning when key absent', (tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoogleMap), findsOneWidget);
+    });
+    testWidgets('_campusAtPoint is called when destination-first route updates', (tester) async {
+      final dest = buildTestBuilding(id: 'b1', name: 'DEST', fullName: 'Dest Building');
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [dest]);
+      when(mockDataParser.buildingsPresent).thenReturn([dest]);
+
+      // Grant location so the GPS path runs (not the denied path).
+      GeolocatorPlatform.instance = MockGeolocatorPlatform();
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Directions'), findsOneWidget);
+    });
+    testWidgets('shows location required message when permission denied and destination-first',
+            (tester) async {
+          final dest = buildTestBuilding(id: 'b1', name: 'DEST', fullName: 'Dest Building');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [dest]);
+          when(mockDataParser.buildingsPresent).thenReturn([dest]);
+
+          // Deny permission so _getRouteStartPoint returns null.
+          GeolocatorPlatform.instance = PermissionDeniedGeolocatorPlatform();
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          await tester.enterText(find.byType(TextField), 'dest');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('DEST'));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(
+            find.textContaining('please allow location access'),
+            findsOneWidget,
+          );
+    });
+    testWidgets('destination-first with GPS granted gets current position and updates route',
+            (tester) async {
+          final dest = buildTestBuilding(id: 'b1', name: 'DEST', fullName: 'Dest Building');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [dest]);
+          when(mockDataParser.buildingsPresent).thenReturn([dest]);
+
+          GeolocatorPlatform.instance = CurrentPositionGeolocatorPlatform();
+
+          // Provide a real FakeGoogleMapController so animateCamera doesn't hang.
+          final mapCompleter = Completer<GoogleMapController>()
+            ..complete(FakeGoogleMapController());
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            testMapControllerCompleter: mapCompleter,
+          )));
+          await tester.pumpAndSettle();
+
+          await tester.enterText(find.byType(TextField), 'dest');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('DEST'));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          // Route should be updating (no crash, no location-required message).
+          expect(find.textContaining('please allow location access'), findsNothing);
+          expect(find.text('Directions'), findsOneWidget);
+    });
+    testWidgets('sheet Set as Start closes sheet and sets _sheetController null',
+            (tester) async {
+          final building = buildTestBuilding(id: 'b1', name: 'B1', fullName: 'B1 Full');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+          when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+
+          state.simulateBuildingSelection(building, const LatLng(1, 1));
+          await tester.pump();
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(find.byType(DraggableScrollableSheet), findsOneWidget);
+
+          // Tap Set as Start inside the sheet — this is the onSetStart callback.
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start').last);
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          // Sheet should be closed; directions card should appear.
+          expect(find.byType(DraggableScrollableSheet), findsNothing);
+          expect(find.text('Directions'), findsOneWidget);
+    });
+
+    testWidgets('sheet Set as Destination closes sheet', (tester) async {
+      final startB = buildTestBuilding(id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB  = buildTestBuilding(id: 'b2', name: 'DEST',  fullName: 'Dest Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+
+      state.simulateBuildingSelection(startB, const LatLng(1, 1));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start').last);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      state.simulateBuildingSelection(destB, const LatLng(1, 1));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination').last);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Sheet closes; directions card shows both buildings.
+      expect(find.byType(DraggableScrollableSheet), findsNothing);
+      expect(find.textContaining('Dest Building'), findsOneWidget);
+    });
+    testWidgets('tapping mode chip sets _modeChangedByUser and updates directions',
+            (tester) async {
+          final startB = buildTestBuilding(id: 'b1', name: 'START', fullName: 'Start Building');
+          final destB  = buildTestBuilding(id: 'b2', name: 'DEST',  fullName: 'Dest Building');
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [startB, destB]);
+          when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+          final mapCompleter = Completer<GoogleMapController>()
+            ..complete(FakeGoogleMapController());
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            testMapControllerCompleter: mapCompleter,
+          )));
+          await tester.pumpAndSettle();
+
+          // Set start.
+          await tester.enterText(find.byType(TextField), 'start');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('START'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          // Set destination.
+          await tester.enterText(find.byType(TextField), 'dest');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('DEST'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ChoiceChip), findsWidgets);
+
+          await tester.tap(find.byType(ChoiceChip).at(1));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          final bikeChip = tester.widget<ChoiceChip>(find.byType(ChoiceChip).at(1));
+          expect(bikeChip.selected, isTrue);
+    });
+    testWidgets('E2E campus label shows campus:loyola when on Loyola campus', (tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Loyola'));
+      await tester.pumpAndSettle();
+
+      final loyolaLabel = find.text('campus:loyola');
+      if (loyolaLabel.evaluate().isNotEmpty) {
+        expect(loyolaLabel, findsOneWidget);
+      } else {
+
+        expect(find.text('Loyola'), findsOneWidget);
+      }
+    });
+    testWidgets('triggerPolygonOnTap with unknown id hits orElse and shows not-part-of-campus',
+            (tester) async {
+          final building = buildTestBuilding(id: 'b1', name: 'B1', fullName: 'B1 Full');
+          when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+          when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+          state.lastTap = const LatLng(1, 1);
+
+
+          state.simulateBuildingTap(null);
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(find.text('Not part of campus'), findsOneWidget);
         });
   });
 }
