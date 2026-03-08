@@ -1,6 +1,7 @@
 /*
 !/lib/
 !/test/
+!/test_driver/
 !/docs/
 !/pubspec.yaml
 !/analysis_options.yaml
