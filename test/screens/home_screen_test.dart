@@ -1117,37 +1117,61 @@ void main() {
 
       expect(campus, Campus.sgw);
     });
-    //test has issue with timerPending need to dispose of the timer
+    testWidgets('same campus defaults to walking', (tester) async {
+      final building = CampusBuilding(
+        id: 'b1', name: 'H', fullName: 'Hall',
+        campus: Campus.sgw, description: '',
+        boundary: [
+          const LatLng(0,0), const LatLng(0,1),
+          const LatLng(1,1), const LatLng(1,0),
+        ],
+      );
+      final mockParser = MockDataParser();
+      when(mockParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
 
-    // testWidgets('same campus defaults to walking', (tester) async {
-    //   await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    //   await tester.pump();
-    //   final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
-    //
-    //   state.applyDefaultTransportMode(
-    //     startCampus: Campus.sgw,
-    //     endCampus: Campus.sgw,
-    //     startPoint: null,
-    //     endPoint: null,
-    //     isCurrentLocationStart: false,
-    //   );
-    //
-    //   expect(state.directionsForTest.mode.modeParam, 'walking');
-    // });
-    // testWidgets('different campus defaults to shuttle', (tester) async {
-    //   await tester.pumpWidget(MaterialApp(home: HomeScreen()));
-    //   final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
-    //
-    //   state.applyDefaultTransportMode(
-    //     startCampus: Campus.sgw,
-    //     endCampus: Campus.loyola,
-    //     startPoint: null,
-    //     endPoint: null,
-    //     isCurrentLocationStart: false,
-    //   );
-    //
-    //   expect(state.directionsForTest.mode.modeParam, 'shuttle');
-    //
-    // });
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(dataParser: mockParser)));
+      await tester.pumpAndSettle(); // drains debounce timer
+
+      final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
+
+      state.applyDefaultTransportMode(
+        startCampus: Campus.sgw,
+        endCampus: Campus.sgw,
+        startPoint: null,
+        endPoint: null,
+        isCurrentLocationStart: false,
+      );
+
+      expect(state.directionsForTest.mode.modeParam, 'walking');
+    });
+
+
+    testWidgets('different campus defaults to shuttle', (tester) async {
+      final building = CampusBuilding(
+        id: 'b1', name: 'H', fullName: 'Hall',
+        campus: Campus.sgw, description: '',
+        boundary: [
+          const LatLng(0,0), const LatLng(0,1),
+          const LatLng(1,1), const LatLng(1,0),
+        ],
+      );
+      final mockParser = MockDataParser();
+      when(mockParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+
+      await tester.pumpWidget(MaterialApp(home: HomeScreen(dataParser: mockParser)));
+      await tester.pumpAndSettle();
+
+      final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
+
+      state.applyDefaultTransportMode(
+        startCampus: Campus.sgw,
+        endCampus: Campus.loyola,
+        startPoint: null,
+        endPoint: null,
+        isCurrentLocationStart: false,
+      );
+
+      expect(state.directionsForTest.mode.modeParam, 'shuttle');
+    });
   });
 }
