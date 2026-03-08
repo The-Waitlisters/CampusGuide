@@ -1075,6 +1075,56 @@ void main() {
           expect(find.byType(GoogleMap), findsOneWidget);
         }, skip: true);
 
+    testWidgets('simulateCampusChange switches campus and rebuilds polygons',
+            (WidgetTester tester) async {
+          final sgwBuilding = buildTestBuilding(id: 'sgw1', campus: Campus.sgw);
+          final loyolaBuilding = buildTestBuilding(id: 'loy1', campus: Campus.loyola);
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [sgwBuilding, loyolaBuilding]);
+          when(mockDataParser.buildingsPresent).thenReturn([sgwBuilding, loyolaBuilding]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen));
+
+          // Start on SGW
+          expect(state._campus, equals(Campus.sgw));
+
+          // Switch to Loyola via the test hook
+          state.simulateCampusChange(Campus.loyola);
+          await tester.pumpAndSettle();
+
+          expect(state._campus, equals(Campus.loyola),
+              reason: 'simulateCampusChange must update the active campus');
+        });
+
+    testWidgets('testPolygons getter returns the current polygon set',
+            (WidgetTester tester) async {
+          final b1 = buildTestBuilding(id: 'b1', campus: Campus.sgw);
+          final b2 = buildTestBuilding(id: 'b2', campus: Campus.sgw);
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [b1, b2]);
+          when(mockDataParser.buildingsPresent).thenReturn([b1, b2]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen));
+
+          // testPolygons must expose the same set that _buildPolygons produced
+          expect(state.testPolygons, isNotNull,
+              reason: 'testPolygons getter must return a non-null set');
+          expect(state.testPolygons.length, equals(2),
+              reason: 'testPolygons must contain one polygon per building');
+        });
+
     // SKIPPED: GoogleMap widget is not rendered in E2E mode.
     testWidgets('GoogleMap onTap shows search results when results already exist',
             (WidgetTester tester) async {
