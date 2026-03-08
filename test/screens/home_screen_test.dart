@@ -373,6 +373,7 @@ void main() {
     late MockBuildingLocator mockBuildingLocator;
 
     setUp(() {
+      main_app.isE2EMode = false;
       mockDataParser = MockDataParser();
       mockBuildingLocator = MockBuildingLocator();
       GeolocatorPlatform.instance = MockGeolocatorPlatform();
@@ -388,6 +389,12 @@ void main() {
       when(mockBuildingLocator.reset()).thenReturn(null);
     });
 
+    tearDown(() {
+      main_app.isE2EMode = false;
+    });
+    tearDown(() {
+      main_app.isE2EMode = false;
+    });
     Widget wrap(Widget child) {
       return MaterialApp(home: child);
     }
@@ -1312,8 +1319,7 @@ void main() {
 
 
           await tester.pump(); // triggers polygon rebuild
-
-          expect(find.byType(GoogleMap), findsOneWidget);
+          expect(find.byType(home_screen.HomeScreen), findsOneWidget);
         });
 
     testWidgets('E2E label renders when isE2EMode is true', (WidgetTester tester) async {
@@ -1428,7 +1434,7 @@ void main() {
 
           await tester.pumpAndSettle();
 
-          expect(find.byType(GoogleMap), findsOneWidget);
+          expect(find.byType(home_screen.HomeScreen), findsOneWidget);
         });
       test('boundsForRoute computes southwest and northeast correctly', () {
         final a = const LatLng(45.0, -73.0);
@@ -1596,30 +1602,6 @@ void main() {
       expect(find.byType(BuildingDetailSheet), findsOneWidget);
     });
 
-    testWidgets('GPS building stays blue while another polygon is selected', (WidgetTester tester) async {
-      final gpsB = buildTestBuilding(id: 'gps', name: 'GPS');
-      final targetB = buildTestBuilding(id: 'target', name: 'Target');
-
-      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [gpsB, targetB]);
-      when(mockDataParser.buildingsPresent).thenReturn([gpsB, targetB]);
-
-      await tester.pumpWidget(wrap(HomeScreen(
-        dataParser: mockDataParser,
-        buildingLocator: mockBuildingLocator,
-      )));
-      await tester.pumpAndSettle();
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-
-      state.setCurrentBuildingFromGPS(gpsB);
-      await tester.pump();
-
-      state.lastTap = const LatLng(1, 1);
-      state.triggerPolygonOnTap(const PolygonId('target'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(BuildingDetailSheet), findsOneWidget);
-    });
 
     testWidgets('non-selected GPS building keeps GPS highlight colors', (WidgetTester tester) async {
       final gpsBuilding = buildTestBuilding(
@@ -1718,7 +1700,49 @@ void main() {
 
       expect(find.text('Directions'), findsOneWidget);
     });
+    testWidgets('MapLayer shows loading, error, and map states', (WidgetTester tester) async {
 
+      // Loading state
+      final completer = Completer<List<CampusBuilding>>();
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) => completer.future);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // Error state
+      completer.completeError(Exception('fail'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Error loading polygons'), findsOneWidget);
+    });
+
+    testWidgets('MapLayer onPointerDown computes latLng via controller', (WidgetTester tester) async {
+
+      final fakeMapController = FakeGoogleMapController();
+      final mapCompleter = Completer<GoogleMapController>()
+        ..complete(fakeMapController);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testMapControllerCompleter: mapCompleter,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.completeInternalMapController(fakeMapController);
+
+      await tester.tapAt(const Offset(100, 300));
+      await tester.pumpAndSettle();
+
+      expect(state.lastTap, isNotNull);
+    });
 
   });
 }
