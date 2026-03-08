@@ -11,7 +11,7 @@ import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
-import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState;
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';

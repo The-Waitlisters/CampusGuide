@@ -259,7 +259,7 @@ class _HomeScreenState extends HomeScreenState {
   /// Returns which campus (if any) contains [point] using building boundaries.
   Campus? _campusAtPoint(LatLng point) =>
       RouteLogic.campusAtPoint(point, buildingsPresent);
-  static const double _currentLocationDefaultModeThresholdMeters = 2500;
+
 
   /// Applies default transport mode. No-op if user changed mode or no destination.
   /// - Building-to-building: same campus → Walk, different campuses → Shuttle.

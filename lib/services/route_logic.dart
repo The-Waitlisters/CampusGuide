@@ -2,7 +2,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/campus.dart';
 import '../models/campus_building.dart';
-import '../services/building_locator.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../utilities/polygon_helper.dart';
 
