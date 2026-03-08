@@ -34,21 +34,22 @@ class BuildingDetailContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Direction selection buttons
-        if (startBuilding == null)
-          ElevatedButton(
-            onPressed: onSetStart,
-
-            child: const Text('Set as Start'),
-          )
-        else
-          ElevatedButton(
-            onPressed: (startBuilding?.id == building.id)
-                ? null
-                : onSetDestination,
-            child: const Text('Set as Destination'),
-          ),
-
+        // Direction selection buttons — always show both
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: startBuilding?.id == building.id ? null : onSetStart,
+              child: const Text('Set as Start'),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              onPressed: (endBuilding?.id == building.id || startBuilding?.id == building.id)
+                  ? null
+                  : onSetDestination,
+              child: const Text('Set as Destination'),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         if (building.isWheelchairAccessible ||
             building.hasBikeParking ||

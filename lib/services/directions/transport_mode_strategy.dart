@@ -17,6 +17,39 @@ class RouteResult {
   final String distanceText; // e.g. "0.9 km"
 }
 
+// Single source of truth for mode param strings (used by strategies, UI list, and mapping).
+const String kModeWalking = 'walking';
+const String kModeBicycling = 'bicycling';
+const String kModeDriving = 'driving';
+const String kModeTransit = 'transit';
+const String kModeShuttle = 'shuttle';
+
+/// Ordered list of transport modes for UI (e.g. direction chip list). Single source for labels + modeParam.
+const List<({String label, String modeParam})> kTransportModes = [
+  (label: 'Walk', modeParam: kModeWalking),
+  (label: 'Bike', modeParam: kModeBicycling),
+  (label: 'Drive', modeParam: kModeDriving),
+  (label: 'Transit', modeParam: kModeTransit),
+  (label: 'Shuttle', modeParam: kModeShuttle),
+];
+
+/// Returns the strategy for the given [modeParam]. Defaults to Walk if unknown.
+TransportModeStrategy strategyForModeParam(String modeParam) {
+  switch (modeParam) {
+    case kModeBicycling:
+      return BikeStrategy();
+    case kModeDriving:
+      return DriveStrategy();
+    case kModeTransit:
+      return MetroStrategy();
+    case kModeShuttle:
+      return ShuttleStrategy();
+    case kModeWalking:
+    default:
+      return WalkStrategy();
+  }
+}
+
 /// Strategy: each mode maps to a google directions mode string
 abstract class TransportModeStrategy {
   String get modeParam; // e.g. driving, walking, bicycling, transit
@@ -24,22 +57,29 @@ abstract class TransportModeStrategy {
 
 class WalkStrategy implements TransportModeStrategy {
   @override
-  String get modeParam => 'walking';
+  String get modeParam => kModeWalking;
 }
 
 class BikeStrategy implements TransportModeStrategy {
   @override
-  String get modeParam => 'bicycling';
+  String get modeParam => kModeBicycling;
 }
 
 class DriveStrategy implements TransportModeStrategy {
   @override
-  String get modeParam => 'driving';
+  String get modeParam => kModeDriving;
 }
 
 class MetroStrategy implements TransportModeStrategy {
   @override
-  String get modeParam => 'transit';
+  String get modeParam => kModeTransit;
+}
+
+/// Shuttle mode: campus shuttle routing (not yet implemented).
+/// Does not call Directions API; shows placeholder in UI instead.
+class ShuttleStrategy implements TransportModeStrategy {
+  @override
+  String get modeParam => kModeShuttle;
 }
 
 /// Abstraction for testability & decoupling from Google API
