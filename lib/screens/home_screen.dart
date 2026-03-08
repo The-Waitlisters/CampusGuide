@@ -563,7 +563,11 @@ class _HomeScreenState extends HomeScreenState {
       appBar: AppBar(title: const Text('The Waitlisters')),
       body: Stack(
         children: [
-          _buildMapLayer(),
+          // TEST FIX: GoogleMap uses a native Android platform view which cannot
+          // initialize in `flutter test -d` mode. Skipping it in E2E mode prevents
+          // the MissingPluginException that would crash the binding and poison every
+          // subsequent test in the file.
+          if (!isE2EMode) _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
@@ -836,6 +840,12 @@ class _HomeScreenState extends HomeScreenState {
   void setCurrentBuildingFromGPS(CampusBuilding building) {
     setState(() {
       _currentBuildingFromGPS = building;
+  void simulateCampusChange(Campus campus) {
+    setState(() {
+      _campus = campus;
+      _buildingLocator.reset();
+      _currentBuildingFromGPS = null;
+      _polygons = _buildPolygons(buildingsPresent);
     });
   }
 
@@ -864,4 +874,23 @@ LatLngBounds boundsForRoute(LatLng a, LatLng b) {
   );
 
   return LatLngBounds(southwest: sw, northeast: ne);
+}
+  void simulateGpsLocation(LatLng point) {
+    final result = _buildingLocator.update(
+      userPoint: point,
+      campus: _campus,
+      buildings: buildingsPresent,
+    );
+    setState(() {
+      _currentBuildingFromGPS = result.building;
+      _polygons = _buildPolygons(buildingsPresent);
+    });
+  }
+
+  /// For tests: exposes the private _polygons set so tests can assert on
+  /// how many polygons are rendered without relying on dynamic field access
+  /// (which Dart's library-private rules block from other files).
+  @visibleForTesting
+  Set<Polygon> get testPolygons => _polygons;
+
 }
