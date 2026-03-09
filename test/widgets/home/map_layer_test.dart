@@ -115,8 +115,12 @@ void main() {
           await tester.pumpWidget(buildMapLayer(
             future: Future.error(Exception('load error')),
           ));
-          await tester.pumpAndSettle();
-          tester.takeException(); // consume the unhandled exception
+
+          // Pump once to trigger the future error
+          await tester.pump();
+          // Consume the exception before pumpAndSettle
+          tester.takeException();
+          await tester.pump();
 
           expect(find.textContaining('Error loading polygons'), findsOneWidget);
         });
