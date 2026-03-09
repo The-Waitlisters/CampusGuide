@@ -207,5 +207,24 @@ void main() {
 
       expect(g.findPath('R1', 'R2'), ['R1', 'R2']);
     });
+
+    test('connects orphan waypoint to nearest connected waypoint', () {
+      final g = NavGraph(
+        nodes: [
+          room('R1', 0.1, 0.5),
+          waypoint('W1', 0.3, 0.5),
+          waypoint('W2', 0.7, 0.5),
+          waypoint('W_orphan', 0.5, 0.5),
+        ],
+        edges: [
+          const NavEdge(from: 'W1', to: 'W2', weight: 400),
+        ],
+      ).withAutoConnections(pixelScale: 1000);
+
+      final path = g.findPath('R1', 'W_orphan');
+      expect(path, isNotNull);
+      expect(path!.first, 'R1');
+      expect(path!.last, 'W_orphan');
+    });
   });
 }

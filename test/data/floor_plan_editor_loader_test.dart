@@ -170,7 +170,59 @@ void main() {
       final path = floor.navGraph!.findPath('r1', 'r2');
       expect(path, isNotNull);
       expect(path!.first, 'r1');
-      expect(path.last, 'r2');
+      expect(path!.last, 'r2');
+    });
+
+    test('edge without weight uses euclidean distance between nodes', () {
+      final floor = FloorPlanEditorLoader.parseFloor(
+        _singleFloorJson(
+          imgW: 1000,
+          imgH: 1000,
+          nodes: [
+            _roomNode('r1', 0, 0),
+            _roomNode('r2', 1000, 1000),
+          ],
+          edges: [
+            {'source': 'r1', 'target': 'r2'},
+          ],
+        ),
+      );
+      expect(floor.navGraph!.nodeById('r1'), isNotNull);
+      expect(floor.navGraph!.nodeById('r2'), isNotNull);
+      final path = floor.navGraph!.findPath('r1', 'r2');
+      expect(path, isNotNull);
+    });
+
+    test('parses node with string x and y coordinates', () {
+      final floor = FloorPlanEditorLoader.parseFloor(
+        _singleFloorJson(
+          imgW: 1,
+          imgH: 1,
+          nodes: [
+            {'id': 'r1', 'type': 'room', 'x': '0.25', 'y': '0.5', 'label': ''},
+          ],
+          edges: [],
+        ),
+      );
+      final node = floor.navGraph!.nodeById('r1');
+      expect(node?.x, closeTo(0.25, 0.001));
+      expect(node?.y, closeTo(0.5, 0.001));
+    });
+
+    test('parseMultiFloor parses string level in floor object', () {
+      final floors = FloorPlanEditorLoader.parseMultiFloor({
+        'floors': [
+          {
+            'level': '8',
+            'imageWidth': 2000,
+            'imageHeight': 2000,
+            'nodes': [],
+            'edges': [],
+          },
+        ],
+      });
+      expect(floors.length, 1);
+      expect(floors.first.level, 8);
     });
   });
 

@@ -51,9 +51,11 @@ const _multiFloorJson = '''
 ]}
 ''';
 
-IndoorMap _parseMap(CampusBuilding b, String rawJson) {
+IndoorMap _parseMap(CampusBuilding b, String rawJson,
+    {String? imageAssetPrefix}) {
   final j = jsonDecode(rawJson) as Map<String, dynamic>;
-  final floors = FloorPlanEditorLoader.parseMultiFloor(j);
+  final floors = FloorPlanEditorLoader.parseMultiFloor(j,
+      imageAssetPrefix: imageAssetPrefix);
   return IndoorMap(building: b, floors: floors);
 }
 
@@ -281,6 +283,37 @@ void main() {
       await tester.pump();
       final tf = tester.widget<TextField>(find.byType(TextField));
       expect(tf.controller?.text, isEmpty);
+    });
+
+    testWidgets('map with imagePath builds image (errorBuilder in test)',
+        (tester) async {
+      final b = _building(name: 'H');
+      final map = _parseMap(b, _multiFloorJson,
+          imageAssetPrefix: 'assets/indoor/H');
+      await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+      await _settle(tester);
+      expect(find.byType(DropdownButton<int>), findsOneWidget);
+      expect(find.text('H-801'), findsWidgets);
+    });
+
+    testWidgets('tap on map selects room', (tester) async {
+      final b = _building(name: 'H');
+      final map = _parseMap(b, _singleFloorJson);
+      await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+      await _settle(tester);
+      final mapGesture = find.descendant(
+        of: find.byType(InteractiveViewer),
+        matching: find.byType(GestureDetector),
+      ).first;
+      await tester.ensureVisible(mapGesture);
+      final box = tester.getRect(mapGesture);
+      final r1NormX = 50 / 200.0;
+      final r1NormY = 50 / 200.0;
+      final tapX = box.left + box.width * r1NormX;
+      final tapY = box.top + box.height * r1NormY;
+      await tester.tapAt(Offset(tapX, tapY));
+      await tester.pump();
+      expect(find.text('Set Start'), findsOneWidget);
     });
   });
 }
