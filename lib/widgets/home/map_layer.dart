@@ -29,6 +29,30 @@ class MapLayer<T> extends StatefulWidget {
 
 class _MapLayerState<T> extends State<MapLayer<T>> {
 
+  Future<void> _handlePointerDown(PointerDownEvent event) async {
+    final controller = widget.controller;
+    if (controller == null || !mounted) return;
+
+    final box = widget.mapKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final local = box.globalToLocal(event.position);
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+
+    final screenCoordinate = ScreenCoordinate(
+      x: (local.dx * pixelRatio).round(),
+      y: (local.dy * pixelRatio).round(),
+    );
+
+    try {
+      final latLng = await controller.getLatLng(screenCoordinate);
+      if (!mounted) return;
+      widget.onMapTapLatLng(latLng);
+    } catch (e) {
+      debugPrint('MapLayer: controller disposed during pointer event: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<T>>(
@@ -48,29 +72,7 @@ class _MapLayerState<T> extends State<MapLayer<T>> {
 
         return Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: (event) async {
-            final controller = widget.controller;
-            if (controller == null || !mounted) return;
-
-            final box = widget.mapKey.currentContext?.findRenderObject() as RenderBox?;
-            if (box == null) return;
-
-            final local = box.globalToLocal(event.position);
-            final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-
-            final screenCoordinate = ScreenCoordinate(
-              x: (local.dx * pixelRatio).round(),
-              y: (local.dy * pixelRatio).round(),
-            );
-
-            try {
-              final latLng = await controller.getLatLng(screenCoordinate);
-              if (!mounted) return;
-              widget.onMapTapLatLng(latLng);
-            } catch (e) {
-              debugPrint('MapLayer: controller disposed during pointer event: $e');
-            }
-          },
+          onPointerDown: _handlePointerDown,  // just a reference now
           child: SizedBox(
             key: widget.mapKey,
             width: double.infinity,
