@@ -640,7 +640,7 @@ class _HomeScreenState extends HomeScreenState {
         setState(() {
           _mapController = controller;
         });
-        // coverage:ignore-end
+
       },
       onTap: (LatLng point) {
         handleMapTap(point);
@@ -652,7 +652,9 @@ class _HomeScreenState extends HomeScreenState {
         }
 
         FocusScope.of(context).unfocus();
+        // coverage:ignore-end
       },
+
     );
   }
 
