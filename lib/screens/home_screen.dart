@@ -48,6 +48,7 @@ abstract class HomeScreenState extends State<HomeScreen> {
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
   /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
   void handleMapTap(LatLng point, [BuildContext? sheetContext]);
+
 }
 
 class _HomeScreenState extends HomeScreenState {
@@ -98,7 +99,22 @@ class _HomeScreenState extends HomeScreenState {
     _initDirections();
     _tryInitLocationTracking();
   }
-
+  @visibleForTesting
+  Future<void> simulatePointerDown(Offset position) async {
+    GoogleMapController? controller;
+    if (widget.testMapControllerCompleter != null) {
+      controller = await widget.testMapControllerCompleter!.future;
+    } else {
+      controller = _mapController;
+    }
+    if (controller == null) return;
+    final latLng = await controller.getLatLng(
+      ScreenCoordinate(x: position.dx.round(), y: position.dy.round()),
+    );
+    setState(() {
+      lastTap = latLng;
+    });
+  }
   void _initDependencies() {
     data = widget.dataParser ?? DataParser();
     _buildingLocator = widget.buildingLocator ?? BuildingLocator(

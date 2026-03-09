@@ -1066,19 +1066,21 @@ void main() {
 
           expect(find.byType(BuildingDetailContent), findsOneWidget);
         });
-
     testWidgets('map Listener onPointerDown computes lastTap using controller.getLatLng',
             (WidgetTester tester) async {
+          final fakeMapController = FakeGoogleMapController();
+          final mapCompleter = Completer<GoogleMapController>()
+            ..complete(fakeMapController);
+
           await tester.pumpWidget(wrap(home_screen.HomeScreen(
             dataParser: mockDataParser,
             buildingLocator: mockBuildingLocator,
+            testMapControllerCompleter: mapCompleter,
           )));
           await tester.pumpAndSettle();
 
           final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
-          state.completeInternalMapController(FakeGoogleMapController());
-
-          await tester.tapAt(const Offset(50, 200));
+          await state.simulatePointerDown(const Offset(50, 200));
           await tester.pumpAndSettle();
 
           expect(state.lastTap, isNotNull);
@@ -1509,7 +1511,6 @@ void main() {
 
       expect(find.textContaining('Error loading polygons'), findsOneWidget);
     });
-
     testWidgets('MapLayer onPointerDown computes latLng via controller', (WidgetTester tester) async {
       final fakeMapController = FakeGoogleMapController();
       final mapCompleter = Completer<GoogleMapController>()
