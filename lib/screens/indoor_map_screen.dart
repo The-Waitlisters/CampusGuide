@@ -11,8 +11,17 @@ import '../models/room.dart';
 
 /// Indoor map screen — view floor plan, select rooms, find a route.
 class IndoorMapScreen extends StatefulWidget {
-  const IndoorMapScreen({super.key, required this.building});
+  const IndoorMapScreen({
+    super.key,
+    required this.building,
+    this.mapLoader,
+  });
+
   final CampusBuilding building;
+
+  /// Override the data-loader; defaults to [loadIndoorMapForBuilding].
+  /// Exposed for testing so tests can inject a synchronous stub.
+  final Future<IndoorMap?> Function(CampusBuilding)? mapLoader;
 
   @override
   State<IndoorMapScreen> createState() => _IndoorMapScreenState();
@@ -54,7 +63,8 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
       _error = null;
     });
     try {
-      final map = await loadIndoorMapForBuilding(widget.building);
+      final loader = widget.mapLoader ?? loadIndoorMapForBuilding;
+      final map = await loader(widget.building);
       if (!mounted) return;
       setState(() {
         _indoorMap = map;
@@ -264,9 +274,10 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
               ),
             ),
           ),
-          // Map
+          // Map (Flexible so body doesn't overflow on small viewports)
           if (_currentFloor != null)
-            _MapView(
+            Flexible(
+              child: _MapView(
               floor: _currentFloor!,
               navGraph: _navGraph,
               selectedRoom: _selectedRoom,
@@ -274,6 +285,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
               destinationRoom: _destinationRoom,
               path: _path,
               onRoomTap: _onRoomSelected,
+              ),
             ),
           // Route controls
           _RouteControls(
