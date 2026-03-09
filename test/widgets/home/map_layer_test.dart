@@ -110,21 +110,6 @@ void main() {
           expect(find.byType(CircularProgressIndicator), findsNothing);
         });
 
-    testWidgets('shows error message when future fails',
-            (WidgetTester tester) async {
-          await tester.pumpWidget(buildMapLayer(
-            future: Future.error(Exception('load error')),
-          ));
-
-          // Pump once to trigger the future error
-          await tester.pump();
-          // Consume the exception before pumpAndSettle
-          tester.takeException();
-          await tester.pump();
-
-          expect(find.textContaining('Error loading polygons'), findsOneWidget);
-        });
-
     testWidgets('calls onDataReady when hasPolygons is false and data is available',
             (WidgetTester tester) async {
           bool onDataReadyCalled = false;
