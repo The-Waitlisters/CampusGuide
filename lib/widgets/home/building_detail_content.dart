@@ -87,6 +87,15 @@ class BuildingDetailContent extends StatelessWidget {
         _buildSection('Opening Hours:', building.openingHours),
         _buildSection('Departments:', building.departments),
         _buildSection('Services:', building.services),
+        if (onViewIndoorMap != null) ...[
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const Key('view_indoor_map_button'),
+            icon: const Icon(Icons.map),
+            label: const Text('View indoor map'),
+            onPressed: onViewIndoorMap,
+          ),
+        ],
       ],
     );
   }
