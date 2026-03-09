@@ -21,78 +21,70 @@ class BuildingDetailContent extends StatelessWidget {
   final VoidCallback onSetStart;
   final VoidCallback onSetDestination;
 
+  Widget _buildHeader() {
+    return Text(
+      '${building.name} ${isAnnex ? 'Annex' : '- ${building.fullName}'}',
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _buildDirectionButton() {
+    if (startBuilding == null) {
+      return ElevatedButton(
+        onPressed: onSetStart,
+        child: const Text('Set as Start'),
+      );
+    }
+    return ElevatedButton(
+      onPressed: (startBuilding?.id == building.id) ? null : onSetDestination,
+      child: const Text('Set as Destination'),
+    );
+  }
+
+  Widget _buildAccessibilityIcons() {
+    final bool show = building.isWheelchairAccessible ||
+        building.hasBikeParking ||
+        building.hasCarParking;
+    if (!show) return const SizedBox.shrink();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (building.isWheelchairAccessible) const Icon(Icons.accessible),
+        if (building.hasBikeParking) const Icon(Icons.pedal_bike),
+        if (building.hasCarParking) const Icon(Icons.local_parking),
+      ],
+    );
+  }
+
+  Widget _buildSection(String title, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        ...items.map((e) => Text(e == '-' ? 'None' : e)),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${building.name} ${isAnnex ? 'Annex' : '- ${building.fullName}'}',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        _buildHeader(),
         const SizedBox(height: 8),
-        // Direction selection buttons
-        if (startBuilding == null)
-          ElevatedButton(
-            onPressed: onSetStart,
-
-            child: const Text('Set as Start'),
-          )
-        else
-          ElevatedButton(
-            onPressed: (startBuilding?.id == building.id)
-                ? null
-                : onSetDestination,
-            child: const Text('Set as Destination'),
-          ),
-
+        _buildDirectionButton(),
         const SizedBox(height: 12),
-        if (building.isWheelchairAccessible ||
-            building.hasBikeParking ||
-            building.hasCarParking)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (building.isWheelchairAccessible)
-                const Icon(Icons.accessible),
-              if (building.hasBikeParking)
-                const Icon(Icons.pedal_bike),
-              if (building.hasCarParking)
-                const Icon(Icons.local_parking),
-            ],
-          ),
+        _buildAccessibilityIcons(),
         const SizedBox(height: 12),
         Text(building.description ?? ''),
         const SizedBox(height: 12),
-        const Text(
-          'Opening Hours:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        ...building.openingHours.map(
-              (e) => Text((e == '-') ? 'None' : e),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Departments:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        ...building.departments.map(
-              (e) => Text((e == '-') ? 'None' : e),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Services:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        ...building.services.map(
-              (e) => Text((e == '-') ? 'None' : e),
-        ),
+        _buildSection('Opening Hours:', building.openingHours),
+        _buildSection('Departments:', building.departments),
+        _buildSection('Services:', building.services),
       ],
     );
   }

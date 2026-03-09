@@ -38,17 +38,29 @@ class BuildingLocator {
     required Campus campus,
     required List<CampusBuilding> buildings,
   }) {
-    // 1) If we have a current building on this campus, apply EXIT hysteresis
-    if (_current != null && _current!.campus == campus) {
-      final inside = isPointInPolygon(userPoint, _current!.boundary);
-      final dist = inside ? 0.0 : distanceToPolygonMeters(userPoint, _current!.boundary);
 
-      if (inside || dist <= exitThresholdMeters) {
-        return BuildingStatus(building: _current, treatedAsInside: true);
-      }
+    if (_shouldStayInCurrent(userPoint, campus)) {
+      return BuildingStatus(building: _current, treatedAsInside: true);
     }
 
-    // 2) Find best candidate (inside > near; otherwise closest boundary)
+    _current = _findBestCandidate(userPoint, campus, buildings);
+    return _current == null
+        ? BuildingStatus.none()
+        : BuildingStatus(building: _current, treatedAsInside: true);
+  }
+
+  // 1) If we have a current building on this campus, apply EXIT hysteresis
+  bool _shouldStayInCurrent(LatLng userPoint, Campus campus) {
+    if (_current == null || _current!.campus != campus) return false;
+
+    final inside = isPointInPolygon(userPoint, _current!.boundary);
+    final dist = inside ? 0.0 : distanceToPolygonMeters(userPoint, _current!.boundary);
+
+    return inside || dist <= exitThresholdMeters;
+  }
+
+  // 2) Find best candidate (inside > near; otherwise closest boundary)
+  CampusBuilding? _findBestCandidate(LatLng userPoint, Campus campus, List<CampusBuilding> buildings) {
     CampusBuilding? best;
     double bestDist = double.infinity;
 
@@ -58,17 +70,13 @@ class BuildingLocator {
       final inside = isPointInPolygon(userPoint, b.boundary);
       final dist = inside ? 0.0 : distanceToPolygonMeters(userPoint, b.boundary);
 
-      if (inside || dist <= enterThresholdMeters) {
-        if (dist < bestDist) {
-          best = b;
-          bestDist = dist;
-        }
+      if ((inside || dist <= enterThresholdMeters) && dist < bestDist) {
+        best = b;
+        bestDist = dist;
       }
     }
 
-    _current = best;
-    return best == null
-        ? BuildingStatus.none()
-        : BuildingStatus(building: best, treatedAsInside: true);
+    return best;
   }
+
 }
