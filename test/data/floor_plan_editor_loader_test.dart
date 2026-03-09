@@ -11,7 +11,7 @@ Map<String, dynamic> _singleFloorJson({
     {
       'imageWidth': imgW,
       'imageHeight': imgH,
-      if (label != null) 'label': label,
+      ?'label': label,
       'nodes': nodes,
       'edges': edges,
     };
