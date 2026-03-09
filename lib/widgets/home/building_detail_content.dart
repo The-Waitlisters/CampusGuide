@@ -10,6 +10,7 @@ class BuildingDetailContent extends StatelessWidget {
     required this.endBuilding,
     required this.onSetStart,
     required this.onSetDestination,
+    this.onViewIndoorMap,
   });
 
   final CampusBuilding building;
@@ -20,6 +21,7 @@ class BuildingDetailContent extends StatelessWidget {
 
   final VoidCallback onSetStart;
   final VoidCallback onSetDestination;
+  final VoidCallback? onViewIndoorMap;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +95,14 @@ class BuildingDetailContent extends StatelessWidget {
         ...building.services.map(
               (e) => Text((e == '-') ? 'None' : e),
         ),
+        if (onViewIndoorMap != null) ...[
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            icon: const Icon(Icons.map),
+            label: const Text('View indoor map'),
+            onPressed: onViewIndoorMap,
+          ),
+        ],
       ],
     );
   }
