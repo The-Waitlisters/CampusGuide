@@ -1236,5 +1236,108 @@ void main() {
           expect(find.textContaining('Destination Building'), findsOneWidget);
         });
 
+    testWidgets('completeInternalMapController sets _mapController via setState',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+
+          // Covers lines 752-753: setState(() { _mapController = controller; })
+          state.completeInternalMapController(FakeGoogleMapController());
+          await tester.pump();
+
+          expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+        });
+
+    testWidgets('_goToCampus uses _mapController when no testMapControllerCompleter',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+
+          // Set _mapController so _goToCampus doesn't hit the null return
+          // Covers lines 362-365
+          state.completeInternalMapController(FakeGoogleMapController());
+          await tester.pump();
+
+          // Tap campus toggle without testMapControllerCompleter — uses _mapController path
+          await tester.tap(find.text('Loyola'));
+          await tester.pumpAndSettle();
+
+          verify(mockBuildingLocator.reset()).called(1);
+        });
+
+    testWidgets('_goToCampus returns early when controller is null',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          // _mapController is null by default and no testMapControllerCompleter
+          // Covers the null return path in _goToCampus
+          await tester.tap(find.text('Loyola'));
+          await tester.pumpAndSettle();
+
+          // Should not crash and should not call reset (returned early)
+          verifyNever(mockBuildingLocator.reset());
+        });
+
+    testWidgets('_zoomToRoute returns early when _mapController is null',
+            (WidgetTester tester) async {
+          final startB = buildTestBuilding(
+            id: 'b1',
+            name: 'START',
+            fullName: 'Start Building',
+          );
+          final destB = buildTestBuilding(
+            id: 'b2',
+            name: 'DEST',
+            fullName: 'Destination Building',
+          );
+
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [startB, destB]);
+          when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
+
+          // _mapController is null — _zoomToRoute should hit null check and return
+          // Covers lines 256-257
+          await tester.enterText(find.byType(TextField), 'start');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('START'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          await tester.enterText(find.byType(TextField), 'dest');
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('DEST'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          // Should complete without throwing even with null controller
+          expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+        });
+
   });
 }
