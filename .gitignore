@@ -3,6 +3,7 @@
 !/test/
 !/test_driver/
 !/docs/
+!/assets/
 !/pubspec.yaml
 !/analysis_options.yaml
 !/README.md

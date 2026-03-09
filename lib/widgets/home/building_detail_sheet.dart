@@ -10,6 +10,7 @@ class BuildingDetailSheet extends StatelessWidget {
 
   final VoidCallback onSetStart;
   final VoidCallback onSetDestination;
+  final VoidCallback? onViewIndoorMap;
 
   const BuildingDetailSheet({
     super.key,
@@ -19,6 +20,7 @@ class BuildingDetailSheet extends StatelessWidget {
     required this.endBuilding,
     required this.onSetStart,
     required this.onSetDestination,
+    this.onViewIndoorMap,
   });
 
   @override
@@ -44,6 +46,7 @@ class BuildingDetailSheet extends StatelessWidget {
               endBuilding: endBuilding,
               onSetStart: onSetStart,
               onSetDestination: onSetDestination,
+              onViewIndoorMap: onViewIndoorMap,
             ),
           ),
         );

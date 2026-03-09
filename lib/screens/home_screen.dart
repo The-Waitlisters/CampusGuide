@@ -18,6 +18,7 @@ import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
+import 'indoor_map_screen.dart';
 import '../widgets/use_as_start.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -569,6 +570,15 @@ class _HomeScreenState extends HomeScreenState {
             await _updateDirectionsIfReady();
             _sheetController?.close();
             _sheetController = null;
+          },
+          onViewIndoorMap: () {
+            _sheetController?.close();
+            _sheetController = null;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => IndoorMapScreen(building: building),
+              ),
+            );
           },
         );
       });
