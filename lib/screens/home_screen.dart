@@ -52,8 +52,7 @@ abstract class HomeScreenState extends State<HomeScreen> {
 class _HomeScreenState extends HomeScreenState {
   bool? isAnnex;
   late DataParser data;
-  final Completer<GoogleMapController> _controller = Completer<
-      GoogleMapController>();
+  GoogleMapController? _mapController;
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   LatLng? lastTap;
@@ -269,8 +268,10 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
-    final completer = widget.testMapControllerCompleter ?? _controller;
-    final controller = await completer.future;
+    final controller = widget.testMapControllerCompleter != null
+        ? await widget.testMapControllerCompleter!.future
+        : _mapController;
+    if (controller == null) return;
     final bounds = boundsForRoute(a, b);
 
     await controller.animateCamera(
@@ -363,8 +364,10 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _goToCampus(Campus campus) async {
-    final completer = widget.testMapControllerCompleter ?? _controller;
-    final controller = await completer.future;
+    final controller = widget.testMapControllerCompleter != null
+        ? await widget.testMapControllerCompleter!.future
+        : _mapController;
+    if (controller == null) return;
     final info = campusInfo[campus]!;
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
@@ -492,24 +495,45 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _selectedId = id;
       _cursorBuilding = building;
-      _polygons = _polygons.map((p) {
-        final isSelected = (p.polygonId == _selectedId);
-        bool selectedLocatedBuilding = false;
-        if (_currentBuildingFromGPS != null) {
-          selectedLocatedBuilding =
-              p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
-        }
-        return p.copyWith(
-          fillColorParam: isSelected
-              ? const Color.fromARGB(255, 124, 115, 29)
-              : (selectedLocatedBuilding) ? const Color(0x803197F6) : Color(
-              0x80912338),
-          strokeColorParam: isSelected
-              ? Colors.yellow
-              : (selectedLocatedBuilding) ? Colors.blue : Color(0xFF741C2C),
-        );
-      }).toSet();
+      _polygons = _polygons.map((p) => _recolorPolygon(p)).toSet();
     });
+  }
+
+  Polygon _recolorPolygon(Polygon p) {
+    final isSelected = p.polygonId == _selectedId;
+    final isGps = _currentBuildingFromGPS != null &&
+        p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
+
+    const Color selectedFill =  Color.fromARGB(255, 124, 115, 29);
+    const Color gpsFill =  Color(0x803197F6);
+    const Color defaultFill =  Color(0x80912338);
+
+    const Color selectedStroke = Colors.yellow;
+    const Color gpsStroke = Colors.blue;
+    const Color defaultStroke =  Color(0xFF741C2C);
+
+    Color fillColor;
+    if (isSelected) {
+      fillColor = selectedFill;
+    } else if (isGps) {
+      fillColor = gpsFill;
+    } else {
+      fillColor = defaultFill;
+    }
+
+    Color strokeColor;
+    if (isSelected) {
+      strokeColor = selectedStroke;
+    } else if (isGps) {
+      strokeColor = gpsStroke;
+    } else {
+      strokeColor = defaultStroke;
+    }
+
+    return p.copyWith(
+      fillColorParam: fillColor,
+      strokeColorParam: strokeColor,
+    );
   }
 
   void _showBuildingDetailSheet(CampusBuilding building, bool isAnnex) {
@@ -584,7 +608,7 @@ class _HomeScreenState extends HomeScreenState {
         _polygons = _buildPolygons(data);
       },
       mapKey: _mapKey,
-      controllerFuture: _controller.future,
+      controller: _mapController,
       onMapTapLatLng: (latLng) {
         lastTap = latLng;
       },
@@ -612,9 +636,9 @@ class _HomeScreenState extends HomeScreenState {
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
-        if (!_controller.isCompleted) {
-          _controller.complete(controller);
-        }
+        setState(() {
+          _mapController = controller;
+        });
       },
       onTap: (LatLng point) {
         handleMapTap(point);
@@ -780,7 +804,6 @@ class _HomeScreenState extends HomeScreenState {
     _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
-    _controller.future.then((ctlrer) => ctlrer.dispose());
     super.dispose();
   }
 
@@ -812,9 +835,9 @@ class _HomeScreenState extends HomeScreenState {
   /// `onPointerDown` logic can await `_controller.future`.
   @visibleForTesting
   void completeInternalMapController(GoogleMapController controller) {
-    if (!_controller.isCompleted) {
-      _controller.complete(controller);
-    }
+    setState(() {
+      _mapController = controller;
+    });
   }
 
   //test sheet render and bypass calling the tap methods.

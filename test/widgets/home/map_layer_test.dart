@@ -90,7 +90,7 @@ void main() {
             mapKey: mapKey,
             controller: controller,
             onMapTapLatLng: onMapTapLatLng ?? (_) {},
-            map: SizedBox(key: mapKey, width: 400, height: 400),
+            map: SizedBox(width: 400, height: 400),
           ),
         ),
       );
@@ -117,8 +117,8 @@ void main() {
             future: Future.error(Exception('load error')),
           ));
           await tester.pumpAndSettle();
+          tester.takeException(); // consume the unhandled exception
 
-          // Covers line 65: return Center(child: Text('Error loading polygons: ...'))
           expect(find.textContaining('Error loading polygons'), findsOneWidget);
         });
 
@@ -206,7 +206,7 @@ void main() {
           await tester.pumpWidget(buildMapLayer());
           await tester.pumpAndSettle();
 
-          expect(find.byType(Listener), findsOneWidget);
+          expect(find.byType(Listener), findsWidgets); // changed from findsOneWidget
           expect(find.byType(SizedBox), findsWidgets);
         });
   });

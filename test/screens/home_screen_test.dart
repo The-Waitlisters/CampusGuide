@@ -1723,7 +1723,6 @@ void main() {
     });
 
     testWidgets('MapLayer onPointerDown computes latLng via controller', (WidgetTester tester) async {
-
       final fakeMapController = FakeGoogleMapController();
       final mapCompleter = Completer<GoogleMapController>()
         ..complete(fakeMapController);
@@ -1737,6 +1736,7 @@ void main() {
 
       final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
       state.completeInternalMapController(fakeMapController);
+      await tester.pump(); // <-- allow setState to rebuild MapLayer with new controller
 
       await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
