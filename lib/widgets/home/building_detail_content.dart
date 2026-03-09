@@ -28,19 +28,6 @@ class BuildingDetailContent extends StatelessWidget {
     );
   }
 
-  Widget _buildDirectionButton() {
-    if (startBuilding == null) {
-      return ElevatedButton(
-        onPressed: onSetStart,
-        child: const Text('Set as Start'),
-      );
-    }
-    return ElevatedButton(
-      onPressed: (startBuilding?.id == building.id) ? null : onSetDestination,
-      child: const Text('Set as Destination'),
-    );
-  }
-
   Widget _buildAccessibilityIcons() {
     final bool show = building.isWheelchairAccessible ||
         building.hasBikeParking ||
