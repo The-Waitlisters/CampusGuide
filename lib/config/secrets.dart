@@ -1,5 +1,5 @@
 class Secrets {
-  static const directionsApiKey = String.fromEnvironment(
+  static String directionsApiKey = const String.fromEnvironment(
     'DIRECTIONS_API_KEY',
     defaultValue: '',
   );
