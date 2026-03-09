@@ -1723,7 +1723,6 @@ void main() {
     });
 
     testWidgets('MapLayer onPointerDown computes latLng via controller', (WidgetTester tester) async {
-
       final fakeMapController = FakeGoogleMapController();
       final mapCompleter = Completer<GoogleMapController>()
         ..complete(fakeMapController);
@@ -1737,11 +1736,43 @@ void main() {
 
       final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
       state.completeInternalMapController(fakeMapController);
+      await tester.pump(); // <-- allow setState to rebuild MapLayer with new controller
 
       await tester.tapAt(const Offset(100, 300));
       await tester.pumpAndSettle();
 
       expect(state.lastTap, isNotNull);
+    });
+
+    testWidgets('_zoomToRoute returns early when _mapController is null', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        // no testMapControllerCompleter -> uses _mapController which is null
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      // Should not throw even though _mapController is null
+      await state.zoomToRouteForTest(const LatLng(45.0, -73.0), const LatLng(46.0, -74.0));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('_goToCampus returns early when _mapController is null', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        // no testMapControllerCompleter -> uses _mapController which is null
+      )));
+      await tester.pumpAndSettle();
+
+
+      // Tap Loyola — _goToCampus runs but returns early since _mapController is null
+      await tester.tap(find.text('Loyola'));
+      await tester.pumpAndSettle();
+
+      // Should not crash
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
     });
 
   });
