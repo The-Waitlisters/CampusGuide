@@ -223,8 +223,10 @@ void main() {
 
       final path = g.findPath('R1', 'W_orphan');
       expect(path, isNotNull);
-      expect(path!.first, 'R1');
-      expect(path!.last, 'W_orphan');
+      if (path != null) {
+        expect(path.first, 'R1');
+        expect(path.last, 'W_orphan');
+      }
     });
   });
 }

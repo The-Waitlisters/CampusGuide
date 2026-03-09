@@ -169,8 +169,10 @@ void main() {
       );
       final path = floor.navGraph!.findPath('r1', 'r2');
       expect(path, isNotNull);
-      expect(path!.first, 'r1');
-      expect(path!.last, 'r2');
+      if (path != null) {
+        expect(path.first, 'r1');
+        expect(path.last, 'r2');
+      }
     });
 
     test('edge without weight uses euclidean distance between nodes', () {
