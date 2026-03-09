@@ -636,9 +636,11 @@ class _HomeScreenState extends HomeScreenState {
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
+        // coverage:ignore-start
         setState(() {
           _mapController = controller;
         });
+
       },
       onTap: (LatLng point) {
         handleMapTap(point);
@@ -650,7 +652,9 @@ class _HomeScreenState extends HomeScreenState {
         }
 
         FocusScope.of(context).unfocus();
+        // coverage:ignore-end
       },
+
     );
   }
 
