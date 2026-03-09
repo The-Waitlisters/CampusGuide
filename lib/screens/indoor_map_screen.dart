@@ -412,7 +412,7 @@ class _MapView extends StatelessWidget {
                       child: Image.asset(
                         floor.imagePath!,
                         fit: BoxFit.fill,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: const Color(0xFF1A1A1A),
                         ),
                       ),
