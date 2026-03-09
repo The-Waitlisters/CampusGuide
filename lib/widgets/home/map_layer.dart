@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class MapLayer<T> extends StatelessWidget {
+class MapLayer<T> extends StatefulWidget {
   final Future<List<T>> future;
   final bool hasPolygons;
   final void Function(List<T> data) onDataReady;
 
   final GlobalKey mapKey;
-  final Future<GoogleMapController> controllerFuture;
+  final GoogleMapController? controller;
 
   final void Function(LatLng latLng) onMapTapLatLng;
 
@@ -21,15 +21,45 @@ class MapLayer<T> extends StatelessWidget {
     required this.hasPolygons,
     required this.onDataReady,
     required this.mapKey,
-    required this.controllerFuture,
+    this.controller,
     required this.onMapTapLatLng,
     required this.map,
   });
 
   @override
+  State<MapLayer<T>> createState() => _MapLayerState<T>();
+}
+
+class _MapLayerState<T> extends State<MapLayer<T>> {
+
+  Future<void> _handlePointerDown(PointerDownEvent event) async {
+    final controller = widget.controller;
+    if (controller == null || !mounted) return;
+
+    final RenderBox? box = widget.mapKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final Offset local = box.globalToLocal(event.position);
+    final double pixelRatio = MediaQuery.of(context).devicePixelRatio;
+
+    final ScreenCoordinate screenCoordinate = ScreenCoordinate(
+      x: (local.dx * pixelRatio).round(),
+      y: (local.dy * pixelRatio).round(),
+    );
+
+    try {
+      final latLng = await controller.getLatLng(screenCoordinate);
+      if (!mounted) return;
+      widget.onMapTapLatLng(latLng);
+    } catch (_) {
+      return;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<T>>(
-      future: future,
+      future: widget.future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -42,47 +72,18 @@ class MapLayer<T> extends StatelessWidget {
         }
 
         final data = snapshot.data;
-        if (!hasPolygons && data != null) {
-          onDataReady(data);
+        if (!widget.hasPolygons && data != null) {
+          widget.onDataReady(data);
         }
 
         return Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: (event) async {
-            final RenderBox? box = mapKey.currentContext?.findRenderObject() as RenderBox?;
-            if (box == null) {
-              return;
-            }
-
-            final Offset local = box.globalToLocal(event.position);
-            final double pixelRatio = MediaQuery.of(context).devicePixelRatio;
-
-            final ScreenCoordinate screenCoordinate = ScreenCoordinate(
-              x: (local.dx * pixelRatio).round(),
-              y: (local.dy * pixelRatio).round(),
-            );
-
-            final GoogleMapController controller = await controllerFuture;
-
-            // Map may have been disposed while awaiting the controller.
-            if (mapKey.currentContext == null) {
-              return;
-            }
-
-            LatLng latLng;
-            try {
-              latLng = await controller.getLatLng(screenCoordinate);
-            } catch (_) {
-              return;
-            }
-
-            onMapTapLatLng(latLng);
-          },
+          onPointerDown: _handlePointerDown,
           child: SizedBox(
-            key: mapKey,
+            key: widget.mapKey,
             width: double.infinity,
             height: double.infinity,
-            child: map,
+            child: widget.map,
           ),
         );
       },
