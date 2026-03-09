@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/widgets/home/map_layer.dart';
+import 'dart:typed_data';
 
 /// Fake controller that completes getLatLng successfully
 class FakeGoogleMapController implements GoogleMapController {
