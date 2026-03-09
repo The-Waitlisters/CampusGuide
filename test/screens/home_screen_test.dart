@@ -1744,5 +1744,36 @@ void main() {
       expect(state.lastTap, isNotNull);
     });
 
+    testWidgets('_zoomToRoute returns early when _mapController is null', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        // no testMapControllerCompleter -> uses _mapController which is null
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      // Should not throw even though _mapController is null
+      await state.zoomToRouteForTest(const LatLng(45.0, -73.0), const LatLng(46.0, -74.0));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('_goToCampus returns early when _mapController is null', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        // no testMapControllerCompleter -> uses _mapController which is null
+      )));
+      await tester.pumpAndSettle();
+
+
+      // Tap Loyola — _goToCampus runs but returns early since _mapController is null
+      await tester.tap(find.text('Loyola'));
+      await tester.pumpAndSettle();
+
+      // Should not crash
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
+
   });
 }
