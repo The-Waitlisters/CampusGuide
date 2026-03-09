@@ -118,9 +118,16 @@ void main() {
         await tester.pumpWidget(_wrap(b, start: null));
 
         expect(find.text('Set as Start'), findsOneWidget);
-        expect(find.text('Set as Destination'), findsNothing);
+        expect(find.text('Set as Destination'), findsOneWidget);
+        // Start is enabled, Destination is enabled (no start set yet means
+        // destination-first flow is allowed)
+        expect(
+          tester.widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Set as Start'),
+          ).onPressed,
+          isNotNull,
+        );
       });
-
   testWidgets('shows "Set as Destination" button when a start building is already set',
           (tester) async {
         final start = _building(
@@ -132,7 +139,6 @@ void main() {
           departments: const [],
           services: const [],
         );
-        // Use a different id so the button is enabled
         final dest = CampusBuilding(
           id: 'b2',
           name: 'MB',
@@ -144,8 +150,15 @@ void main() {
 
         await tester.pumpWidget(_wrap(dest, start: start));
 
+        expect(find.text('Set as Start'), findsOneWidget);
         expect(find.text('Set as Destination'), findsOneWidget);
-        expect(find.text('Set as Start'), findsNothing);
+        // Destination is enabled since dest.id != start.id
+        expect(
+          tester.widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Set as Destination'),
+          ).onPressed,
+          isNotNull,
+        );
       });
 
   testWidgets('maps "-" to "None" in openingHours/departments/services',
