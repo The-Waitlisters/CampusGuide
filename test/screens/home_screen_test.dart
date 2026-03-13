@@ -11,7 +11,8 @@ import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
-import 'package:proj/screens/home_screen.dart' show HomeScreenState;
+import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen, boundsForRoute;
+import 'package:proj/screens/indoor_map_screen.dart';
 import 'package:proj/services/building_locator.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
@@ -1466,6 +1467,78 @@ void main() {
               ),
             ),
           );
+    testWidgets('View indoor map opens IndoorMapScreen', (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'b1',
+        name: 'H',
+        fullName: 'Hall Building',
+      );
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(
+        wrap(HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+        )),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state<HomeScreenState>(
+        find.byType(HomeScreen),
+      );
+      state.setCurrentBuildingFromGPS(building);
+      await tester.pump();
+      state.lastTap = const LatLng(1, 1);
+      state.triggerPolygonOnTap(const PolygonId('b1'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BuildingDetailSheet), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('view_indoor_map_button')));
+      await tester.tap(find.byKey(const Key('view_indoor_map_button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(IndoorMapScreen), findsOneWidget);
+    });
+
+    testWidgets('floating UseAsStart card callback sets start and updates directions', (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'gps1',
+        name: 'GPS',
+        fullName: 'GPS Building',
+        boundary: const [
+          LatLng(45.0, -73.0),
+          LatLng(45.0, -74.0),
+          LatLng(46.0, -74.0),
+          LatLng(46.0, -73.0),
+          LatLng(45.0, -73.0),
+        ],
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(
+          const RouteResult(
+            polylinePoints: [LatLng(45, -73), LatLng(46, -74)],
+            durationText: '5 mins',
+            distanceText: '1 km',
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        wrap(HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+          testDirectionsController: fakeDirections,
+        )),
+      );
+      await tester.pumpAndSettle();
 
           await tester.pumpWidget(wrap(home_screen.HomeScreen(
             dataParser: mockDataParser,

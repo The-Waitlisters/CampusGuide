@@ -179,4 +179,56 @@ void main() {
         // 1 from openingHours + 1 from departments + 2 from services = 4
         expect(find.text('None'), findsNWidgets(4));
       });
+
+  testWidgets('shows "View indoor map" button when onViewIndoorMap is provided',
+      (tester) async {
+    final b = _building(
+      fullName: 'Hall Building',
+      accessible: false,
+      bike: false,
+      car: false,
+      openingHours: const [],
+      departments: const [],
+      services: const [],
+    );
+
+    var tapped = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Material(
+          child: BuildingDetailContent(
+            building: b,
+            isAnnex: false,
+            startBuilding: null,
+            endBuilding: null,
+            onSetStart: () {},
+            onSetDestination: () {},
+            onViewIndoorMap: () => tapped = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('View indoor map'), findsOneWidget);
+    await tester.tap(find.text('View indoor map'));
+    await tester.pump();
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('hides "View indoor map" button when onViewIndoorMap is null',
+      (tester) async {
+    final b = _building(
+      fullName: 'Hall Building',
+      accessible: false,
+      bike: false,
+      car: false,
+      openingHours: const [],
+      departments: const [],
+      services: const [],
+    );
+
+    await tester.pumpWidget(_wrap(b));
+
+    expect(find.text('View indoor map'), findsNothing);
+  });
 }
