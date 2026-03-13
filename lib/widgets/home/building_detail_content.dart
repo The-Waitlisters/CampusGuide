@@ -30,19 +30,6 @@ class BuildingDetailContent extends StatelessWidget {
     );
   }
 
-  Widget _buildDirectionButton() {
-    if (startBuilding == null) {
-      return ElevatedButton(
-        onPressed: onSetStart,
-        child: const Text('Set as Start'),
-      );
-    }
-    return ElevatedButton(
-      onPressed: (startBuilding?.id == building.id) ? null : onSetDestination,
-      child: const Text('Set as Destination'),
-    );
-  }
-
   Widget _buildAccessibilityIcons() {
     final bool show = building.isWheelchairAccessible ||
         building.hasBikeParking ||
@@ -78,7 +65,22 @@ class BuildingDetailContent extends StatelessWidget {
       children: [
         _buildHeader(),
         const SizedBox(height: 8),
-        _buildDirectionButton(),
+        // Direction selection buttons — always show both
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: startBuilding?.id == building.id ? null : onSetStart,
+              child: const Text('Set as Start'),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              onPressed: (endBuilding?.id == building.id || startBuilding?.id == building.id)
+                  ? null
+                  : onSetDestination,
+              child: const Text('Set as Destination'),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         _buildAccessibilityIcons(),
         const SizedBox(height: 12),
