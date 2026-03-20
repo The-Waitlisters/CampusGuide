@@ -1,6 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
+
+
+    <script src="env.js"></script>
+
+    <script>
+        const config = window.APP_CONFIG || {};
+
+        // Inject Google Maps script dynamically
+        if (config.MAPS_API_KEY)
+        {
+          const script = document.createElement("script");
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${config.MAPS_API_KEY}`;
+          script.async = true;
+          document.head.appendChild(script);
+        }
+        else
+        {
+          console.error("Missing MAPS_API_KEY in env.js");
+        }
+
+        // Expose config globally for Dart
+        window.__APP_CONFIG__ = config;
+    </script>
+
+<!--    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCrruYSeWhjdm4yT0i4kKIg-MNo_fNlH_U"></script>-->
+
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
@@ -31,6 +57,8 @@
 
   <title>proj</title>
   <link rel="manifest" href="manifest.json">
+
+
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
