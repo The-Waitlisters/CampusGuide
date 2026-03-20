@@ -12,3 +12,4 @@
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
 tool/
+web/env.js
