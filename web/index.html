@@ -7,22 +7,18 @@
 
     <script>
         const config = window.APP_CONFIG || {};
-
-        // Inject Google Maps script dynamically
-        if (config.MAPS_API_KEY)
-        {
-          const script = document.createElement("script");
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${config.MAPS_API_KEY}`;
-          script.async = true;
-          document.head.appendChild(script);
-        }
-        else
-        {
-          console.error("Missing MAPS_API_KEY in env.js");
-        }
-
-        // Expose config globally for Dart
         window.__APP_CONFIG__ = config;
+
+        if (!config.MAPS_API_KEY)
+        {
+            throw new Error("Missing MAPS_API_KEY in web/env.js");
+        }
+
+        document.write(
+            '<script src="https://maps.googleapis.com/maps/api/js?key=' +
+            config.MAPS_API_KEY +
+            '"><\/script>'
+        );
     </script>
 
   <!--
