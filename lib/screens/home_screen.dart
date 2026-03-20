@@ -14,11 +14,13 @@ import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
+import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
+import 'indoor_map_screen.dart';
 import '../widgets/use_as_start.dart';
 import '../widgets/schedule/schedule_overlay.dart';
 import '../models/course_schedule_entry.dart';
@@ -52,19 +54,25 @@ abstract class HomeScreenState extends State<HomeScreen> {
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
   /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
   void handleMapTap(LatLng point, [BuildContext? sheetContext]);
+
 }
 
 class _HomeScreenState extends HomeScreenState {
   bool? isAnnex;
   late DataParser data;
-  final Completer<GoogleMapController> _controller = Completer<
-      GoogleMapController>();
+  GoogleMapController? _mapController;
   Campus _campus = Campus.sgw;
   LatLng? _cursorPoint;
   LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+  /// True when user chose destination first; route start is current GPS location.
+  bool _startFromCurrentLocation = false;
+  /// Shown when destination-first but location is unavailable.
+  String? _locationRequiredMessage;
+  /// When true, do not auto-apply default transport mode (user chose manually).
+  bool _modeChangedByUser = false;
   late Future<List<CampusBuilding>> _buildingsFuture;
   final TextEditingController _searchController = TextEditingController();
   List<CampusBuilding> buildingsPresent = [];
@@ -98,7 +106,22 @@ class _HomeScreenState extends HomeScreenState {
     _initDirections();
     _tryInitLocationTracking();
   }
-
+  @visibleForTesting
+  Future<void> simulatePointerDown(Offset position) async {
+    GoogleMapController? controller;
+    if (widget.testMapControllerCompleter != null) {
+      controller = await widget.testMapControllerCompleter!.future;
+    } else {
+      controller = _mapController;
+    }
+    if (controller == null) return;
+    final latLng = await controller.getLatLng(
+      ScreenCoordinate(x: position.dx.round(), y: position.dy.round()),
+    );
+    setState(() {
+      lastTap = latLng;
+    });
+  }
   void _initDependencies() {
     data = widget.dataParser ?? DataParser();
     _buildingLocator = widget.buildingLocator ?? BuildingLocator(
@@ -127,6 +150,21 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  bool _isLocationPermissionDenied(LocationPermission permission) {
+    return permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever;
+  }
+
+  Future<LocationPermission> _checkAndMaybeRequestLocationPermission({
+    required bool requestIfDenied,
+  }) async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (requestIfDenied && permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    return permission;
+  }
+
   Future<void> _tryInitLocationTracking() async {
     if (isE2EMode) {
       return;
@@ -138,13 +176,11 @@ class _HomeScreenState extends HomeScreenState {
       return;
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
+    final permission = await _checkAndMaybeRequestLocationPermission(
+      requestIfDenied: true,
+    );
 
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+    if (_isLocationPermissionDenied(permission)) {
       debugPrint('Location permission denied.');
       return;
     }
@@ -255,28 +291,130 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  /// Returns which campus (if any) contains [point] using building boundaries.
+  Campus? _campusAtPoint(LatLng point) =>
+      RouteLogic.campusAtPoint(point, buildingsPresent);
+
+
+  /// Applies default transport mode. No-op if user changed mode or no destination.
+  /// - Building-to-building: same campus → Walk, different campuses → Shuttle.
+  /// - Current-location start: distance < 2.5 km → Walk, else → Shuttle.
+  void _applyDefaultTransportMode({
+    required Campus? endCampus,
+    required Campus? startCampus,
+    required LatLng? startPoint,
+    required LatLng? endPoint,
+    required bool isCurrentLocationStart,
+  }) {
+    if (_modeChangedByUser) return;
+    final mode = RouteLogic.defaultMode(
+    endCampus: endCampus,
+    startCampus: startCampus,
+    startPoint: startPoint,
+    endPoint: endPoint,
+    isCurrentLocationStart: isCurrentLocationStart,
+    );
+    if (mode != null) _directions.setMode(mode);
+  }
+
+
+  /// Resolves the route start point: from selected building or from current GPS when destination-first.
+  Future<LatLng?> _getRouteStartPoint() async {
+    if (_startBuilding != null) {
+      return polygonCenter(_startBuilding!.boundary);
+    }
+    if (!_startFromCurrentLocation) return null;
+    try {
+      final permission = await _checkAndMaybeRequestLocationPermission(
+        requestIfDenied: false,
+      );
+      if (_isLocationPermissionDenied(permission)) {
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw Exception('location timeout'),
+      );
+      return LatLng(position.latitude, position.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _updateDirectionsIfReady() async {
     debugPrint('_updateDirectionsIfReady start=${_startBuilding
         ?.name} end=${_endBuilding?.name}');
 
-    final start = _startBuilding == null ? null : polygonCenter(
-        _startBuilding!.boundary);
-    final end = _endBuilding == null ? null : polygonCenter(
-        _endBuilding!.boundary);
+    if (_endBuilding == null) {
+      setState(() => _locationRequiredMessage = null);
+      await _directions.updateRoute(start: null, end: null);
+      return;
+    }
 
-    await _directions.updateRoute(start: start, end: end);
+    final start = await _getRouteStartPoint();
+    final end = polygonCenter(_endBuilding!.boundary);
+
+    if (_startFromCurrentLocation && start == null) {
+      setState(() {
+        _locationRequiredMessage =
+            'To create a route from your current location, please allow location access.';
+      });
+      await _directions.updateRoute(start: null, end: null);
+      return;
+    }
+
+    setState(() => _locationRequiredMessage = null);
+
+    final startCampus = _startBuilding?.campus ?? (start != null ? _campusAtPoint(start) : null);
+    final endCampus = _endBuilding!.campus;
+    _applyDefaultTransportMode(
+      endCampus: endCampus,
+      startCampus: startCampus,
+      startPoint: start,
+      endPoint: end,
+      isCurrentLocationStart: _startFromCurrentLocation,
+    );
+
+    await _directions.updateRoute(
+      start: start,
+      end: end,
+      startCampus: startCampus,
+      endCampus: endCampus,
+    );
 
     debugPrint('Directions done: err=${_directions.state.errorMessage} '
         'points=${_directions.state.polyline?.points.length}');
 
-    if (start != null && end != null && _directions.state.polyline != null) {
+    if (start != null && _directions.state.polyline != null) {
       await _zoomToRoute(start, end);
     }
   }
 
+  Future<void> _handleSetAsStart(CampusBuilding building) async {
+    debugPrint('Set as Start: ${building.name}');
+    setState(() {
+      _startBuilding = building;
+      _endBuilding = null;
+      _startFromCurrentLocation = false;
+      _locationRequiredMessage = null;
+    });
+    await _updateDirectionsIfReady();
+  }
+
+  Future<void> _handleSetAsDestination(CampusBuilding building) async {
+    debugPrint('Set as Destination: ${building.name}');
+    setState(() {
+      _endBuilding = building;
+      if (_startBuilding == null) _startFromCurrentLocation = true;
+    });
+    await _updateDirectionsIfReady();
+  }
+
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
-    final completer = widget.testMapControllerCompleter ?? _controller;
-    final controller = await completer.future;
+    final controller = widget.testMapControllerCompleter != null
+        ? await widget.testMapControllerCompleter!.future
+        : _mapController;
+    if (controller == null) return;
     final bounds = boundsForRoute(a, b);
 
     await controller.animateCamera(
@@ -333,33 +471,29 @@ class _HomeScreenState extends HomeScreenState {
 
               const SizedBox(height: 16),
 
-              if (_startBuilding == null)
-                ElevatedButton(
-                  onPressed: () async {
-                    debugPrint('Pressed Set as Start for: ${building.name}');
-                    setState(() {
-                      _startBuilding = building;
-                      _endBuilding = null;
-                    });
-                    Navigator.pop(context);
-                    await _updateDirectionsIfReady();
-                  },
-                  child: const Text('Set as Start'),
-                )
-              else
-                ElevatedButton(
-                  onPressed: () async {
-                    debugPrint(
-                        'Pressed Set as Destination for: ${building.name}');
-                    setState(() {
-                      _endBuilding = building;
-                    });
-                    Navigator.pop(context);
-                    await _updateDirectionsIfReady();
-                  },
-                  child: const Text('Set as Destination'),
-                ),
-
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _startBuilding?.id == building.id
+                        ? null
+                        : () async {
+                            Navigator.pop(context);
+                            await _handleSetAsStart(building);
+                          },
+                    child: const Text('Set as Start'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _endBuilding?.id == building.id
+                        ? null
+                        : () async {
+                            Navigator.pop(context);
+                            await _handleSetAsDestination(building);
+                          },
+                    child: const Text('Set as Destination'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -369,8 +503,10 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _goToCampus(Campus campus) async {
-    final completer = widget.testMapControllerCompleter ?? _controller;
-    final controller = await completer.future;
+    final controller = widget.testMapControllerCompleter != null
+        ? await widget.testMapControllerCompleter!.future
+        : _mapController;
+    if (controller == null) return;
     final info = campusInfo[campus]!;
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
@@ -498,24 +634,45 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _selectedId = id;
       _cursorBuilding = building;
-      _polygons = _polygons.map((p) {
-        final isSelected = (p.polygonId == _selectedId);
-        bool selectedLocatedBuilding = false;
-        if (_currentBuildingFromGPS != null) {
-          selectedLocatedBuilding =
-              p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
-        }
-        return p.copyWith(
-          fillColorParam: isSelected
-              ? const Color.fromARGB(255, 124, 115, 29)
-              : (selectedLocatedBuilding) ? const Color(0x803197F6) : Color(
-              0x80912338),
-          strokeColorParam: isSelected
-              ? Colors.yellow
-              : (selectedLocatedBuilding) ? Colors.blue : Color(0xFF741C2C),
-        );
-      }).toSet();
+      _polygons = _polygons.map((p) => _recolorPolygon(p)).toSet();
     });
+  }
+
+  Polygon _recolorPolygon(Polygon p) {
+    final isSelected = p.polygonId == _selectedId;
+    final isGps = _currentBuildingFromGPS != null &&
+        p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
+
+    const Color selectedFill =  Color.fromARGB(255, 124, 115, 29);
+    const Color gpsFill =  Color(0x803197F6);
+    const Color defaultFill =  Color(0x80912338);
+
+    const Color selectedStroke = Colors.yellow;
+    const Color gpsStroke = Colors.blue;
+    const Color defaultStroke =  Color(0xFF741C2C);
+
+    Color fillColor;
+    if (isSelected) {
+      fillColor = selectedFill;
+    } else if (isGps) {
+      fillColor = gpsFill;
+    } else {
+      fillColor = defaultFill;
+    }
+
+    Color strokeColor;
+    if (isSelected) {
+      strokeColor = selectedStroke;
+    } else if (isGps) {
+      strokeColor = gpsStroke;
+    } else {
+      strokeColor = defaultStroke;
+    }
+
+    return p.copyWith(
+      fillColorParam: fillColor,
+      strokeColorParam: strokeColor,
+    );
   }
 
   void _showBuildingDetailSheet(CampusBuilding building, bool isAnnex) {
@@ -533,24 +690,23 @@ class _HomeScreenState extends HomeScreenState {
           startBuilding: _startBuilding,
           endBuilding: _endBuilding,
           onSetStart: () async {
-            debugPrint('Sheet: Set as Start pressed for ${building.name}');
-            setState(() {
-              _startBuilding = building;
-              _endBuilding = null;
-            });
-            await _updateDirectionsIfReady();
+            await _handleSetAsStart(building);
             _sheetController?.close();
             _sheetController = null;
           },
           onSetDestination: () async {
-            debugPrint(
-                'Sheet: Set as Destination pressed for ${building.name}');
-            setState(() {
-              _endBuilding = building;
-            });
-            await _updateDirectionsIfReady();
+            await _handleSetAsDestination(building);
             _sheetController?.close();
             _sheetController = null;
+          },
+          onViewIndoorMap: () {
+            _sheetController?.close();
+            _sheetController = null;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => IndoorMapScreen(building: building),
+              ),
+            );
           },
         );
       });
@@ -569,7 +725,7 @@ class _HomeScreenState extends HomeScreenState {
       appBar: AppBar(title: const Text('The Waitlisters')),
       body: Stack(
         children: [
-          _buildMapLayer(),
+          if (!isE2EMode) _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
@@ -612,7 +768,7 @@ class _HomeScreenState extends HomeScreenState {
         _polygons = _buildPolygons(data);
       },
       mapKey: _mapKey,
-      controllerFuture: _controller.future,
+      controller: _mapController,
       onMapTapLatLng: (latLng) {
         lastTap = latLng;
       },
@@ -640,9 +796,11 @@ class _HomeScreenState extends HomeScreenState {
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
-        if (!_controller.isCompleted) {
-          _controller.complete(controller);
-        }
+        // coverage:ignore-start
+        setState(() {
+          _mapController = controller;
+        });
+
       },
       onTap: (LatLng point) {
         handleMapTap(point);
@@ -654,7 +812,9 @@ class _HomeScreenState extends HomeScreenState {
         }
 
         FocusScope.of(context).unfocus();
+        // coverage:ignore-end
       },
+
     );
   }
 
@@ -744,6 +904,8 @@ class _HomeScreenState extends HomeScreenState {
     return DirectionsCard(
       startBuilding: _startBuilding,
       endBuilding: _endBuilding,
+      useCurrentLocationAsStart: _startFromCurrentLocation && _startBuilding == null,
+      locationRequiredMessage: _locationRequiredMessage,
       isLoading: _directions.state.isLoading,
       errorMessage: _directions.state.errorMessage,
       polyline: _directions.state.polyline,
@@ -753,11 +915,21 @@ class _HomeScreenState extends HomeScreenState {
         setState(() {
           _startBuilding = null;
           _endBuilding = null;
+          _startFromCurrentLocation = false;
+          _locationRequiredMessage = null;
+          _modeChangedByUser = false;
         });
         _directions.updateRoute(start: null, end: null);
         debugPrint('Directions cancelled');
       },
       onRetry: _updateDirectionsIfReady,
+      placeholderMessage: _directions.state.placeholderMessage,
+      selectedModeParam: _directions.mode.modeParam,
+      onModeChanged: (modeParam) {
+        setState(() => _modeChangedByUser = true);
+        _directions.setMode(strategyForModeParam(modeParam));
+        _updateDirectionsIfReady();
+      },
     );
   }
 
@@ -815,7 +987,6 @@ class _HomeScreenState extends HomeScreenState {
     _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
-    _controller.future.then((ctlrer) => ctlrer.dispose());
     super.dispose();
   }
 
@@ -847,9 +1018,9 @@ class _HomeScreenState extends HomeScreenState {
   /// `onPointerDown` logic can await `_controller.future`.
   @visibleForTesting
   void completeInternalMapController(GoogleMapController controller) {
-    if (!_controller.isCompleted) {
-      _controller.complete(controller);
-    }
+    setState(() {
+      _mapController = controller;
+    });
   }
 
   //test sheet render and bypass calling the tap methods.
@@ -873,12 +1044,35 @@ class _HomeScreenState extends HomeScreenState {
       _currentBuildingFromGPS = building;
     });
   }
+  @visibleForTesting
+  void simulateCampusChange(Campus campus) {
+    setState(() {
+      _campus = campus;
+      _buildingLocator.reset();
+      _currentBuildingFromGPS = null;
+      _polygons = _buildPolygons(buildingsPresent);
+    });
+  }
 
+  @visibleForTesting
+  void simulateGpsLocation(LatLng point) {
+    final result = _buildingLocator.update(
+      userPoint: point,
+      campus: _campus,
+      buildings: buildingsPresent,
+    );
+    setState(() {
+      _currentBuildingFromGPS = result.building;
+      _polygons = _buildPolygons(buildingsPresent);
+    });
+  }
+
+  @visibleForTesting
+  Set<Polygon> get testPolygons => _polygons;
   @visibleForTesting
   Future<void> zoomToRouteForTest(LatLng a, LatLng b) {
     return _zoomToRoute(a, b);
   }
-
   @visibleForTesting
   void setIsInBuildingForTest(bool value) {
     setState(() {
@@ -898,8 +1092,7 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _showScheduleOverlay = false;
     });
-  }
-}
+  }}
 
 // For tests: Make sure we cover route-zoom math without a real map
 LatLngBounds boundsForRoute(LatLng a, LatLng b) {

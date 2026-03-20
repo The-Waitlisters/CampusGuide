@@ -10,6 +10,7 @@ class BuildingDetailContent extends StatelessWidget {
     required this.endBuilding,
     required this.onSetStart,
     required this.onSetDestination,
+    this.onViewIndoorMap,
   });
 
   final CampusBuilding building;
@@ -20,79 +21,83 @@ class BuildingDetailContent extends StatelessWidget {
 
   final VoidCallback onSetStart;
   final VoidCallback onSetDestination;
+  final VoidCallback? onViewIndoorMap;
+
+  Widget _buildHeader() {
+    return Text(
+      '${building.name} ${isAnnex ? 'Annex' : '- ${building.fullName}'}',
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _buildAccessibilityIcons() {
+    final bool show = building.isWheelchairAccessible ||
+        building.hasBikeParking ||
+        building.hasCarParking;
+    if (!show) return const SizedBox.shrink();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (building.isWheelchairAccessible) const Icon(Icons.accessible),
+        if (building.hasBikeParking) const Icon(Icons.pedal_bike),
+        if (building.hasCarParking) const Icon(Icons.local_parking),
+      ],
+    );
+  }
+
+  Widget _buildSection(String title, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        ...items.map((e) => Text(e == '-' ? 'None' : e)),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${building.name} ${isAnnex ? 'Annex' : '- ${building.fullName}'}',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        _buildHeader(),
         const SizedBox(height: 8),
-        // Direction selection buttons
-        if (startBuilding == null)
-          ElevatedButton(
-            onPressed: onSetStart,
-
-            child: const Text('Set as Start'),
-          )
-        else
-          ElevatedButton(
-            onPressed: (startBuilding?.id == building.id)
-                ? null
-                : onSetDestination,
-            child: const Text('Set as Destination'),
-          ),
-
+        // Direction selection buttons — always show both
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: startBuilding?.id == building.id ? null : onSetStart,
+              child: const Text('Set as Start'),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              onPressed: (endBuilding?.id == building.id || startBuilding?.id == building.id)
+                  ? null
+                  : onSetDestination,
+              child: const Text('Set as Destination'),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
-        if (building.isWheelchairAccessible ||
-            building.hasBikeParking ||
-            building.hasCarParking)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (building.isWheelchairAccessible)
-                const Icon(Icons.accessible),
-              if (building.hasBikeParking)
-                const Icon(Icons.pedal_bike),
-              if (building.hasCarParking)
-                const Icon(Icons.local_parking),
-            ],
-          ),
+        _buildAccessibilityIcons(),
         const SizedBox(height: 12),
         Text(building.description ?? ''),
         const SizedBox(height: 12),
-        const Text(
-          'Opening Hours:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        ...building.openingHours.map(
-              (e) => Text((e == '-') ? 'None' : e),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Departments:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        ...building.departments.map(
-              (e) => Text((e == '-') ? 'None' : e),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Services:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        ...building.services.map(
-              (e) => Text((e == '-') ? 'None' : e),
-        ),
+        _buildSection('Opening Hours:', building.openingHours),
+        _buildSection('Departments:', building.departments),
+        _buildSection('Services:', building.services),
+        if (onViewIndoorMap != null) ...[
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const Key('view_indoor_map_button'),
+            icon: const Icon(Icons.map),
+            label: const Text('View indoor map'),
+            onPressed: onViewIndoorMap,
+          ),
+        ],
       ],
     );
   }

@@ -1,141 +1,214 @@
-# CampusGuide Mobile Application
+# CampusGuide Mobile Application  
+## Usability Testing Script – Sprint 4
 
-## Pilot Usability Testing Script
+This document describes the **standard usability testing procedure** used to evaluate the CampusGuide mobile application.
 
----
-
-## 1. Introduction
-
-Thank you for participating in this usability evaluation of the **CampusGuide** mobile application.
-
-This session is conducted as part of a Software Engineering course project (SOEN 390). The objective of this study is to evaluate the usability, accessibility, and overall user experience of the application.
-
-During this session, you will be asked to complete several navigation-related tasks using the application. Your screen activity may be recorded for academic analysis purposes only.
-
-No personally identifiable information will be collected. All responses will remain anonymous.
-
-Your participation is voluntary. You may stop the session at any time without any consequences.
+The goal of this study is to evaluate the **usability, accessibility, and overall user experience** of the application.
 
 ---
 
-## 2. Consent Confirmation
+# 1. Introduction
 
-Please confirm your participation:
+Thank you for participating in the usability evaluation of the **CampusGuide mobile application**.
 
-- [ ] Yes, I consent to participate.
-- [ ] No, I do not consent.
+This session is part of a **Software Engineering course project (SOEN 390)**.
 
-If the participant does not consent, the session must be terminated.
+During this session, participants will complete several **navigation-related tasks** using the application.
 
----
+Important notes:
 
-## 3. Participant Information (To Be Filled by Moderator)
-
-- **Participant ID:** \***\*\*\*\*\***\_\_\***\*\*\*\*\***
-- **Date:** \***\*\*\*\*\***\_\_\***\*\*\*\*\***
-- **User Type:** (Undergraduate Student / Graduate Student / Professor / Visitor / Other)
-- **Age Group:** (18–25 / 26–35 / 36–50 / 50+)
-- **Familiarity with Campus:** (Very familiar / Somewhat familiar / First-time visitor)
+- Screen activity may be recorded for **academic analysis purposes only**
+- **No personally identifiable information** will be collected
+- All responses remain **anonymous**
+- Participation is **voluntary**
+- Participants may **stop at any time**
 
 ---
 
-## 4. Instructions to Participant
+# 2. Consent Confirmation
 
-- Please complete each task without external help.
-- Try to think aloud while performing the tasks (describe what you are looking for or expecting).
-- There are no right or wrong answers — we are evaluating the application, not you.
+Before beginning the test, confirm participant consent.
 
----
+**Do you consent to participate in this usability testing session?**
 
-## 5. Task Scenarios
+- [ ] Yes, I consent
+- [ ] No, I do not consent
 
-### Task 1 – Outdoor Navigation
-
-**Scenario:** Find directions from Hall Building to Loyola Campus.
-
-**Success Criteria:**
-
-- Correct destination selected
-- Route successfully generated
+If the participant selects **No**, the session must be terminated.
 
 ---
 
-### Task 2 – Transportation Mode
+# 3. Participant Information
 
-**Scenario:** Switch the transportation mode from walking to shuttle or public transit.
+(To be filled by the moderator)
 
-**Success Criteria:**
-
-- Transportation mode successfully changed
-- Updated route displayed
-
----
-
-### Task 3 – Indoor Navigation
-
-**Scenario:** Locate an accessible washroom within a selected building.
-
-**Success Criteria:**
-
-- Correct building selected
-- Accessible route displayed
+| Field | Response |
+|------|------|
+| Participant ID | |
+| Date | |
+| User Type | Student / Professor / Visitor / Other |
+| Age Group | 18–25 / 26–35 / 36–50 / 50+ |
+| Familiarity with Campus | Very familiar / Somewhat familiar / First-time visitor |
 
 ---
 
-### Task 4 – Next Class Navigation
+# 4. Instructions to Participant
 
-**Scenario:** Generate directions to your next scheduled class.
+Participants should follow these guidelines:
 
-**Success Criteria:**
+- Complete each task **without asking for help**
+- **Think aloud** while performing tasks
+- Describe what you are looking for or expecting
+- There are **no right or wrong answers**
 
-- Calendar event identified
-- Route generated successfully
+We are testing **the application**, not the user.
 
 ---
 
-### Task 5 – Campus Switching
+# 5. Task Scenarios
 
-**Scenario:** Switch between SGW and Loyola campuses.
+The moderator should record task performance for each scenario.
 
-**Success Criteria:**
+---
+
+## Task 1 – Campus Switching
+
+### Scenario
+Switch between **SGW and Loyola campuses**.
+
+### Success Criteria
 
 - Campus map updates correctly
 - No navigation errors occur
 
----
-
-## 6. Moderator Logging Section (Internal Use Only)
-
-For each task, record:
-
-- Start Time:
-- End Time:
-- Task Completed (Yes/No):
-- Number of Errors:
-- Observations (confusion, hesitation, comments):
+| Metric | Response |
+|------|------|
+| Start Time | |
+| End Time | |
+| Task Completed | Yes / No |
+| Errors Observed | |
+| Participant Comments | |
+| Moderator Notes | |
 
 ---
 
-## 7. Post-Test Survey
+## Task 2 – Outdoor Navigation
 
-After completing all tasks, the participant will complete the **System Usability Scale (SUS)** questionnaire via Google Forms.
+### Scenario
+Find directions from **SGW Hall Building to SGW FG Building**.
+
+### Success Criteria
+
+- Correct destination selected
+- Directions successfully generated
+
+| Metric | Response |
+|------|------|
+| Start Time | |
+| End Time | |
+| Task Completed | Yes / No |
+| Errors Observed | |
+| Participant Comments | |
+| Moderator Notes | |
 
 ---
 
-## 8. Session Notes
+## Task 3 – Indoor Navigation
 
-Moderator Observations:
+### Scenario
+Locate an **accessible washroom within a selected building**.
+
+### Success Criteria
+
+- Correct building selected
+- Accessible route displayed
+
+| Metric | Response |
+|------|------|
+| Start Time | |
+| End Time | |
+| Task Completed | Yes / No |
+| Errors Observed | |
+| Participant Comments | |
+| Moderator Notes | |
 
 ---
 
----
+## Task 4 – Transportation Mode
+
+### Scenario
+Switch the transportation mode from **Walking to Shuttle or Public Transit**.
+
+### Success Criteria
+
+- Transportation mode successfully changed
+- Updated route displayed
+
+| Metric | Response |
+|------|------|
+| Start Time | |
+| End Time | |
+| Task Completed | Yes / No |
+| Errors Observed | |
+| Participant Comments | |
+| Moderator Notes | |
 
 ---
 
----
+## Task 5 – Next Class Navigation *(Not Yet Implemented)*
+
+### Scenario
+Generate directions to your **next scheduled class**.
+
+### Success Criteria
+
+- Calendar event identified
+- Route generated successfully
+
+| Metric | Response |
+|------|------|
+| Start Time | |
+| End Time | |
+| Task Completed | Yes / No |
+| Errors Observed | |
+| Participant Comments | |
+| Moderator Notes | |
 
 ---
 
-<br>
+# 6. Post-Test Survey
 
-**End of Usability Testing Session**
+After completing all tasks, participants must complete the **System Usability Scale (SUS)** questionnaire.
+
+Survey link:
+
+https://docs.google.com/forms/d/e/1FAIpQLScDAfpvyaqSqlWxrNhtaeH8HmUm7wZpFzjQxMZTxG39mU74KQ/viewform
+
+The SUS survey provides a **quantitative usability score** for the application.
+
+---
+
+# 7. Overall Feedback
+
+Participants should answer the following questions:
+
+| Question | Response |
+|------|------|
+| What did you like most about the app? | |
+| What was confusing or difficult? | |
+| Suggestions for improvement | |
+
+---
+
+# 8. Moderator Observations
+
+Moderator should record general observations during the session.
+
+Examples:
+
+- User hesitation
+- Navigation confusion
+- Interface issues
+- Accessibility problems
+
+Notes:

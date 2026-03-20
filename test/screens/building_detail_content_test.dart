@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
-import 'package:proj/widgets/home/building_detail_content.dart';
-
-import 'home_screen_test.dart';
+import 'package:proj/widgets/home/building_detail_content.dart'; // correct import
 
 CampusBuilding _building({
   required String fullName,
@@ -37,6 +36,22 @@ CampusBuilding _building({
   );
 }
 
+// Helper to pump BuildingDetailContent with all required params
+Widget _wrap(CampusBuilding b, {bool isAnnex = false, CampusBuilding? start}) {
+  return MaterialApp(
+    home: Material(
+      child: BuildingDetailContent(
+        building: b,
+        isAnnex: isAnnex,
+        startBuilding: start,      // null = no start set yet
+        endBuilding: null,
+        onSetStart: () {},
+        onSetDestination: () {},
+      ),
+    ),
+  );
+}
+
 void main() {
   testWidgets('shows Annex in title when isAnnex=true', (tester) async {
     final b = _building(
@@ -49,17 +64,7 @@ void main() {
       services: const [],
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Material(
-          child: BuildingDetailContent(building: b, isAnnex: true,
-            startBuilding: null,
-            endBuilding: null,
-            onSetStart: () {},
-            onSetDestination: () {},),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_wrap(b, isAnnex: true));
 
     expect(find.textContaining('Hall Annex'), findsOneWidget);
   });
@@ -75,17 +80,7 @@ void main() {
       services: const [],
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Material(
-          child: BuildingDetailContent(building: b, isAnnex: false,
-            startBuilding: null,
-            endBuilding: null,
-            onSetStart: () {},
-            onSetDestination: () {},),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_wrap(b, isAnnex: false));
 
     expect(find.textContaining('Hall - Hall Building'), findsOneWidget);
   });
@@ -101,22 +96,70 @@ void main() {
       services: const [],
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Material(
-          child: BuildingDetailContent(building: b, isAnnex: false,
-            startBuilding: null,
-            endBuilding: null,
-            onSetStart: () {},
-            onSetDestination: () {},),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_wrap(b));
 
     expect(find.byIcon(Icons.accessible), findsOneWidget);
     expect(find.byIcon(Icons.local_parking), findsOneWidget);
     expect(find.byIcon(Icons.pedal_bike), findsNothing);
   });
+
+  testWidgets('shows "Set as Start" button when no start building is set',
+          (tester) async {
+        final b = _building(
+          fullName: 'Hall Building',
+          accessible: false,
+          bike: false,
+          car: false,
+          openingHours: const [],
+          departments: const [],
+          services: const [],
+        );
+
+        await tester.pumpWidget(_wrap(b, start: null));
+
+        expect(find.text('Set as Start'), findsOneWidget);
+        expect(find.text('Set as Destination'), findsOneWidget);
+        // Start is enabled, Destination is enabled (no start set yet means
+        // destination-first flow is allowed)
+        expect(
+          tester.widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Set as Start'),
+          ).onPressed,
+          isNotNull,
+        );
+      });
+  testWidgets('shows "Set as Destination" button when a start building is already set',
+          (tester) async {
+        final start = _building(
+          fullName: 'Other Building',
+          accessible: false,
+          bike: false,
+          car: false,
+          openingHours: const [],
+          departments: const [],
+          services: const [],
+        );
+        final dest = CampusBuilding(
+          id: 'b2',
+          name: 'MB',
+          campus: Campus.sgw,
+          boundary: const [LatLng(0, 0), LatLng(0, 1), LatLng(1, 1)],
+          fullName: 'MB Building',
+          description: null,
+        );
+
+        await tester.pumpWidget(_wrap(dest, start: start));
+
+        expect(find.text('Set as Start'), findsOneWidget);
+        expect(find.text('Set as Destination'), findsOneWidget);
+        // Destination is enabled since dest.id != start.id
+        expect(
+          tester.widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Set as Destination'),
+          ).onPressed,
+          isNotNull,
+        );
+      });
 
   testWidgets('maps "-" to "None" in openingHours/departments/services',
           (tester) async {
@@ -130,84 +173,62 @@ void main() {
           services: const ['-', '-'],
         );
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Material(
-              child: BuildingDetailContent(
-                building: b,
-                isAnnex: false,
-                startBuilding: null,
-                endBuilding: null,
-                onSetStart: () {},
-                onSetDestination: () {},
-              ),
-            ),
-          ),
-        );
+        await tester.pumpWidget(_wrap(b));
 
         expect(find.text('Math'), findsOneWidget);
         // 1 from openingHours + 1 from departments + 2 from services = 4
         expect(find.text('None'), findsNWidgets(4));
       });
 
-  testWidgets('destination button is disabled when startBuilding is same as building',
+  testWidgets('shows "View indoor map" button when onViewIndoorMap is provided',
       (tester) async {
     final b = _building(
       fullName: 'Hall Building',
       accessible: false,
       bike: false,
       car: false,
-      openingHours: const ['-'],
-      departments: const ['-'],
-      services: const ['-'],
+      openingHours: const [],
+      departments: const [],
+      services: const [],
     );
 
+    var tapped = false;
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: BuildingDetailContent(
+        home: Material(
+          child: BuildingDetailContent(
             building: b,
             isAnnex: false,
-            startBuilding: b, // same id
+            startBuilding: null,
             endBuilding: null,
             onSetStart: () {},
             onSetDestination: () {},
+            onViewIndoorMap: () => tapped = true,
           ),
         ),
       ),
     );
 
-    final btn = tester.widget<ElevatedButton>(
-      find.widgetWithText(ElevatedButton, 'Set as Destination'),
-    );
-    expect(btn.onPressed, isNull);
+    expect(find.text('View indoor map'), findsOneWidget);
+    await tester.tap(find.text('View indoor map'));
+    await tester.pump();
+    expect(tapped, isTrue);
   });
 
-  testWidgets('destination button enabled when startBuilding differs and calls onSetDestination',
-          (WidgetTester tester) async {
-        var called = false;
-        final startB = buildTestBuilding(id: 's', name: 'S', fullName: 'Start');
-        final b = buildTestBuilding(id: 'b', name: 'B', fullName: 'Building');
+  testWidgets('hides "View indoor map" button when onViewIndoorMap is null',
+      (tester) async {
+    final b = _building(
+      fullName: 'Hall Building',
+      accessible: false,
+      bike: false,
+      car: false,
+      openingHours: const [],
+      departments: const [],
+      services: const [],
+    );
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: BuildingDetailContent(
-                building: b,
-                isAnnex: false,
-                startBuilding: startB, // different id -> enabled
-                endBuilding: null,
-                onSetStart: () {},
-                onSetDestination: () {
-                  called = true;
-                },
-              ),
-            ),
-          ),
-        );
+    await tester.pumpWidget(_wrap(b));
 
-        await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
-        await tester.pump();
-        expect(called, isTrue);
-      });
+    expect(find.text('View indoor map'), findsNothing);
+  });
 }
