@@ -110,20 +110,38 @@ class DirectionsController extends ChangeNotifier {
         mode: _mode,
       );
 
+      final color = _mode.modeParam == kModeBicycling
+          ? const Color(0xFF2E7D32) // green for bike
+          : const Color(0xFF1A73E8); // blue for walk, drive, transit
+      final polyline = _mode.modeParam == kModeWalking
+          ? Polyline(
+              polylineId: const PolylineId('route'),
+              points: result.polylinePoints,
+              width: 7,
+              color: color,
+              patterns: [PatternItem.dot, PatternItem.gap(12)],
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+              jointType: JointType.round,
+              geodesic: true,
+              zIndex: 2,
+            )
+          : Polyline(
+              polylineId: const PolylineId('route'),
+              points: result.polylinePoints,
+              width: 7,
+              color: color,
+              startCap: Cap.roundCap,
+              endCap: Cap.roundCap,
+              jointType: JointType.round,
+              geodesic: true,
+              zIndex: 2,
+            );
+
       _state = DirectionsViewState(
         isLoading: false,
         errorMessage: null,
-        polyline: Polyline(
-          polylineId: const PolylineId('route'),
-          points: result.polylinePoints,
-          width: 7,
-          color: const Color(0xFF1A73E8), // Google Maps-like blue
-          startCap: Cap.roundCap,
-          endCap: Cap.roundCap,
-          jointType: JointType.round,
-          geodesic: true,
-          zIndex: 2,
-        ),
+        polyline: polyline,
         durationText: result.durationText,
         distanceText: result.distanceText,
       );
