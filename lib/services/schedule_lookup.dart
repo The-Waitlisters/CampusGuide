@@ -51,24 +51,28 @@ class ScheduleLookupService {
     return result.map<CourseScheduleEntry>((dynamic item) {
       final map = item as Map<String, dynamic>;
 
-      final String subject = '${map['subject'] ?? ''}'.trim();
-      final String catalog = '${map['catalog'] ?? ''}'.trim();
-      final String section = '${map['section'] ?? ''}'.trim();
-      final String componentCode = '${map['componentCode'] ?? ''}'.trim();
 
-      final String roomCode = '${map['roomCode'] ?? ''}'.trim();
-      final String buildingCode = '${map['buildingCode'] ?? ''}'.trim();
+
+      final String subject = _str(map, 'subject');
+      final String catalog = _str(map, 'catalog');
+      final String section = _str(map, 'section');
+      final String componentCode = _str(map, 'componentCode');
+
+      final String roomCode = _str(map, 'roomCode');
+      final String buildingCode = _str(map, 'buildingCode');
+
       final String room = roomCode.isNotEmpty
           ? roomCode
-          : '$buildingCode${map['room'] ?? ''}'.trim();
+          : '$buildingCode${_str(map, 'room')}'.trim();
 
-      final String campus = '${map['locationCode'] ?? ''}'.trim();
+      final String campus = _str(map, 'locationCode');
 
       final String startTime = _formatConcordiaTime(
-        '${map['classStartTime'] ?? ''}',
+        _str(map, 'classStartTime'),
       );
+
       final String endTime = _formatConcordiaTime(
-        '${map['classEndTime'] ?? ''}',
+        _str(map, 'classEndTime'),
       );
 
       return CourseScheduleEntry(
@@ -84,33 +88,40 @@ class ScheduleLookupService {
     }).toList();
   }
 
-  String _extractDayText(Map<String, dynamic> map) {
+  String _extractDayText(Map<String, dynamic> map)
+  {
     final List<String> days = <String>[];
 
-    if ('${map['mondays'] ?? ''}' == 'Y') {
+    if (_str(map, 'mondays') == 'Y')
+    {
       days.add('Mon');
     }
-    if ('${map['tuesdays'] ?? ''}' == 'Y') {
+    if (_str(map, 'tuesdays') == 'Y')
+    {
       days.add('Tue');
     }
-    if ('${map['wednesdays'] ?? ''}' == 'Y') {
+    if (_str(map, 'wednesdays') == 'Y')
+    {
       days.add('Wed');
     }
-    if ('${map['thursdays'] ?? ''}' == 'Y') {
+    if (_str(map, 'thursdays') == 'Y')
+    {
       days.add('Thu');
     }
-    // coverage:ignore-next-line
-    if ('${map['fridays'] ?? ''}' == 'Y') {
+    // coverage:ignore-start
+    if (_str(map, 'fridays') == 'Y')
+    {
       days.add('Fri');
     }
-    // coverage:ignore-next-line
-    if ('${map['saturdays'] ?? ''}' == 'Y') {
+    if (_str(map, 'saturdays') == 'Y')
+    {
       days.add('Sat');
     }
-    // coverage:ignore-next-line
-    if ('${map['sundays'] ?? ''}' == 'Y') {
+    if (_str(map, 'sundays') == 'Y')
+    {
       days.add('Sun');
     }
+    // coverage:ignore-end
 
     return days.join(' - ');
   }
@@ -132,6 +143,11 @@ class ScheduleLookupService {
     final String minute = parts[1].padLeft(2, '0');
 
     return '$hour:$minute';
+  }
+
+  String _str(Map<String, dynamic> map, String key)
+  {
+    return '${map[key] ?? ''}'.trim();
   }
 }
 
