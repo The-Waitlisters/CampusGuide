@@ -24,6 +24,7 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
 import 'package:proj/widgets/home/building_detail_content.dart';
 import 'package:proj/widgets/home/building_detail_sheet.dart';
+import 'package:proj/widgets/home/search_overlay.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 import 'package:proj/widgets/use_as_start.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -1999,6 +2000,28 @@ Future<void> main() async {
         expect(find.byType(ScheduleOverlay), findsNothing);
       },
     );
+
+    testWidgets('opens schedule overlay when menu selected', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(),
+        ),
+      );
+
+      expect(find.byType(ScheduleOverlay), findsNothing);
+
+      final SearchOverlay searchOverlay = tester.widget<SearchOverlay>(
+        find.byType(SearchOverlay),
+      );
+
+      searchOverlay.onMenuSelected('schedule');
+      await tester.pump();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 500));
+    });
 
     testWidgets(
       'simulateCampusChange resets locator, clears GPS building, and rebuilds polygons',
