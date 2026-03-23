@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/widgets/schedule/schedule_results_list.dart';
 import 'package:proj/widgets/schedule/schedule_search_bar.dart';
@@ -61,9 +62,7 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
       final List<CourseScheduleEntry> results =
       await widget.lookupService.searchCourse(trimmed);
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _filteredEntries = results;
@@ -72,6 +71,13 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
     } catch (e, stackTrace) {
       debugPrint('Schedule lookup failed: $e');
       debugPrintStack(stackTrace: stackTrace);
+
+      if (kIsWeb) {
+        debugPrint(
+          'Running in browser — if this is a CORS error, re-run with:\n'
+              'flutter run -d chrome --web-browser-flag "--disable-web-security"',
+        );
+      }
 
       if (!mounted) {
         return;
