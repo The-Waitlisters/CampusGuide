@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:proj/models/course_schedule_entry.dart';
+import 'package:proj/widgets/schedule/schedule_display.dart';
 import 'package:proj/widgets/schedule/schedule_results_list.dart';
 import 'package:proj/widgets/schedule/schedule_search_bar.dart';
 import '../../services/schedule_lookup.dart';
+
+enum _ScheduleTab { search, mySchedule }
 
 class ScheduleOverlay extends StatefulWidget {
   final VoidCallback onClose;
@@ -26,8 +29,10 @@ class ScheduleOverlay extends StatefulWidget {
 class _ScheduleOverlayState extends State<ScheduleOverlay> {
   late final TextEditingController _searchController;
   List<CourseScheduleEntry> _filteredEntries = <CourseScheduleEntry>[];
+  List<CourseScheduleEntry> _scheduledEntries = <CourseScheduleEntry>[];
   bool _isLoading = false;
   String? _errorMessage;
+  _ScheduleTab _activeTab = _ScheduleTab.search;
 
   @override
   void initState() {
@@ -39,6 +44,30 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _addToSchedule(CourseScheduleEntry entry) {
+    final bool alreadyAdded = _scheduledEntries.any(
+          (CourseScheduleEntry e) =>
+      e.dayAndTime == entry.dayAndTime && e.room == entry.room,
+    );
+
+    if (alreadyAdded) return;
+
+    setState(() {
+      _scheduledEntries = [..._scheduledEntries, entry];
+    });
+  }
+
+  void _removeFromSchedule(CourseScheduleEntry entry) {
+    setState(() {
+      _scheduledEntries = _scheduledEntries
+          .where(
+            (CourseScheduleEntry e) =>
+        !(e.dayAndTime == entry.dayAndTime && e.room == entry.room),
+      )
+          .toList();
+    });
   }
 
   Future<void> _searchCourses(String query) async {
@@ -117,48 +146,110 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                ScheduleSearchBar(
-                  controller: _searchController,
-                  onChanged: (String value) {
-                    _searchCourses(value);
-                  },
-                  onSubmitted: (String value) {
-                    _searchCourses(value);
-                  },
-                ),
-                const SizedBox(height: 24),
-                if (_isLoading)
-                  const Expanded(
-                    child: Center(
-                      child: CircularProgressIndicator(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _TabButton(
+                        label: 'Search',
+                        isActive: _activeTab == _ScheduleTab.search,
+                        onTap: () =>
+                            setState(() => _activeTab = _ScheduleTab.search),
+                      ),
                     ),
-                  )
-                else if (_errorMessage != null)
-                  Expanded(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 16,
-                          ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _TabButton(
+                        label: _scheduledEntries.isEmpty
+                            ? 'My Schedule'
+                            : 'My Schedule (${_scheduledEntries.length})',
+                        isActive: _activeTab == _ScheduleTab.mySchedule,
+                        onTap: () => setState(
+                              () => _activeTab = _ScheduleTab.mySchedule,
                         ),
                       ),
                     ),
-                  )
-                else
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (_activeTab == _ScheduleTab.search) ...[
+                  ScheduleSearchBar(
+                    controller: _searchController,
+                    onChanged: _searchCourses,
+                    onSubmitted: _searchCourses,
+                  ),
+                  const SizedBox(height: 24),
+                  if (_isLoading)
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_errorMessage != null)
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ScheduleResultsList(
+                        results: _filteredEntries,
+                        onResultTap: widget.onRoomSelected,
+                        onAddToSchedule: _addToSchedule,
+                      ),
+                    ),
+                ] else
                   Expanded(
-                    child: ScheduleResultsList(
-                      results: _filteredEntries,
-                      onResultTap: (CourseScheduleEntry entry) {
-                        widget.onRoomSelected(entry);
-                      },
+                    child: ScheduleDisplay(
+                      entries: _scheduledEntries,
+                      onRemove: _removeFromSchedule,
+                      onRoomTap: widget.onRoomSelected,
                     ),
                   ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFC0392B) : Colors.white,
+          border: Border.all(color: const Color(0xFFC0392B)),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? Colors.white : const Color(0xFFC0392B),
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
           ),
         ),
       ),
