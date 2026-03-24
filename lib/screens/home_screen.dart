@@ -95,6 +95,7 @@ class _HomeScreenState extends HomeScreenState {
   Set<Polygon> _polygons = {};
   PolygonId? _selectedId;
   Timer? _searchDebounce;
+  Timer? _markerRebuildDebounce;
   final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
   bool campusChange = false;
   final GlobalKey _mapKey = GlobalKey();
@@ -129,28 +130,44 @@ class _HomeScreenState extends HomeScreenState {
     _initMarkers();
   }
 
-  void _loadPoiData() async{
-    for(int i=0 ;i<poiPresent.length; i++){
-      
-      final Uint8List markIcons = await widget.markerImageLoader(poiPresent.elementAt(i).poiType, 100);// makers added according to index
-      _markers.add(
-        Marker(
-          // given marker id
-          markerId: MarkerId(i.toString()),
-          // given marker icon
-          // ignore: deprecated_member_use
-          icon: BitmapDescriptor.fromBytes(markIcons),
-          // given position
-          position: poiPresent.elementAt(i).boundary,
-          infoWindow: InfoWindow(
-            // given title for marker
-            title: 'Location: $i',
-          ),
-        )
+  double _iconSizeForZoom(double zoom) {
+    const double minZoom = 13.0;
+    const double maxZoom = 20.0;
+    const double minSize = 24.0;
+    const double maxSize = 56.0;
+    final t = ((zoom - minZoom) / (maxZoom - minZoom)).clamp(0.0, 1.0);
+    return minSize + t * (maxSize - minSize);
+  }
+
+  Future<void> _rebuildMarkers() async {
+    final double zoom = _mapController != null
+        ? await _mapController!.getZoomLevel()
+        : 15.0;
+    final double logicalSize = _iconSizeForZoom(zoom);
+    final List<Marker> newMarkers = [];
+
+    for (int i = 0; i < poiPresent.length; i++) {
+      final Uint8List markIcons = await widget.markerImageLoader(
+        poiPresent.elementAt(i).poiType,
+        logicalSize.round(),
       );
-      setState(() {
-      });
+      newMarkers.add(Marker(
+        markerId: MarkerId(i.toString()),
+        icon: BitmapDescriptor.fromBytes(markIcons, size: Size(logicalSize, logicalSize)),
+        position: poiPresent.elementAt(i).boundary,
+        infoWindow: InfoWindow(title: 'Location: $i'),
+      ));
     }
+
+    if (!mounted) return;
+    setState(() {
+      _markers..clear()..addAll(newMarkers);
+    });
+  }
+
+  void _onCameraMove(CameraPosition _) {
+    _markerRebuildDebounce?.cancel();
+    _markerRebuildDebounce = Timer(const Duration(milliseconds: 300), _rebuildMarkers);
   }
 
   @visibleForTesting
@@ -288,8 +305,8 @@ class _HomeScreenState extends HomeScreenState {
 
       setState(() {
         poiPresent = list;
-        _loadPoiData();
       });
+      _rebuildMarkers();
 
       return list;
     });
@@ -868,6 +885,7 @@ class _HomeScreenState extends HomeScreenState {
         FocusScope.of(context).unfocus();
         // coverage:ignore-end
       },
+      onCameraMove: _onCameraMove,
 
     );
   }
@@ -1039,6 +1057,7 @@ class _HomeScreenState extends HomeScreenState {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _markerRebuildDebounce?.cancel();
     _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
