@@ -1169,6 +1169,11 @@ class _HomeScreenState extends HomeScreenState {
     _mapController = controller;
   }
 
+  @visibleForTesting
+  void simulateCameraMove(CameraPosition position) {
+    _onCameraMove(position);
+  }
+
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
