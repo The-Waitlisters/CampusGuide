@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -21,6 +22,10 @@ import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
 import 'indoor_map_screen.dart';
 import '../widgets/use_as_start.dart';
+import '../widgets/schedule/schedule_overlay.dart';
+import '../models/course_schedule_entry.dart';
+import '../services/concordia_api.dart';
+import '../services/schedule_lookup.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -62,10 +67,13 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
+
   /// Shown when destination-first but location is unavailable.
   String? _locationRequiredMessage;
+
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
   late Future<List<CampusBuilding>> _buildingsFuture;
@@ -91,6 +99,7 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _currentBuildingFromGPS;
 
   bool isInBuilding = false;
+  bool _showScheduleOverlay = false;
 
   @override
   void initState() {
@@ -100,6 +109,7 @@ class _HomeScreenState extends HomeScreenState {
     _initDirections();
     _tryInitLocationTracking();
   }
+
   @visibleForTesting
   Future<void> simulatePointerDown(Offset position) async {
     GoogleMapController? controller;
@@ -116,6 +126,7 @@ class _HomeScreenState extends HomeScreenState {
       lastTap = latLng;
     });
   }
+
   void _initDependencies() {
     data = widget.dataParser ?? DataParser();
     _buildingLocator = widget.buildingLocator ?? BuildingLocator(
@@ -302,11 +313,11 @@ class _HomeScreenState extends HomeScreenState {
   }) {
     if (_modeChangedByUser) return;
     final mode = RouteLogic.defaultMode(
-    endCampus: endCampus,
-    startCampus: startCampus,
-    startPoint: startPoint,
-    endPoint: endPoint,
-    isCurrentLocationStart: isCurrentLocationStart,
+      endCampus: endCampus,
+      startCampus: startCampus,
+      startPoint: startPoint,
+      endPoint: endPoint,
+      isCurrentLocationStart: isCurrentLocationStart,
     );
     if (mode != null) _directions.setMode(mode);
   }
@@ -351,7 +362,7 @@ class _HomeScreenState extends HomeScreenState {
     if (_startFromCurrentLocation && start == null) {
       setState(() {
         _locationRequiredMessage =
-            'To create a route from your current location, please allow location access.';
+        'To create a route from your current location, please allow location access.';
       });
       await _directions.updateRoute(start: null, end: null);
       return;
@@ -359,7 +370,8 @@ class _HomeScreenState extends HomeScreenState {
 
     setState(() => _locationRequiredMessage = null);
 
-    final startCampus = _startBuilding?.campus ?? (start != null ? _campusAtPoint(start) : null);
+    final startCampus = _startBuilding?.campus ??
+        (start != null ? _campusAtPoint(start) : null);
     final endCampus = _endBuilding!.campus;
     _applyDefaultTransportMode(
       endCampus: endCampus,
@@ -471,9 +483,9 @@ class _HomeScreenState extends HomeScreenState {
                     onPressed: _startBuilding?.id == building.id
                         ? null
                         : () async {
-                            Navigator.pop(context);
-                            await _handleSetAsStart(building);
-                          },
+                      Navigator.pop(context);
+                      await _handleSetAsStart(building);
+                    },
                     child: const Text('Set as Start'),
                   ),
                   const SizedBox(width: 12),
@@ -481,9 +493,9 @@ class _HomeScreenState extends HomeScreenState {
                     onPressed: _endBuilding?.id == building.id
                         ? null
                         : () async {
-                            Navigator.pop(context);
-                            await _handleSetAsDestination(building);
-                          },
+                      Navigator.pop(context);
+                      await _handleSetAsDestination(building);
+                    },
                     child: const Text('Set as Destination'),
                   ),
                 ],
@@ -637,13 +649,13 @@ class _HomeScreenState extends HomeScreenState {
     final isGps = _currentBuildingFromGPS != null &&
         p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
 
-    const Color selectedFill =  Color.fromARGB(255, 124, 115, 29);
-    const Color gpsFill =  Color(0x803197F6);
-    const Color defaultFill =  Color(0x80912338);
+    const Color selectedFill = Color.fromARGB(255, 124, 115, 29);
+    const Color gpsFill = Color(0x803197F6);
+    const Color defaultFill = Color(0x80912338);
 
     const Color selectedStroke = Colors.yellow;
     const Color gpsStroke = Colors.blue;
-    const Color defaultStroke =  Color(0xFF741C2C);
+    const Color defaultStroke = Color(0xFF741C2C);
 
     Color fillColor;
     if (isSelected) {
@@ -727,6 +739,28 @@ class _HomeScreenState extends HomeScreenState {
           if (_currentBuildingFromGPS != null &&
               _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
+
+          if (_showScheduleOverlay)
+            ScheduleOverlay(
+              onClose: () {
+                setState(() {
+                  _showScheduleOverlay = false;
+                });
+              },
+              onRoomSelected: (CourseScheduleEntry entry) {
+                debugPrint('Selected room: ${entry.room}');
+
+                setState(() {
+                  _showScheduleOverlay = false;
+                });
+              },
+              lookupService: ScheduleLookupService(
+                api: ConcordiaApiService(
+                  userId: dotenv.env['CONCORDIA_USER_ID'] ?? '',
+                  apiKey: dotenv.env['CONCORDIA_API_KEY'] ?? '',
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -772,7 +806,6 @@ class _HomeScreenState extends HomeScreenState {
         setState(() {
           _mapController = controller;
         });
-
       },
       onTap: (LatLng point) {
         handleMapTap(point);
@@ -876,7 +909,8 @@ class _HomeScreenState extends HomeScreenState {
     return DirectionsCard(
       startBuilding: _startBuilding,
       endBuilding: _endBuilding,
-      useCurrentLocationAsStart: _startFromCurrentLocation && _startBuilding == null,
+      useCurrentLocationAsStart: _startFromCurrentLocation &&
+          _startBuilding == null,
       locationRequiredMessage: _locationRequiredMessage,
       isLoading: _directions.state.isLoading,
       errorMessage: _directions.state.errorMessage,
@@ -924,6 +958,13 @@ class _HomeScreenState extends HomeScreenState {
           _searchResults.clear();
           _showSearchResults = false;
         });
+      },
+      onMenuSelected: (String value) {
+        if (value == 'schedule') {
+          setState(() {
+            _showScheduleOverlay = true;
+          });
+        }
       },
       onSelectResult: (b) {
         debugPrint('Tapped search result: ${b.name}');
@@ -1009,6 +1050,7 @@ class _HomeScreenState extends HomeScreenState {
       _currentBuildingFromGPS = building;
     });
   }
+
   @visibleForTesting
   void simulateCampusChange(Campus campus) {
     setState(() {
@@ -1034,6 +1076,7 @@ class _HomeScreenState extends HomeScreenState {
 
   @visibleForTesting
   Set<Polygon> get testPolygons => _polygons;
+
   @visibleForTesting
   Future<void> zoomToRouteForTest(LatLng a, LatLng b) {
     return _zoomToRoute(a, b);
@@ -1045,6 +1088,19 @@ class _HomeScreenState extends HomeScreenState {
       isInBuilding = value;
     });
   }
+
+  @visibleForTesting
+  void setShowScheduleOverlayForTest(bool value) {
+    setState(() {
+      _showScheduleOverlay = value;
+    });
+  }
+
+  @visibleForTesting
+  void setMapControllerForTest(GoogleMapController controller) {
+    _mapController = controller;
+  }
+
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
