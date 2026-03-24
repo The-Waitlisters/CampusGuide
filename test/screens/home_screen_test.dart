@@ -20,6 +20,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:proj/services/directions/directions_controller.dart';
 import 'package:proj/services/directions/transport_mode_strategy.dart';
+import 'package:proj/services/markerIconLoader.dart';
 import 'package:proj/utilities/polygon_helper.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
@@ -454,6 +455,14 @@ Future<void> main() async {
     });
   });
 
+  test('defaultMarkerImageLoader loads and converts an asset image', () async {
+    final Uint8List bytes =
+        await defaultMarkerImageLoader('assets/coffee.png', 100);
+
+    expect(bytes, isNotEmpty);
+  });
+
+
   // -------------------------------------------------------------------------
   // HomeScreen widget
   // -------------------------------------------------------------------------
@@ -536,11 +545,6 @@ Future<void> main() async {
         expect(state.markers.isNotEmpty, true);
         });
 
-    testWidgets('throw exception when image load fails', (WidgetTester tester) async{
-      Future<Uint8List> failingMarkerImageLoader(String path, int width) async {
-              throw Exception('icon load failed');
-    }
-    });
 
     testWidgets('_loadPoiData adds one marker per POI', (WidgetTester tester) async {
       Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {

@@ -7,6 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
+import 'package:proj/services/markerIconLoader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
@@ -48,24 +49,9 @@ class HomeScreen extends StatefulWidget {
     this.testMapControllerCompleter,
     this.testDirectionsController,
     MarkerImageLoader? markerImageLoader,
-  }) : markerImageLoader = markerImageLoader ?? _defaultMarkerImageLoader;
+  }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
 
   final MarkerImageLoader markerImageLoader;
-
-  static Future<Uint8List> _defaultMarkerImageLoader(
-    String path,
-    int width,
-  ) async {
-    ByteData data = await rootBundle.load(path);
-    ui.Codec codec = await ui.instantiateImageCodec(
-      data.buffer.asUint8List(),
-      targetHeight: width,
-    );
-    ui.FrameInfo fi = await codec.getNextFrame();
-    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
-  }
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
