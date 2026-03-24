@@ -125,12 +125,13 @@ class _HomeScreenState extends HomeScreenState {
           // given marker id
           markerId: MarkerId(i.toString()),
           // given marker icon
+          // ignore: deprecated_member_use
           icon: BitmapDescriptor.fromBytes(markIcons),
           // given position
           position: poiPresent.elementAt(i).boundary,
           infoWindow: InfoWindow(
             // given title for marker
-            title: 'Location: '+i.toString(),
+            title: 'Location: $i',
           ),
         )
       );
