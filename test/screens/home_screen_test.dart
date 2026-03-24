@@ -10,6 +10,7 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/poi.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
 import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
 import 'package:proj/screens/indoor_map_screen.dart';
@@ -399,7 +400,9 @@ void main() {
 
       when(mockDataParser.getBuildingInfoFromJSON())
           .thenAnswer((_) async => <CampusBuilding>[]);
+      when(mockDataParser.getMarkersFromJSON()).thenAnswer((_) async => <Poi>[]);
       when(mockDataParser.buildingsPresent).thenReturn(<CampusBuilding>[]);
+      when(mockDataParser.poiPresent).thenReturn(<Poi>[]);
       when(mockBuildingLocator.update(
         userPoint: anyNamed('userPoint'),
         campus: anyNamed('campus'),

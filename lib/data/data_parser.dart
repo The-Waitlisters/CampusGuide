@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DataParser {
   List<CampusBuilding> buildingsPresent = [];
+  List<Poi> poiPresent = [];
   
   Future<List<CampusBuilding>> getBuildingInfoFromJSON(
   ) async {

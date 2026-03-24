@@ -60,6 +60,8 @@ class _HomeScreenState extends HomeScreenState {
   late DataParser data;
   GoogleMapController? _mapController;
   Campus _campus = Campus.sgw;
+  // ignore: unused_field
+  LatLng? _cursorPoint;
   LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
@@ -599,6 +601,7 @@ class _HomeScreenState extends HomeScreenState {
 
   void _handleMapTap(LatLng point) {
     setState(() {
+      _cursorPoint = point;
       _cursorBuilding = findBuildingAtPoint(point, buildingsPresent, _campus);
     });
   }
@@ -624,6 +627,7 @@ class _HomeScreenState extends HomeScreenState {
     }
 
     setState(() {
+      _cursorPoint = point;
     });
   }
 
@@ -1042,6 +1046,7 @@ class _HomeScreenState extends HomeScreenState {
 
     setState(() {
       _cursorBuilding = building;
+      _cursorPoint = tapPoint;
     });
   }
 
