@@ -60,7 +60,6 @@ class _HomeScreenState extends HomeScreenState {
   late DataParser data;
   GoogleMapController? _mapController;
   Campus _campus = Campus.sgw;
-  LatLng? _cursorPoint;
   LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
@@ -72,7 +71,6 @@ class _HomeScreenState extends HomeScreenState {
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
   late Future<List<CampusBuilding>> _buildingsFuture;
-  late Future<List<Poi>> _poiFuture;
   List<Poi> poiPresent = [];
   final TextEditingController _searchController = TextEditingController();
   List<CampusBuilding> buildingsPresent = [];
@@ -267,7 +265,7 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _initMarkers() {
-    _poiFuture = data.getMarkersFromJSON().then((list) {
+    data.getMarkersFromJSON().then((list) {
       if(!mounted) {
         return list;
       }
@@ -600,7 +598,6 @@ class _HomeScreenState extends HomeScreenState {
 
   void _handleMapTap(LatLng point) {
     setState(() {
-      _cursorPoint = point;
       _cursorBuilding = findBuildingAtPoint(point, buildingsPresent, _campus);
     });
   }
@@ -626,7 +623,6 @@ class _HomeScreenState extends HomeScreenState {
     }
 
     setState(() {
-      _cursorPoint = point;
     });
   }
 
@@ -1045,7 +1041,6 @@ class _HomeScreenState extends HomeScreenState {
 
     setState(() {
       _cursorBuilding = building;
-      _cursorPoint = tapPoint;
     });
   }
 
