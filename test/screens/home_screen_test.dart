@@ -73,14 +73,21 @@ class LocationDisabledGeolocatorPlatform extends Mock
 }
 
 class FakeDataParser extends DataParser {
-  FakeDataParser(this._buildings);
+  FakeDataParser(this._buildings, this._poi);
 
   final List<CampusBuilding> _buildings;
+  final List<Poi> _poi;
 
   @override
   Future<List<CampusBuilding>> getBuildingInfoFromJSON() async {
     buildingsPresent = _buildings;
     return _buildings;
+  }
+
+  @override
+  Future<List<Poi>> getMarkersFromJSON() async {
+    poiPresent = _poi;
+    return _poi;
   }
 }
 
