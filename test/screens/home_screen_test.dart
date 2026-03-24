@@ -11,6 +11,7 @@ import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/poi.dart';
+import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
 import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
 import 'package:proj/screens/indoor_map_screen.dart';
@@ -24,8 +25,10 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
 import 'package:proj/widgets/home/building_detail_content.dart';
 import 'package:proj/widgets/home/building_detail_sheet.dart';
+import 'package:proj/widgets/home/search_overlay.dart';
+import 'package:proj/widgets/schedule/schedule_overlay.dart';
 import 'package:proj/widgets/use_as_start.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/directions/directions_controller_and_strategy_test.dart';
 import 'home_screen_test.mocks.dart';
 
@@ -98,6 +101,42 @@ class FakeGeocodingSuccess extends GeocodingPlatform with MockPlatformInterfaceM
   }
 }
 
+class TimeoutCurrentPositionGeolocatorPlatform extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  double distanceBetween(
+      double startLatitude,
+      double startLongitude,
+      double endLatitude,
+      double endLongitude,
+      ) {
+    return 100.0;
+  }
+
+  @override
+  Future<bool> isLocationServiceEnabled() => Future.value(true);
+
+  @override
+  Future<LocationPermission> checkPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Future<LocationPermission> requestPermission() =>
+      Future.value(LocationPermission.always);
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      const Stream.empty();
+
+  @override
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) {
+    return Completer<Position>().future;
+  }
+}
+
 class FakeGeocodingThrow extends GeocodingPlatform with MockPlatformInterfaceMixin {
   @override
   Future<List<Placemark>> placemarkFromCoordinates(
@@ -155,9 +194,15 @@ class PositionStreamGeolocatorPlatform extends Mock
 
 /// Fake map controller so _goToCampus can complete in tests.
 class FakeGoogleMapController implements GoogleMapController {
+  bool animateCameraCalled = false;
+  CameraUpdate? lastCameraUpdate;
+
   @override
-  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) =>
-      Future.value();
+  Future<void> animateCamera(CameraUpdate cameraUpdate, {Duration? duration}) {
+    animateCameraCalled = true;
+    lastCameraUpdate = cameraUpdate;
+    return Future.value();
+  }
 
   @override
   Future<LatLng> getLatLng(ScreenCoordinate screenCoordinate) =>
@@ -285,7 +330,10 @@ CampusBuilding buildTestBuilding({
 }
 
 @GenerateMocks([DataParser, BuildingLocator])
-void main() {
+Future<void> main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+
   // geocoding method channel used by `geocoding`.
   const MethodChannel geocodingChannel = MethodChannel(
       'flutter.baseflow.com/geocoding');
@@ -1134,6 +1182,34 @@ void main() {
         });
 
     testWidgets(
+      'simulatePointerDown uses _mapController when no test completer',
+          (WidgetTester tester) async {
+        final fakeMapController = FakeGoogleMapController();
+
+        await tester.pumpWidget(
+          wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            // Force else branch
+            testMapControllerCompleter: null,
+          )),
+        );
+
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+        tester.state(find.byType(home_screen.HomeScreen).first);
+
+        state.setMapControllerForTest(fakeMapController);
+
+        await state.simulatePointerDown(const Offset(50, 200));
+        await tester.pumpAndSettle();
+
+        expect(state.lastTap, isNotNull);
+      },
+    );
+
+    testWidgets(
         'GoogleMap onMapCreated completes controller when not completed',
             (WidgetTester tester) async {
           await tester.pumpWidget(wrap(home_screen.HomeScreen(
@@ -1448,6 +1524,50 @@ void main() {
         expect(find.text('Loyola'), findsOneWidget);
       }
     });
+
+    testWidgets(
+      'shows location required message when current position times out and destination-first',
+          (WidgetTester tester) async {
+        final dest = buildTestBuilding(
+          id: 'b1',
+          name: 'DEST',
+          fullName: 'Dest Building',
+        );
+
+        when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [dest]);
+        when(mockDataParser.buildingsPresent).thenReturn([dest]);
+
+        GeolocatorPlatform.instance = TimeoutCurrentPositionGeolocatorPlatform();
+
+        await tester.pumpWidget(
+          wrap(
+            home_screen.HomeScreen(
+              dataParser: mockDataParser,
+              buildingLocator: mockBuildingLocator,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField), 'dest');
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('DEST'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Destination'));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 6));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('please allow location access'),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets(
         'triggerPolygonOnTap with unknown id hits orElse and shows not-part-of-campus',
             (tester) async {
@@ -1711,6 +1831,65 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets(
+      '_zoomToRoute animates camera when map controller exists',
+          (WidgetTester tester) async {
+        final fakeMapController = FakeGoogleMapController();
+
+        await tester.pumpWidget(
+          wrap(
+            home_screen.HomeScreen(
+              dataParser: mockDataParser,
+              buildingLocator: mockBuildingLocator,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+        tester.state(find.byType(home_screen.HomeScreen).first);
+
+        state.setMapControllerForTest(fakeMapController);
+
+        await state.zoomToRouteForTest(
+          const LatLng(45.0, -73.0),
+          const LatLng(46.0, -74.0),
+        );
+        await tester.pumpAndSettle();
+
+        expect(fakeMapController.animateCameraCalled, isTrue);
+        expect(fakeMapController.lastCameraUpdate, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'boundsForRoute returns correct southwest and northeast corners',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          wrap(
+            home_screen.HomeScreen(
+              dataParser: mockDataParser,
+              buildingLocator: mockBuildingLocator,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+        tester.state(find.byType(home_screen.HomeScreen).first);
+
+        final bounds = home_screen.boundsForRoute(
+          const LatLng(46.0, -73.0),
+          const LatLng(45.0, -74.0),
+        );
+
+        expect(bounds.southwest.latitude, 45.0);
+        expect(bounds.southwest.longitude, -74.0);
+        expect(bounds.northeast.latitude, 46.0);
+        expect(bounds.northeast.longitude, -73.0);
+      },
+    );
+
     testWidgets('_goToCampus returns early when _mapController is null', (
         WidgetTester tester) async {
       await tester.pumpWidget(wrap(home_screen.HomeScreen(
@@ -1725,5 +1904,213 @@ void main() {
 
       expect(find.byType(home_screen.HomeScreen), findsOneWidget);
     });
+
+    testWidgets('schedule overlay shows when toggled by test hook', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      state.setShowScheduleOverlayForTest(true);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+    });
+
+    testWidgets('floating UseAsStart card appears for GPS building', (WidgetTester tester) async {
+      final building = buildTestBuilding(
+        id: 'gps1',
+        name: 'GPS',
+        fullName: 'GPS Building',
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(wrap(HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(HomeScreen));
+      state.setCurrentBuildingFromGPS(building);
+      state.setIsInBuildingForTest(true);
+
+      await tester.pumpAndSettle();
+
+      expect(find.byType(UseAsStart), findsOneWidget);
+    });
+
+    testWidgets('schedule overlay closes from callback path', (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(
+        find.byType(home_screen.HomeScreen).first,
+      );
+
+      state.setShowScheduleOverlayForTest(true);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsNothing);
+    });
+
+    testWidgets(
+      'schedule overlay selected-room callback path hides overlay',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(
+          wrap(
+            home_screen.HomeScreen(
+              dataParser: mockDataParser,
+              buildingLocator: mockBuildingLocator,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final dynamic state = tester.state(
+          find.byType(home_screen.HomeScreen).first,
+        );
+
+        state.setShowScheduleOverlayForTest(true);
+        await tester.pumpAndSettle();
+
+        final ScheduleOverlay overlay =
+        tester.widget<ScheduleOverlay>(find.byType(ScheduleOverlay));
+
+        overlay.onRoomSelected(
+          CourseScheduleEntry(
+            room: 'H-101', courseCode: '', section: '', dayText: '', timeText: '', campus: '', buildingCode: '',
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScheduleOverlay), findsNothing);
+      },
+    );
+
+    testWidgets('opens schedule overlay when menu selected', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(),
+        ),
+      );
+
+      expect(find.byType(ScheduleOverlay), findsNothing);
+
+      final SearchOverlay searchOverlay = tester.widget<SearchOverlay>(
+        find.byType(SearchOverlay),
+      );
+
+      searchOverlay.onMenuSelected('schedule');
+      await tester.pump();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets(
+      'simulateCampusChange resets locator, clears GPS building, and rebuilds polygons',
+          (WidgetTester tester) async {
+        final building = buildTestBuilding(
+          id: 'loy1',
+          name: 'LOY',
+          fullName: 'Loyola Building',
+          campus: Campus.loyola,
+        );
+
+        when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+        when(mockDataParser.buildingsPresent).thenReturn([building]);
+        when(mockBuildingLocator.reset()).thenReturn(null);
+
+        await tester.pumpWidget(
+          wrap(
+            home_screen.HomeScreen(
+              dataParser: mockDataParser,
+              buildingLocator: mockBuildingLocator,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+        tester.state(find.byType(home_screen.HomeScreen).first);
+
+        state.simulateCampusChange(Campus.loyola);
+        await tester.pumpAndSettle();
+
+        verify(mockBuildingLocator.reset()).called(1);
+        expect(state.testPolygons, isNotEmpty);
+      },
+    );
+
+    testWidgets(
+      'simulateGpsLocation updates locator result and rebuilds polygons',
+          (WidgetTester tester) async {
+        final building = buildTestBuilding(
+          id: 'gps1',
+          name: 'GPS',
+          fullName: 'GPS Building',
+          campus: Campus.sgw,
+        );
+
+        when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+        when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+        when(
+          mockBuildingLocator.update(
+            userPoint: anyNamed('userPoint'),
+            campus: anyNamed('campus'),
+            buildings: anyNamed('buildings'),
+          ),
+        ).thenReturn(
+          BuildingStatus(building: building, treatedAsInside: true),
+        );
+
+        await tester.pumpWidget(
+          wrap(
+            home_screen.HomeScreen(
+              dataParser: mockDataParser,
+              buildingLocator: mockBuildingLocator,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+        tester.state(find.byType(home_screen.HomeScreen).first);
+
+        state.simulateGpsLocation(const LatLng(45.5, -73.6));
+        await tester.pumpAndSettle();
+
+        verify(
+          mockBuildingLocator.update(
+            userPoint: const LatLng(45.5, -73.6),
+            campus: anyNamed('campus'),
+            buildings: anyNamed('buildings'),
+          ),
+        ).called(1);
+
+        expect(state.testPolygons, isNotEmpty);
+      },
+    );
+
   });
 }
