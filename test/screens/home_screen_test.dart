@@ -336,6 +336,19 @@ CampusBuilding buildTestBuilding({
   );
 }
 
+Poi testPoi({
+  String id = '1',
+  String name = 'Building 1',
+  String fullName = 'Full Building 1',
+  LatLng boundary = const LatLng(0, 0),
+  String description = 'A test building',
+  Campus campus = Campus.sgw,
+  List<String> openingHours = const ['9-5'],
+  String poiType = 'assets/coffee.png'
+}) {
+  return Poi(id: id, name: name, boundary: boundary, fullName: fullName, description: description, campus: campus, poiType: poiType);
+}
+
 @GenerateMocks([DataParser, BuildingLocator])
 Future<void> main() async {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -533,10 +546,19 @@ Future<void> main() async {
       Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
           return Uint8List.fromList([1, 2, 3, 4]);
         }
+
+        when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+          (_) async => [
+            testPoi()
+          ],
+        );
+
       await tester.pumpWidget(
           MaterialApp(
             home: HomeScreen(
+              dataParser: mockDataParser,
               markerImageLoader: fakeMarkerImageLoader,
+              testMapControllerCompleter: Completer<GoogleMapController>(),
             ),
           ),
         );
@@ -546,10 +568,14 @@ Future<void> main() async {
 
         final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
 
+        expect(state.markers.length, 1);
 
         expect(state.markers[0].markerId.value, '0');
+        expect(state.markers[0].position, const LatLng(0, 0));
         expect(state.markers[0].infoWindow.title, 'Location: 0');
-    });
+
+  });
+
     
     testWidgets('shows error message when buildings future fails',
             (WidgetTester tester) async {
