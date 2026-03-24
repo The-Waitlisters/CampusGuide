@@ -501,6 +501,56 @@ Future<void> main() async {
           expect(find.byType(CircularProgressIndicator), findsNothing);
         });
 
+    testWidgets('loads one marker per POI', (WidgetTester tester) async {
+        Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
+          return Uint8List.fromList([1, 2, 3, 4]);
+        }
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: HomeScreen(
+              markerImageLoader: fakeMarkerImageLoader,
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
+
+        expect(state.markers.isNotEmpty, true);
+        });
+
+    testWidgets('throw exception when image load fails', (WidgetTester tester) async{
+      Future<Uint8List> failingMarkerImageLoader(String path, int width) async {
+              throw Exception('icon load failed');
+    }
+    });
+
+    testWidgets('_loadPoiData adds one marker per POI', (WidgetTester tester) async {
+      Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
+          return Uint8List.fromList([1, 2, 3, 4]);
+        }
+      await tester.pumpWidget(
+          MaterialApp(
+            home: HomeScreen(
+              markerImageLoader: fakeMarkerImageLoader,
+            ),
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
+
+
+        expect(state.markers[0].markerId.value, '0');
+        expect(state.markers[0].infoWindow.title, 'Location: 0');
+    });
+    
     testWidgets('shows error message when buildings future fails',
             (WidgetTester tester) async {
           when(mockDataParser.getBuildingInfoFromJSON())
@@ -560,6 +610,16 @@ Future<void> main() async {
           await tester.pump();
 
           verify(mockDataParser.getBuildingInfoFromJSON()).called(1);
+        });
+
+    testWidgets('calls getMarkersFromJSON on init when parser is provided',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser
+          )));
+          await tester.pump();
+
+          verify(mockDataParser.getMarkersFromJSON()).called(1);
         });
 
     testWidgets('location services disabled does not start stream',

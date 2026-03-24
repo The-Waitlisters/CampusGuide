@@ -30,6 +30,8 @@ import '../models/course_schedule_entry.dart';
 import '../services/concordia_api.dart';
 import '../services/schedule_lookup.dart';
 
+typedef MarkerImageLoader = Future<Uint8List> Function(String path, int width);
+
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
   final BuildingLocator? buildingLocator;
@@ -44,8 +46,26 @@ class HomeScreen extends StatefulWidget {
     this.dataParser,
     this.buildingLocator,
     this.testMapControllerCompleter,
-    this.testDirectionsController
-  });
+    this.testDirectionsController,
+    MarkerImageLoader? markerImageLoader,
+  }) : markerImageLoader = markerImageLoader ?? _defaultMarkerImageLoader;
+
+  final MarkerImageLoader markerImageLoader;
+
+  static Future<Uint8List> _defaultMarkerImageLoader(
+    String path,
+    int width,
+  ) async {
+    ByteData data = await rootBundle.load(path);
+    ui.Codec codec = await ui.instantiateImageCodec(
+      data.buffer.asUint8List(),
+      targetHeight: width,
+    );
+    ui.FrameInfo fi = await codec.getNextFrame();
+    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))!
+        .buffer
+        .asUint8List();
+  }
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -53,6 +73,8 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
+  get markers => null;
+
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
   /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
@@ -108,14 +130,8 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
-
-  Future<Uint8List> getImages(String path, int width) async{
-    ByteData data = await rootBundle.load(path);
-    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetHeight: width);
-    ui.FrameInfo fi = await codec.getNextFrame();
-    return(await fi.image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
-
-  }
+  @visibleForTesting
+  List<Marker> get markers => _markers;
 
   @override
   void initState() {
@@ -130,7 +146,7 @@ class _HomeScreenState extends HomeScreenState {
   void _loadPoiData() async{
     for(int i=0 ;i<poiPresent.length; i++){
       
-      final Uint8List markIcons = await getImages(poiPresent.elementAt(i).poiType, 100);      // makers added according to index
+      final Uint8List markIcons = await widget.markerImageLoader(poiPresent.elementAt(i).poiType, 100);// makers added according to index
       _markers.add(
         Marker(
           // given marker id
