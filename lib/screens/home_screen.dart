@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -21,6 +23,7 @@ import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
 import 'indoor_map_screen.dart';
 import '../widgets/use_as_start.dart';
+import '../models/poi.dart';
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -69,6 +72,8 @@ class _HomeScreenState extends HomeScreenState {
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
   late Future<List<CampusBuilding>> _buildingsFuture;
+  late Future<List<Poi>> _poiFuture;
+  List<Poi> poiPresent = [];
   final TextEditingController _searchController = TextEditingController();
   List<CampusBuilding> buildingsPresent = [];
   Set<Polygon> _polygons = {};
@@ -92,6 +97,17 @@ class _HomeScreenState extends HomeScreenState {
 
   bool isInBuilding = false;
 
+  final List<Marker> _markers = <Marker>[];
+
+
+  Future<Uint8List> getImages(String path, int width) async{
+    ByteData data = await rootBundle.load(path);
+    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetHeight: width);
+    ui.FrameInfo fi = await codec.getNextFrame();
+    return(await fi.image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
+
+  }
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +115,30 @@ class _HomeScreenState extends HomeScreenState {
     _initDependencies();
     _initDirections();
     _tryInitLocationTracking();
+    _initMarkers();
+  }
+
+  void _loadPoiData() async{
+    for(int i=0 ;i<poiPresent.length; i++){
+      
+      final Uint8List markIcons = await getImages(poiPresent.elementAt(i).poiType, 100);      // makers added according to index
+      _markers.add(
+        Marker(
+          // given marker id
+          markerId: MarkerId(i.toString()),
+          // given marker icon
+          icon: BitmapDescriptor.fromBytes(markIcons),
+          // given position
+          position: poiPresent.elementAt(i).boundary,
+          infoWindow: InfoWindow(
+            // given title for marker
+            title: 'Location: '+i.toString(),
+          ),
+        )
+      );
+      setState(() {
+      });
+    }
   }
   @visibleForTesting
   Future<void> simulatePointerDown(Offset position) async {
@@ -220,6 +260,21 @@ class _HomeScreenState extends HomeScreenState {
       setState(() {
         buildingsPresent = list;
         _polygons = _buildPolygons(list);
+      });
+
+      return list;
+    }); 
+  }
+
+  void _initMarkers() {
+    _poiFuture = data.getMarkersFromJSON().then((list) {
+      if(!mounted) {
+        return list;
+      }
+
+      setState(() {
+        poiPresent = list;
+        _loadPoiData();
       });
 
       return list;
@@ -755,16 +810,7 @@ class _HomeScreenState extends HomeScreenState {
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
           : <Polyline>{_directions.state.polyline!},
-      markers: <Marker>{
-        if (_cursorPoint != null)
-          Marker(
-            markerId: const MarkerId('cursor'),
-            position: _cursorPoint!,
-            infoWindow: InfoWindow(
-              title: _cursorBuilding?.name ?? 'No building',
-            ),
-          ),
-      },
+      markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {

@@ -23,6 +23,18 @@ class CampusMap extends StatelessWidget {
   final bool myLocationEnabled;
   final bool myLocationButtonEnabled;
 
+  static const String hidePoiStyle = '''
+  [
+    {
+      "featureType": "poi",
+      "stylers": [
+        { "visibility": "off" }
+      ]
+    }
+  ]
+  ''';
+
+
   @override
   Widget build(BuildContext context) {
     return GoogleMap(
@@ -37,6 +49,7 @@ class CampusMap extends StatelessWidget {
       polylines: polylines,
       markers: markers,
       onTap: onTap,
+      style: hidePoiStyle,
     );
   }
 }
