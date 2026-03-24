@@ -59,7 +59,7 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
-  get markers => null;
+  get markers => [];
 
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]

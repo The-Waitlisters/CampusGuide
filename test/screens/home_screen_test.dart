@@ -347,6 +347,18 @@ Poi testPoi({
   List<String> openingHours = const ['9-5'],
   String poiType = 'assets/coffee.png'
 }) {
+  return Poi(id: id, name: name, boundary: boundary, fullName: fullName, description: description, campus: campus, openingHours: openingHours, poiType: poiType);
+}
+
+Poi testPoi2({
+  String id = '1',
+  String name = 'Building 1',
+  String fullName = 'Full Building 1',
+  LatLng boundary = const LatLng(0, 0),
+  String description = 'A test building',
+  Campus campus = Campus.sgw,
+  String poiType = 'assets/coffee.png'
+}) {
   return Poi(id: id, name: name, boundary: boundary, fullName: fullName, description: description, campus: campus, poiType: poiType);
 }
 
@@ -553,7 +565,8 @@ Future<void> main() async {
 
         when(mockDataParser.getMarkersFromJSON()).thenAnswer(
           (_) async => [
-            testPoi()
+            testPoi(),
+            testPoi2()
           ],
         );
 
@@ -572,11 +585,14 @@ Future<void> main() async {
 
         final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
 
-        expect(state.markers.length, 1);
+        expect(state.markers.length, 2);
 
         expect(state.markers[0].markerId.value, '0');
         expect(state.markers[0].position, const LatLng(0, 0));
         expect(state.markers[0].infoWindow.title, 'Location: 0');
+        expect(state.markers[1].markerId.value, '1');
+        expect(state.markers[1].position, const LatLng(0, 0));
+        expect(state.markers[1].infoWindow.title, 'Location: 1');
 
   });
 
