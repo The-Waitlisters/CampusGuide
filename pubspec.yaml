@@ -45,6 +45,9 @@ dependencies:
   # A helper for checking if a point is inside a polygon
   google_maps_utils: ^1.5.0+0
   geocoding: ^4.0.0
+  firebase_auth: ^6.3.0
+  cloud_firestore: ^6.2.0
+  firebase_core: ^4.6.0
 
 
 dev_dependencies:
@@ -65,6 +68,8 @@ dev_dependencies:
   plugin_platform_interface: ^2.1.8
   geolocator_platform_interface: ^4.2.6
   coverage: ^1.15.0
+  firebase_auth_mocks: ^0.15.1
+  mocktail: ^1.0.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -79,6 +84,7 @@ flutter:
   assets:
     - assets/
     - assets/indoor/
+    - assets/branding/
     - .env
 
   # To add assets to your application, add an assets section, like this:

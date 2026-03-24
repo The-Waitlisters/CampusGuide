@@ -26,8 +26,14 @@ import '../widgets/schedule/schedule_overlay.dart';
 import '../models/course_schedule_entry.dart';
 import '../services/concordia_api.dart';
 import '../services/schedule_lookup.dart';
+import '../models/user_role.dart';
+import '../services/auth/auth_service.dart';
+import 'auth/auth_gate.dart';
 
 class HomeScreen extends StatefulWidget {
+  final UserRole role; // New Addition
+  final AuthService? authService;
+
   final DataParser? dataParser;
   final BuildingLocator? buildingLocator;
   /// For tests: when non-null, used instead of the map's controller future
@@ -36,8 +42,11 @@ class HomeScreen extends StatefulWidget {
 
   final DirectionsController? testDirectionsController;
 
+
   const HomeScreen({
     super.key,
+    this.role = UserRole.guest, // NEW default
+    this.authService,
     this.dataParser,
     this.buildingLocator,
     this.testMapControllerCompleter,
@@ -67,6 +76,17 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+
+  // Adding role helpers
+  bool get _isGuest => widget.role == UserRole.guest;
+  bool get _isStudent => widget.role == UserRole.student;
+  bool get _isTeacher => widget.role == UserRole.teacher;
+
+  String get _roleLabel => switch (widget.role) {
+    UserRole.guest => 'Guest',
+    UserRole.student => 'Student',
+    UserRole.teacher => 'Teacher',
+  };
 
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
@@ -728,7 +748,40 @@ class _HomeScreenState extends HomeScreenState {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(title: const Text('The Waitlisters')),
+      appBar: AppBar(
+        title: const Text('The Waitlisters'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Chip(
+                label: Text(_roleLabel),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              final svc = widget.authService ?? AuthService();
+              await svc.signOut();
+
+              if (!mounted) return;
+
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => AuthGate(authService: svc),
+                ),
+                    (route) => false,
+              );
+            },
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+
+
       body: Stack(
         children: [
           if (!isE2EMode) _buildMapLayer(),
@@ -961,6 +1014,17 @@ class _HomeScreenState extends HomeScreenState {
       },
       onMenuSelected: (String value) {
         if (value == 'schedule') {
+          if (_isGuest) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Schedule is available for student/teacher accounts only.',
+                ),
+              ),
+            );
+            return;
+          }
+
           setState(() {
             _showScheduleOverlay = true;
           });
