@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' as ui;
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -13,6 +13,7 @@ import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
 import 'package:proj/widgets/home/campus_map.dart';
+import 'package:proj/widgets/home/poi_detail_sheet.dart';
 import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
@@ -79,6 +80,8 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+  Poi? _startPoi;
+  Poi? _endPoi;
 
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
@@ -116,6 +119,8 @@ class _HomeScreenState extends HomeScreenState {
   bool _showScheduleOverlay = false;
 
   final List<Marker> _markers = <Marker>[];
+
+  LatLng? locationPoint;
 
   @visibleForTesting
   List<Marker> get markers => _markers;
@@ -155,7 +160,9 @@ class _HomeScreenState extends HomeScreenState {
         markerId: MarkerId(i.toString()),
         icon: BitmapDescriptor.fromBytes(markIcons, size: Size(logicalSize, logicalSize)),
         position: poiPresent.elementAt(i).boundary,
-        infoWindow: InfoWindow(title: 'Location: $i'),
+        onTap: () => setState(() {
+          _showPoiDetailSheet(poiPresent.elementAt(i));
+        }),
       ));
     }
 
@@ -258,6 +265,7 @@ class _HomeScreenState extends HomeScreenState {
           ),
         ).listen((Position pos) {
           final userPoint = LatLng(pos.latitude, pos.longitude);
+          locationPoint = userPoint;
           final result = _buildingLocator.update(
             userPoint: userPoint,
             campus: _campus,
@@ -310,6 +318,19 @@ class _HomeScreenState extends HomeScreenState {
 
       return list;
     });
+  }
+
+  double _computeDistance(LatLng point1, LatLng point2) {
+
+    //distance in km
+    double R = 6356;
+
+    double x = R*(pi/180)*(point2.latitude - point1.latitude);
+    double y = R*(pi/180)*(point2.longitude - point1.longitude)*cos(point1.latitude);
+
+    double distance = sqrt(pow(x, 2) + pow(y, 2));
+
+    return distance;
   }
 
   CameraPosition get _initialCamera {
@@ -423,16 +444,30 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<void> _updateDirectionsIfReady() async {
     debugPrint('_updateDirectionsIfReady start=${_startBuilding
-        ?.name} end=${_endBuilding?.name}');
+        ?.name ?? _startPoi?.name} end=${_endBuilding?.name ?? _endPoi?.name}');
 
-    if (_endBuilding == null) {
+    if (_endBuilding == null && _endPoi == null) {
       setState(() => _locationRequiredMessage = null);
       await _directions.updateRoute(start: null, end: null);
       return;
     }
 
-    final start = await _getRouteStartPoint();
-    final end = polygonCenter(_endBuilding!.boundary);
+    // ignore: prefer_typing_uninitialized_variables
+    var start;
+    // ignore: prefer_typing_uninitialized_variables
+    var end;
+
+    if(_startPoi == null) {
+      start = await _getRouteStartPoint();
+    } else {
+      start = _startPoi!.boundary;
+    }
+
+    if(_endPoi == null) {
+    end = polygonCenter(_endBuilding!.boundary);
+    } else {
+      end = _endPoi!.boundary;
+    }
 
     if (_startFromCurrentLocation && start == null) {
       setState(() {
@@ -447,7 +482,13 @@ class _HomeScreenState extends HomeScreenState {
 
     final startCampus = _startBuilding?.campus ??
         (start != null ? _campusAtPoint(start) : null);
-    final endCampus = _endBuilding!.campus;
+    // ignore: prefer_typing_uninitialized_variables
+    var endCampus;
+    if(_endPoi == null) {
+      endCampus = _endBuilding!.campus;
+    } else {
+      endCampus = _endPoi!.campus;
+    }
     _applyDefaultTransportMode(
       endCampus: endCampus,
       startCampus: startCampus,
@@ -471,6 +512,8 @@ class _HomeScreenState extends HomeScreenState {
     }
   }
 
+  
+
   Future<void> _handleSetAsStart(CampusBuilding building) async {
     debugPrint('Set as Start: ${building.name}');
     setState(() {
@@ -486,7 +529,27 @@ class _HomeScreenState extends HomeScreenState {
     debugPrint('Set as Destination: ${building.name}');
     setState(() {
       _endBuilding = building;
-      if (_startBuilding == null) _startFromCurrentLocation = true;
+      if (_startBuilding == null && _startPoi == null) _startFromCurrentLocation = true;
+    });
+    await _updateDirectionsIfReady();
+  }
+
+  Future<void> _handlePoiAsStart(Poi poi) async {
+    debugPrint('Set as Start: ${poi.name}');
+    setState(() {
+      _startPoi = poi;
+      _endPoi = null;
+      _startFromCurrentLocation = true;
+      _locationRequiredMessage = null;
+    });
+    await _updateDirectionsIfReady();
+  }
+
+  Future<void> _handlePoiAsDestination(Poi poi) async {
+    debugPrint('Set as Destination: ${poi.name}');
+    setState(() {
+      _endPoi = poi;
+      if (_startPoi == null) _startFromCurrentLocation = true;
     });
     await _updateDirectionsIfReady();
   }
@@ -628,6 +691,41 @@ class _HomeScreenState extends HomeScreenState {
         },
       );
     }).toSet();
+  }
+
+  void _showPoiDetailSheet(Poi poi) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scaffoldState = _scaffoldKey.currentState;
+      if (scaffoldState == null) return;
+
+      _sheetController?.close();
+      _sheetController = null;
+
+      _sheetController = scaffoldState.showBottomSheet((context) {
+        return PoiDetailSheet(
+          building: poi,
+          startBuilding: _startBuilding,
+          endBuilding: _endBuilding,
+          startPoi: _startPoi,
+          endPoi: _endPoi,
+          onSetStart: () async {
+            await _handlePoiAsStart(poi);
+            _sheetController?.close();
+            _sheetController = null;
+          },
+          onSetDestination: () async {
+            await _handlePoiAsDestination(poi);
+            _sheetController?.close();
+            _sheetController = null;
+          },
+        );
+      });
+      _attachSheetAnimation(_sheetController);
+
+      _sheetController!.closed.then((_) {
+        if (mounted) _sheetController = null;
+      });
+    });
   }
 
   void _handleMapTap(LatLng point) {
@@ -976,6 +1074,7 @@ class _HomeScreenState extends HomeScreenState {
     return DirectionsCard(
       startBuilding: _startBuilding,
       endBuilding: _endBuilding,
+      endPoi: _endPoi,
       useCurrentLocationAsStart: _startFromCurrentLocation &&
           _startBuilding == null,
       locationRequiredMessage: _locationRequiredMessage,
@@ -988,6 +1087,7 @@ class _HomeScreenState extends HomeScreenState {
         setState(() {
           _startBuilding = null;
           _endBuilding = null;
+          _endPoi = null;
           _startFromCurrentLocation = false;
           _locationRequiredMessage = null;
           _modeChangedByUser = false;

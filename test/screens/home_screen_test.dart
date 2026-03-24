@@ -589,10 +589,8 @@ Future<void> main() async {
 
         expect(state.markers[0].markerId.value, '0');
         expect(state.markers[0].position, const LatLng(0, 0));
-        expect(state.markers[0].infoWindow.title, 'Location: 0');
         expect(state.markers[1].markerId.value, '1');
         expect(state.markers[1].position, const LatLng(0, 0));
-        expect(state.markers[1].infoWindow.title, 'Location: 1');
 
   });
 

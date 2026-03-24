@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/poi.dart';
 import 'package:proj/services/directions/transport_mode_strategy.dart';
 
 class DirectionsCard extends StatelessWidget {
   final CampusBuilding? startBuilding;
   final CampusBuilding? endBuilding;
+  final Poi? startPoi;
+  final Poi? endPoi;
 
   final bool isLoading;
   final String? errorMessage;
@@ -32,8 +35,10 @@ class DirectionsCard extends StatelessWidget {
 
   const DirectionsCard({
     super.key,
-    required this.startBuilding,
-    required this.endBuilding,
+    this.startBuilding,
+    this.endBuilding,
+    this.startPoi,
+    this.endPoi,
     required this.isLoading,
     required this.errorMessage,
     required this.polyline,
@@ -46,7 +51,7 @@ class DirectionsCard extends StatelessWidget {
     this.placeholderMessage,
     required this.selectedModeParam,
     required this.onModeChanged,
-  });
+  }) ;
 
   static String _campusLabel(Campus c) => c == Campus.sgw ? 'SGW' : 'Loyola';
 
@@ -57,11 +62,15 @@ class DirectionsCard extends StatelessWidget {
     }
 
     final startLabel = startBuilding != null
-        ? '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}'
-        : (useCurrentLocationAsStart ? 'Current location' : 'Not set');
+        ? '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}' 
+        : (startPoi != null 
+          ? '${_campusLabel(startPoi!.campus)} - ${startPoi!.fullName ?? startPoi!.name}' 
+          :(useCurrentLocationAsStart ? 'Current location' : 'Not set'));
     final endLabel = endBuilding != null
         ? '${_campusLabel(endBuilding!.campus)} - ${endBuilding!.fullName ?? endBuilding!.name}'
-        : 'Not set';
+        : (endPoi != null 
+          ? '${endPoi!.name} - ${endPoi!.fullName}' 
+          :'Not set');
 
     return Positioned(
       left: 12,
@@ -90,7 +99,7 @@ class DirectionsCard extends StatelessWidget {
               Text("Start: $startLabel"),
               const SizedBox(height: 6),
               Text("Destination: $endLabel"),
-              if (endBuilding != null) ...[
+              if (endBuilding != null || endPoi != null) ...[
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
@@ -107,7 +116,7 @@ class DirectionsCard extends StatelessWidget {
               ],
               const SizedBox(height: 8),
 
-              if (endBuilding == null)
+              if (endBuilding == null && endPoi == null)
                 const Text(
                   'Select a destination to see a route.',
                   style: TextStyle(fontStyle: FontStyle.italic),
