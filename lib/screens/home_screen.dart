@@ -789,8 +789,7 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          if (_currentBuildingFromGPS != null &&
-              _startBuilding == null) _buildSetCurrentAsStartCard(),
+          _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
 
           if (_showScheduleOverlay)
@@ -902,8 +901,9 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildSetCurrentAsStartCard() {
-    if (_currentBuildingFromGPS == null || !isInBuilding ||
-        _startBuilding != null) {
+    final building = _currentBuildingFromGPS; // capture locally
+
+    if (building == null || !isInBuilding || _startBuilding != null) {
       return const SizedBox.shrink();
     }
 
@@ -913,9 +913,10 @@ class _HomeScreenState extends HomeScreenState {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       left: 0,
+      right: 0,
       bottom: sheetOpen ? _sheetLiftMax : 0,
       child: UseAsStart(
-        selected: _currentBuildingFromGPS!,
+        selected: building,
         onSetStart: () {
           debugPrint(
               'Set as Start pressed for ${_currentBuildingFromGPS?.name}');
