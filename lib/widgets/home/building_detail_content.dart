@@ -68,16 +68,20 @@ class BuildingDetailContent extends StatelessWidget {
         // Direction selection buttons — always show both
         Row(
           children: [
-            ElevatedButton(
-              onPressed: startBuilding?.id == building.id ? null : onSetStart,
-              child: const Text('Set as Start'),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: startBuilding?.id == building.id ? null : onSetStart,
+                child: const Text('Set as Start'),
+              ),
             ),
             const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: (endBuilding?.id == building.id || startBuilding?.id == building.id)
-                  ? null
-                  : onSetDestination,
-              child: const Text('Set as Destination'),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: (endBuilding?.id == building.id || startBuilding?.id == building.id)
+                    ? null
+                    : onSetDestination,
+                child: const Text('Set as Destination'),
+              ),
             ),
           ],
         ),
