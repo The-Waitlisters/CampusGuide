@@ -7,7 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
-import 'package:proj/services/POIOptionMenu.dart';
+import 'package:proj/services/POI_option_menu.dart';
 import 'package:proj/services/markerIconLoader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
