@@ -120,10 +120,14 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
+  List<Marker> _displayedMarkers = <Marker>[];
+
   LatLng? locationPoint;
 
+  bool _showPOIOptionMenu = false;
+
   @visibleForTesting
-  List<Marker> get markers => _markers;
+  List<Marker> get markers => _displayedMarkers;
 
   @override
   void initState() {
@@ -168,7 +172,10 @@ class _HomeScreenState extends HomeScreenState {
 
     if (!mounted) return;
     setState(() {
-      _markers..clear()..addAll(newMarkers);
+      _displayedMarkers..clear()..addAll(newMarkers);
+      if (_markers.isEmpty) {
+        _markers..clear()..addAll(newMarkers);
+      }
     });
   }
 
@@ -909,9 +916,40 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
+          _buildPOISection(),
           if (_currentBuildingFromGPS != null &&
               _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
+
+          if (_showPOIOptionMenu)
+            POIOptionMenu(
+              onDistanceSubmit: (str){
+                debugPrint("${_computeDistance(_markers[0].position, locationPoint!)} ------------------- length");
+                double? distOfPOIs = double.tryParse(str);
+
+                if (distOfPOIs != null) {
+                  _displayedMarkers = _markers;
+
+                  _displayedMarkers.removeWhere((m) =>
+                  _computeDistance(m.position, locationPoint!) > distOfPOIs);
+                  
+                }
+              },
+              onAmountSubmit: (str){
+                int? numOfPOIs = int.tryParse(str);
+
+                if (numOfPOIs != null) {
+                  if (numOfPOIs < _displayedMarkers.length)
+                    _displayedMarkers = _markers;
+
+                  while(_displayedMarkers.length > numOfPOIs!){
+                    _displayedMarkers.removeLast();
+                  }
+                  debugPrint("${_displayedMarkers.length} -------------------length2");
+                }
+
+              },
+            ),
 
           if (_showScheduleOverlay)
             ScheduleOverlay(
@@ -962,7 +1000,7 @@ class _HomeScreenState extends HomeScreenState {
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
           : <Polyline>{_directions.state.polyline!},
-      markers: Set<Marker>.of(_markers),
+      markers: Set<Marker>.of(_displayedMarkers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
@@ -1103,6 +1141,19 @@ class _HomeScreenState extends HomeScreenState {
         _directions.setMode(strategyForModeParam(modeParam));
         _updateDirectionsIfReady();
       },
+    );
+  }
+  Widget _buildPOISection() {
+    return Container(
+        alignment: Alignment.bottomRight,
+        child: ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _showPOIOptionMenu = !_showPOIOptionMenu;
+            });
+          },
+          child: Text("POIs"),
+        ),
     );
   }
 
@@ -1288,4 +1339,47 @@ LatLngBounds boundsForRoute(LatLng a, LatLng b) {
   );
 
   return LatLngBounds(southwest: sw, northeast: ne);
+}
+
+class POIOptionMenu extends StatelessWidget {
+
+  final void Function(String) onDistanceSubmit;
+  final void Function(String) onAmountSubmit;
+
+  const POIOptionMenu({
+    super.key,
+
+    required this.onDistanceSubmit,
+    required this.onAmountSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 16,
+      left: 12,
+      right: 12,
+      child: Card(
+          child: Column(
+            children: [
+              TextField(maxLength: 2,
+                onSubmitted: onDistanceSubmit,
+                decoration: InputDecoration(
+                  hintText: "Maximum distance (km)",
+                ),
+              ),
+
+              TextField(maxLength: 2,
+                onSubmitted: onAmountSubmit,
+                decoration: InputDecoration(
+                  hintText: "Maximum amount of POIs",
+                ),
+              ),
+            ],
+          ),
+      ),
+
+    );
+  }
+
 }
