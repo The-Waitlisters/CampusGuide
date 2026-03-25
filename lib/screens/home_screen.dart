@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
+import 'package:proj/services/markerIconLoader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
@@ -22,6 +25,7 @@ import '../widgets/home/map_layer.dart';
 import '../widgets/home/search_overlay.dart';
 import 'indoor_map_screen.dart';
 import '../widgets/use_as_start.dart';
+import '../models/poi.dart';
 import '../widgets/schedule/schedule_overlay.dart';
 import '../models/course_schedule_entry.dart';
 import '../services/concordia_api.dart';
@@ -29,6 +33,8 @@ import '../services/schedule_lookup.dart';
 import '../models/user_role.dart';
 import '../services/auth/auth_service.dart';
 import 'auth/auth_gate.dart';
+
+typedef MarkerImageLoader = Future<Uint8List> Function(String path, int width);
 
 class HomeScreen extends StatefulWidget {
   final UserRole role; // New Addition
@@ -50,8 +56,11 @@ class HomeScreen extends StatefulWidget {
     this.dataParser,
     this.buildingLocator,
     this.testMapControllerCompleter,
-    this.testDirectionsController
-  });
+    this.testDirectionsController,
+    MarkerImageLoader? markerImageLoader,
+  }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
+
+  final MarkerImageLoader markerImageLoader;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -59,6 +68,8 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
+  get markers => [];
+
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
   /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
@@ -71,6 +82,7 @@ class _HomeScreenState extends HomeScreenState {
   late DataParser data;
   GoogleMapController? _mapController;
   Campus _campus = Campus.sgw;
+  // ignore: unused_field
   LatLng? _cursorPoint;
   LatLng? lastTap;
   CampusBuilding? _cursorBuilding;
@@ -97,11 +109,13 @@ class _HomeScreenState extends HomeScreenState {
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
   late Future<List<CampusBuilding>> _buildingsFuture;
+  List<Poi> poiPresent = [];
   final TextEditingController _searchController = TextEditingController();
   List<CampusBuilding> buildingsPresent = [];
   Set<Polygon> _polygons = {};
   PolygonId? _selectedId;
   Timer? _searchDebounce;
+  Timer? _markerRebuildDebounce;
   final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
   bool campusChange = false;
   final GlobalKey _mapKey = GlobalKey();
@@ -121,6 +135,11 @@ class _HomeScreenState extends HomeScreenState {
   bool isInBuilding = false;
   bool _showScheduleOverlay = false;
 
+  final List<Marker> _markers = <Marker>[];
+
+  @visibleForTesting
+  List<Marker> get markers => _markers;
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +147,47 @@ class _HomeScreenState extends HomeScreenState {
     _initDependencies();
     _initDirections();
     _tryInitLocationTracking();
+    _initMarkers();
+  }
+
+  double _iconSizeForZoom(double zoom) {
+    const double minZoom = 13.0;
+    const double maxZoom = 20.0;
+    const double minSize = 24.0;
+    const double maxSize = 56.0;
+    final t = ((zoom - minZoom) / (maxZoom - minZoom)).clamp(0.0, 1.0);
+    return minSize + t * (maxSize - minSize);
+  }
+
+  Future<void> _rebuildMarkers() async {
+    final double zoom = _mapController != null
+        ? await _mapController!.getZoomLevel()
+        : 15.0;
+    final double logicalSize = _iconSizeForZoom(zoom);
+    final List<Marker> newMarkers = [];
+
+    for (int i = 0; i < poiPresent.length; i++) {
+      final Uint8List markIcons = await widget.markerImageLoader(
+        poiPresent.elementAt(i).poiType,
+        logicalSize.round(),
+      );
+      newMarkers.add(Marker(
+        markerId: MarkerId(i.toString()),
+        icon: BitmapDescriptor.fromBytes(markIcons, size: Size(logicalSize, logicalSize)),
+        position: poiPresent.elementAt(i).boundary,
+        infoWindow: InfoWindow(title: 'Location: $i'),
+      ));
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _markers..clear()..addAll(newMarkers);
+    });
+  }
+
+  void _onCameraMove(CameraPosition _) {
+    _markerRebuildDebounce?.cancel();
+    _markerRebuildDebounce = Timer(const Duration(milliseconds: 300), _rebuildMarkers);
   }
 
   @visibleForTesting
@@ -252,6 +312,21 @@ class _HomeScreenState extends HomeScreenState {
         buildingsPresent = list;
         _polygons = _buildPolygons(list);
       });
+
+      return list;
+    }); 
+  }
+
+  void _initMarkers() {
+    data.getMarkersFromJSON().then((list) {
+      if(!mounted) {
+        return list;
+      }
+
+      setState(() {
+        poiPresent = list;
+      });
+      _rebuildMarkers();
 
       return list;
     });
@@ -841,16 +916,7 @@ class _HomeScreenState extends HomeScreenState {
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
           : <Polyline>{_directions.state.polyline!},
-      markers: <Marker>{
-        if (_cursorPoint != null)
-          Marker(
-            markerId: const MarkerId('cursor'),
-            position: _cursorPoint!,
-            infoWindow: InfoWindow(
-              title: _cursorBuilding?.name ?? 'No building',
-            ),
-          ),
-      },
+      markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
@@ -871,6 +937,7 @@ class _HomeScreenState extends HomeScreenState {
         FocusScope.of(context).unfocus();
         // coverage:ignore-end
       },
+      onCameraMove: _onCameraMove,
 
     );
   }
@@ -1055,6 +1122,7 @@ class _HomeScreenState extends HomeScreenState {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _markerRebuildDebounce?.cancel();
     _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
@@ -1164,6 +1232,11 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void setMapControllerForTest(GoogleMapController controller) {
     _mapController = controller;
+  }
+
+  @visibleForTesting
+  void simulateCameraMove(CameraPosition position) {
+    _onCameraMove(position);
   }
 
 }

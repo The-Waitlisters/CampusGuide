@@ -12,6 +12,7 @@ class CampusMap extends StatelessWidget {
     required this.onTap,
     required this.myLocationEnabled,
     required this.myLocationButtonEnabled,
+    required this.onCameraMove,
   });
 
   final CameraPosition initialCamera;
@@ -22,6 +23,19 @@ class CampusMap extends StatelessWidget {
   final void Function(LatLng point) onTap;
   final bool myLocationEnabled;
   final bool myLocationButtonEnabled;
+  final void Function(CameraPosition position) onCameraMove;
+
+  static const String hidePoiStyle = '''
+  [
+    {
+      "featureType": "poi",
+      "stylers": [
+        { "visibility": "off" }
+      ]
+    }
+  ]
+  ''';
+
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +51,8 @@ class CampusMap extends StatelessWidget {
       polylines: polylines,
       markers: markers,
       onTap: onTap,
+      style: hidePoiStyle,
+      onCameraMove: onCameraMove,
     );
   }
 }
