@@ -32,12 +32,7 @@ class CampusGuideApp extends StatelessWidget {
     return MaterialApp(
       title: 'Campus Guide',
       debugShowCheckedModeBanner: false,
-      /*theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
 
-       */
       theme: AppTheme.light(),
 
       home: home ?? const AuthGate(),
