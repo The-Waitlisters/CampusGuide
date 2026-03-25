@@ -7,6 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
+import 'package:proj/services/POIOptionMenu.dart';
 import 'package:proj/services/markerIconLoader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
@@ -120,14 +121,14 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
-  List<Marker> _displayedMarkers = <Marker>[];
-
   LatLng? locationPoint;
 
   bool _showPOIOptionMenu = false;
 
+  int _currentPOICount = 0;
+
   @visibleForTesting
-  List<Marker> get markers => _displayedMarkers;
+  List<Marker> get markers => _markers;
 
   @override
   void initState() {
@@ -172,10 +173,15 @@ class _HomeScreenState extends HomeScreenState {
 
     if (!mounted) return;
     setState(() {
-      _displayedMarkers..clear()..addAll(newMarkers);
+      _markers..clear()..addAll(newMarkers);
+
       if (_markers.isEmpty) {
         _markers..clear()..addAll(newMarkers);
       }
+
+      _markers.sort((m1, m2) {
+        return _computeDistance(m1.position, locationPoint!).compareTo(_computeDistance(m2.position, locationPoint!));
+      });
     });
   }
 
@@ -923,31 +929,29 @@ class _HomeScreenState extends HomeScreenState {
 
           if (_showPOIOptionMenu)
             POIOptionMenu(
+              position: locationPoint!,
+              calcDist: _computeDistance,
+              allPOIs: poiPresent..sort((p1, p2) {
+                return _computeDistance(p1.boundary, locationPoint!).compareTo(_computeDistance(p2.boundary, locationPoint!));
+              })..toList(),
               onDistanceSubmit: (str){
-                debugPrint("${_computeDistance(_markers[0].position, locationPoint!)} ------------------- length");
                 double? distOfPOIs = double.tryParse(str);
 
                 if (distOfPOIs != null) {
-                  _displayedMarkers = _markers;
-
-                  _displayedMarkers.removeWhere((m) =>
-                  _computeDistance(m.position, locationPoint!) > distOfPOIs);
-                  
+                  _currentPOICount = 0;
+                  for (var m in _markers) {
+                    if(_computeDistance(m.position, locationPoint!) <= distOfPOIs) {
+                      _currentPOICount++;
+                    }
+                  }
+                  debugPrint("$_currentPOICount ------------------- POI count1");
                 }
               },
               onAmountSubmit: (str){
                 int? numOfPOIs = int.tryParse(str);
 
-                if (numOfPOIs != null) {
-                  if (numOfPOIs < _displayedMarkers.length)
-                    _displayedMarkers = _markers;
-
-                  while(_displayedMarkers.length > numOfPOIs!){
-                    _displayedMarkers.removeLast();
-                  }
-                  debugPrint("${_displayedMarkers.length} -------------------length2");
-                }
-
+                if (numOfPOIs != null) { _currentPOICount = numOfPOIs; }
+                debugPrint("$_currentPOICount ------------------- POI count2");
               },
             ),
 
@@ -978,6 +982,7 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildMapLayer() {
+    debugPrint("$_currentPOICount ----------------------------- POIs should be displayed");
     return MapLayer<CampusBuilding>(
       future: _buildingsFuture,
       hasPolygons: _polygons.isNotEmpty,
@@ -1000,7 +1005,7 @@ class _HomeScreenState extends HomeScreenState {
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
           : <Polyline>{_directions.state.polyline!},
-      markers: Set<Marker>.of(_displayedMarkers),
+      markers: Set<Marker>.of(_markers).take(_currentPOICount).toSet(),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
@@ -1143,6 +1148,7 @@ class _HomeScreenState extends HomeScreenState {
       },
     );
   }
+
   Widget _buildPOISection() {
     return Container(
         alignment: Alignment.bottomRight,
@@ -1339,47 +1345,4 @@ LatLngBounds boundsForRoute(LatLng a, LatLng b) {
   );
 
   return LatLngBounds(southwest: sw, northeast: ne);
-}
-
-class POIOptionMenu extends StatelessWidget {
-
-  final void Function(String) onDistanceSubmit;
-  final void Function(String) onAmountSubmit;
-
-  const POIOptionMenu({
-    super.key,
-
-    required this.onDistanceSubmit,
-    required this.onAmountSubmit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: 16,
-      left: 12,
-      right: 12,
-      child: Card(
-          child: Column(
-            children: [
-              TextField(maxLength: 2,
-                onSubmitted: onDistanceSubmit,
-                decoration: InputDecoration(
-                  hintText: "Maximum distance (km)",
-                ),
-              ),
-
-              TextField(maxLength: 2,
-                onSubmitted: onAmountSubmit,
-                decoration: InputDecoration(
-                  hintText: "Maximum amount of POIs",
-                ),
-              ),
-            ],
-          ),
-      ),
-
-    );
-  }
-
 }

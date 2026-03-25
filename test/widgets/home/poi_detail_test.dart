@@ -103,8 +103,5 @@ void main() {
 
       expect(find.byType(PoiDetailContent), findsOneWidget);
     });
-
-
-
   });
 }
