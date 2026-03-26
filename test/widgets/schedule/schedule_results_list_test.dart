@@ -33,6 +33,7 @@ void main() {
         ScheduleResultsList(
           results: const <CourseScheduleEntry>[],
           onResultTap: (_) {},
+          onAddToSchedule: (CourseScheduleEntry value) {  },
         ),
       ),
     );

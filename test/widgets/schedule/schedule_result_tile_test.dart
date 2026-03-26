@@ -28,6 +28,7 @@ void main() {
         ScheduleResultTile(
           entry: buildEntry(room: 'H-937'),
           onTap: () {},
+          onAddToSchedule: () {  },
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/widgets/schedule/schedule_display.dart';
 import 'package:proj/widgets/schedule/schedule_results_list.dart';
 import 'package:proj/widgets/schedule/schedule_search_bar.dart';
+import '../../services/auth/user_profile_service.dart';
 import '../../services/schedule_lookup.dart';
 
 enum _ScheduleTab { search, mySchedule }
@@ -12,12 +13,16 @@ class ScheduleOverlay extends StatefulWidget {
   final VoidCallback onClose;
   final ValueChanged<CourseScheduleEntry> onRoomSelected;
   final ScheduleLookupService lookupService;
+  final String? uid;
+  final UserProfileService? profileService;
 
   const ScheduleOverlay({
     super.key,
     required this.onClose,
     required this.onRoomSelected,
     required this.lookupService,
+    this.uid,
+    this.profileService,
   });
 
   @override
@@ -38,6 +43,7 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _loadSchedule();
   }
 
   @override
@@ -57,6 +63,7 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
     setState(() {
       _scheduledEntries = [..._scheduledEntries, entry];
     });
+    _persistSchedule();
   }
 
   void _removeFromSchedule(CourseScheduleEntry entry) {
@@ -68,6 +75,7 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
       )
           .toList();
     });
+    _persistSchedule();
   }
 
   Future<void> _searchCourses(String query) async {
@@ -118,6 +126,25 @@ class _ScheduleOverlayState extends State<ScheduleOverlay> {
         _errorMessage = 'Could not load course schedule.';
       });
     }
+  }
+
+  Future<void> _loadSchedule() async {
+    final uid = widget.uid;
+    if (uid == null) return;
+
+    final entries = await (widget.profileService ?? UserProfileService())
+        .loadSchedule(uid: uid);
+
+    if (!mounted) return;
+    setState(() => _scheduledEntries = entries);
+  }
+
+  Future<void> _persistSchedule() async {
+    final uid = widget.uid;
+    if (uid == null) return;
+
+    await (widget.profileService ?? UserProfileService())
+        .saveSchedule(uid: uid, entries: _scheduledEntries);
   }
 
   @override

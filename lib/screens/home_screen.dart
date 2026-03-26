@@ -89,6 +89,7 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+  String? _uid;
 
   bool get _isGuest => widget.role == UserRole.guest;
 
@@ -149,6 +150,7 @@ class _HomeScreenState extends HomeScreenState {
     _initDirections();
     _tryInitLocationTracking();
     _initMarkers();
+    _initUid();
   }
 
   double _iconSizeForZoom(double zoom) {
@@ -330,6 +332,11 @@ class _HomeScreenState extends HomeScreenState {
 
       return list;
     });
+  }
+
+  Future<void> _initUid() async {
+    final user = await (widget.authService ?? AuthService()).getCurrentAppUser();
+    if (mounted) setState(() => _uid = user?.uid);
   }
 
   CameraPosition get _initialCamera {
@@ -869,6 +876,7 @@ class _HomeScreenState extends HomeScreenState {
 
           if (_showScheduleOverlay)
             ScheduleOverlay(
+              uid: _uid,
               onClose: () {
                 setState(() {
                   _showScheduleOverlay = false;
