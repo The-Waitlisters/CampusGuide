@@ -944,7 +944,7 @@ class _HomeScreenState extends HomeScreenState {
                   double? distOfPOIs = double.tryParse(str);
 
                   if (distOfPOIs != null) {
-                    _currentPOICount = 5;
+                    _currentPOICount = 0;
                     for (var m in _markers) {
                       if(_computeDistance(m.position, locationPoint!) <= distOfPOIs) {
                         _currentPOICount ++;
