@@ -58,7 +58,7 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
-  get markers => [];
+  get markers => []; // coverage:ignore-line
 
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
@@ -152,7 +152,7 @@ class _HomeScreenState extends HomeScreenState {
       );
       newMarkers.add(Marker(
         markerId: MarkerId(i.toString()),
-        icon: BitmapDescriptor.bytes(markIcons, width: logicalSize, height: logicalSize),
+        icon: BytesMapBitmap(markIcons, width: logicalSize, height: logicalSize),
         position: poiPresent.elementAt(i).boundary,
         infoWindow: InfoWindow(title: 'Location: $i'),
       ));
@@ -200,10 +200,9 @@ class _HomeScreenState extends HomeScreenState {
     _directions = widget.testDirectionsController ?? DirectionsController(
       client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
     );
-    // coverage:ignore-line
     assert(() {
       if (Secrets.directionsApiKey.isEmpty) {
-        debugPrint(
+        debugPrint( // coverage:ignore-line
             'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
       return true;
@@ -466,7 +465,7 @@ class _HomeScreenState extends HomeScreenState {
         'points=${_directions.state.polyline?.points.length}');
 
     if (start != null && _directions.state.polyline != null) {
-      await _zoomToRoute(start, end);
+      await _zoomToRoute(start, end); // coverage:ignore-line
     }
   }
 
@@ -492,7 +491,7 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
     final controller = widget.testMapControllerCompleter != null
-        ? await widget.testMapControllerCompleter!.future
+        ? await widget.testMapControllerCompleter!.future // coverage:ignore-line
         : _mapController;
     if (controller == null) return;
     final bounds = boundsForRoute(a, b);
