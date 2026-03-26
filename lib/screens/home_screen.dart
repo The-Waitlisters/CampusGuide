@@ -335,8 +335,12 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _initUid() async {
-    final user = await (widget.authService ?? AuthService()).getCurrentAppUser();
-    if (mounted) setState(() => _uid = user?.uid);
+    try {
+      final user = await (widget.authService ?? AuthService()).getCurrentAppUser();
+      if (mounted) setState(() => _uid = user?.uid);
+    } catch (_) {
+      // Firebase not initialized in test environment
+    }
   }
 
   CameraPosition get _initialCamera {
