@@ -99,5 +99,58 @@ void main() {
       expect(user.role, UserRole.teacher);
       expect(user.isGuest, false);
     });
+
+    test('signOut signs out of Firebase when a user is currently signed in', () async {
+      final signedInAuth = MockFirebaseAuth(signedIn: true);
+      final service = AuthService(auth: signedInAuth, profileService: mockProfile);
+
+      expect(signedInAuth.currentUser, isNotNull);
+
+      await service.signOut();
+
+      expect(service.isGuestMode, false);
+      expect(signedInAuth.currentUser, isNull);
+    });
+
+    test('signIn throws StateError when profile returns guest role', () async {
+      await mockAuth.createUserWithEmailAndPassword(
+        email: 'broken@test.com',
+        password: 'abcdef',
+      );
+      await mockAuth.signOut();
+
+      when(() => mockProfile.getUserRole(any())).thenAnswer((_) async => UserRole.guest);
+
+      expect(
+        () => authService.signInStudentOrTeacher(
+          email: 'broken@test.com',
+          password: 'abcdef',
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('getCurrentAppUser returns guest AppUser when in guest mode', () async {
+      await authService.continueAsGuest();
+      final user = await authService.getCurrentAppUser();
+      expect(user?.isGuest, isTrue);
+      expect(user?.role, UserRole.guest);
+    });
+
+    test('getCurrentAppUser returns null when no user is signed in', () async {
+      final user = await authService.getCurrentAppUser();
+      expect(user, isNull);
+    });
+
+    test('getCurrentAppUser returns AppUser with role when signed in', () async {
+      final signedInAuth = MockFirebaseAuth(signedIn: true);
+      when(() => mockProfile.getUserRole(any())).thenAnswer((_) async => UserRole.student);
+      final service = AuthService(auth: signedInAuth, profileService: mockProfile);
+
+      final user = await service.getCurrentAppUser();
+
+      expect(user?.role, UserRole.student);
+      expect(user?.isGuest, isFalse);
+    });
   });
 }

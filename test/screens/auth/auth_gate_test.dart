@@ -5,6 +5,7 @@ import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:proj/models/app_user.dart';
 import 'package:proj/screens/auth/auth_gate.dart';
 import 'package:proj/screens/auth/login_screen.dart';
 import 'package:proj/services/auth/auth_service.dart';
@@ -24,6 +25,42 @@ class FakeWaitingAuthService extends AuthService {
 
   @override
   Stream<User?> get authStateChanges => stream;
+}
+
+// Fake signed-in service whose getCurrentAppUser never resolves (FutureBuilder waiting)
+class _NeverResolvingAuthService extends AuthService {
+  _NeverResolvingAuthService()
+      : super(
+          auth: MockFirebaseAuth(signedIn: true),
+          profileService: MockUserProfileService(),
+        );
+
+  @override
+  Future<AppUser?> getCurrentAppUser() => Completer<AppUser?>().future;
+}
+
+// Fake signed-in service whose getCurrentAppUser throws
+class _ErrorAuthService extends AuthService {
+  _ErrorAuthService()
+      : super(
+          auth: MockFirebaseAuth(signedIn: true),
+          profileService: MockUserProfileService(),
+        );
+
+  @override
+  Future<AppUser?> getCurrentAppUser() => Future.error(Exception('profile load failed'));
+}
+
+// Fake signed-in service whose getCurrentAppUser returns null
+class _NullUserAuthService extends AuthService {
+  _NullUserAuthService()
+      : super(
+          auth: MockFirebaseAuth(signedIn: true),
+          profileService: MockUserProfileService(),
+        );
+
+  @override
+  Future<AppUser?> getCurrentAppUser() async => null;
 }
 
 void main() {
@@ -59,5 +96,34 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
     await controller.close();
+  });
+
+  testWidgets('AuthGate shows loading indicator while FutureBuilder is waiting for profile', (tester) async {
+    final service = _NeverResolvingAuthService();
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump(); // let the stream emit the signed-in user
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('AuthGate shows error text when getCurrentAppUser throws', (tester) async {
+    final service = _ErrorAuthService();
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump(); // stream emits user
+    await tester.pump(); // future resolves with error
+
+    expect(find.textContaining('Failed to load user profile'), findsOneWidget);
+  });
+
+  testWidgets('AuthGate shows LoginScreen when getCurrentAppUser returns null', (tester) async {
+    final service = _NullUserAuthService();
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump(); // stream emits user
+    await tester.pump(); // future resolves
+
+    expect(find.byType(LoginScreen), findsOneWidget);
   });
 }
