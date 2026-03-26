@@ -13,10 +13,13 @@ import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/poi.dart';
 import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/models/user_role.dart';
+import 'package:proj/models/app_user.dart';
+import 'package:proj/screens/auth/auth_gate.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
 import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
 import 'package:proj/screens/indoor_map_screen.dart';
 import 'package:proj/services/building_locator.dart';
+import 'package:proj/services/auth/auth_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:proj/services/directions/directions_controller.dart';
@@ -389,7 +392,7 @@ Poi testPoi2({
   return Poi(id: id, name: name, boundary: boundary, fullName: fullName, description: description, campus: campus, poiType: poiType);
 }
 
-@GenerateMocks([DataParser, BuildingLocator])
+@GenerateMocks([DataParser, BuildingLocator, AuthService])
 Future<void> main() async {
   TestWidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
@@ -2430,7 +2433,53 @@ Future<void> main() async {
       },
     );
 
-    testWidgets('tapping logout signs out and navigates away from HomeScreen',
+    testWidgets('_initUid sets _uid when authService returns a user',
+            (WidgetTester tester) async {
+          final mockAuth = MockAuthService();
+          when(mockAuth.getCurrentAppUser()).thenAnswer(
+                (_) async => AppUser(uid: 'test-uid-123', email: 'a@b.com', role: UserRole.student, isGuest: false),
+          );
+
+          await tester.pumpWidget(
+            MaterialApp(
+              home: HomeScreen(
+                dataParser: mockDataParser,
+                buildingLocator: mockBuildingLocator,
+                authService: mockAuth,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          verify(mockAuth.getCurrentAppUser()).called(1);
+        });
+
+    testWidgets('guest user opening schedule shows snackbar and not overlay',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            role: UserRole.guest,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final SearchOverlay searchOverlay =
+      tester.widget<SearchOverlay>(find.byType(SearchOverlay));
+
+      searchOverlay.onMenuSelected('schedule');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsNothing);
+      expect(
+        find.text('Schedule is available for student/teacher accounts only.'),
+        findsOneWidget,
+      );
+    });
+ testWidgets('tapping logout signs out and navigates away from HomeScreen',
         (WidgetTester tester) async {
       final fakeAuth = _FakeAuthService();
 
@@ -2480,6 +2529,5 @@ Future<void> main() async {
       // fullName is null so the chip falls through to building.name
       expect(find.text('HAL'), findsOneWidget);
     });
-
   });
 }
