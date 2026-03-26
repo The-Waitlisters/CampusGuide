@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -153,7 +152,7 @@ class _HomeScreenState extends HomeScreenState {
       );
       newMarkers.add(Marker(
         markerId: MarkerId(i.toString()),
-        icon: BitmapDescriptor.fromBytes(markIcons, size: Size(logicalSize, logicalSize)),
+        icon: BitmapDescriptor.bytes(markIcons, width: logicalSize, height: logicalSize),
         position: poiPresent.elementAt(i).boundary,
         infoWindow: InfoWindow(title: 'Location: $i'),
       ));
@@ -1144,6 +1143,12 @@ class _HomeScreenState extends HomeScreenState {
 
   @visibleForTesting
   Set<Polygon> get testPolygons => _polygons;
+
+  @visibleForTesting
+  Polyline? get testPolyline => _directions.state.polyline;
+
+  @visibleForTesting
+  String get testSelectedModeParam => _directions.mode.modeParam;
 
   @visibleForTesting
   Future<void> zoomToRouteForTest(LatLng a, LatLng b) {

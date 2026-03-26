@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/services/directions/transport_mode_strategy.dart';
 
@@ -48,8 +47,6 @@ class DirectionsCard extends StatelessWidget {
     required this.onModeChanged,
   });
 
-  static String _campusLabel(Campus c) => c == Campus.sgw ? 'SGW' : 'Loyola';
-
   @override
   Widget build(BuildContext context) {
     if (startBuilding == null && endBuilding == null) {
@@ -57,10 +54,10 @@ class DirectionsCard extends StatelessWidget {
     }
 
     final startLabel = startBuilding != null
-        ? '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}'
+        ? (startBuilding!.fullName ?? startBuilding!.name)
         : (useCurrentLocationAsStart ? 'Current location' : 'Not set');
     final endLabel = endBuilding != null
-        ? '${_campusLabel(endBuilding!.campus)} - ${endBuilding!.fullName ?? endBuilding!.name}'
+        ? (endBuilding!.fullName ?? endBuilding!.name)
         : 'Not set';
 
     return Positioned(
