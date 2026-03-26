@@ -7,6 +7,7 @@ class POIOptionMenu extends StatelessWidget {
 
   final LatLng position;
   final List<Poi> allPOIs;
+  final int currentPOICount;
   final void Function(String) onDistanceSubmit;
   final void Function(String) onAmountSubmit;
   final double Function(LatLng, LatLng) calcDist;
@@ -17,6 +18,7 @@ class POIOptionMenu extends StatelessWidget {
     required this.onTap,
     required this.position,
     required this.allPOIs,
+    required this.currentPOICount,
     required this.onDistanceSubmit,
     required this.onAmountSubmit,
     required this.calcDist,
@@ -32,24 +34,21 @@ class POIOptionMenu extends StatelessWidget {
         child: Column(
           children: [
             ElevatedButton(
-          onPressed:
-            onTap
-          ,
+          onPressed: onTap,
           child: Text("X")
-        ),
-            Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                onSubmitted: onDistanceSubmit,
-                decoration: InputDecoration(
-                  hintText: 'Maximum distance (km)',
-                  border: InputBorder.none,
-                ),
-                
+          ),
+
+          Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: TextField(
+              onSubmitted: onDistanceSubmit,
+              decoration: InputDecoration(
+                hintText: 'Maximum distance (km)',
+                border: InputBorder.none,
               ),
             ),
-            
+          ),
           ),
 
           Card(
@@ -58,33 +57,27 @@ class POIOptionMenu extends StatelessWidget {
               child: TextField(
                 onSubmitted: onAmountSubmit,
                 decoration: InputDecoration(
-                  hintText: 'Maximum amount of POIs',
+                  hintText: 'Points of Interest to show',
                   border: InputBorder.none,
                 ),
-                
               ),
             ),
-            
-          ),
-
-            for(var p in allPOIs)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                children: [
-                  Image.asset(p.poiType, height: 35, width: 35,),
-                  Text(" : ${p.name}"),
-                  Spacer(),
-                  Text("Distance: ${calcDist(position, p.boundary).toStringAsFixed(2)} km",),
-                ]
-              ),
-
-              ),
             ),
-              
 
-            
+            for(var i = 0; i < currentPOICount; i++)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                  children: [
+                    Image.asset(allPOIs[i].poiType, height: 35, width: 35,),
+                    Text(" : ${allPOIs[i].name}"),
+                    Spacer(),
+                    Text("Distance: ${calcDist(position, allPOIs[i].boundary).toStringAsFixed(2)} km",),
+                  ]
+                ),
+                ),
+                ),
           ],
         ),
       ),

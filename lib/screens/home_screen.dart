@@ -935,6 +935,7 @@ class _HomeScreenState extends HomeScreenState {
           if (isE2EMode) _buildE2ECampusLabel(),
           if(_showPOIOptionMenu)
             POIOptionMenu(
+                currentPOICount: _currentPOICount,
                 position: locationPoint!,
                 calcDist: _computeDistance,
                 allPOIs: poiPresent..sort((p1, p2) {
@@ -952,15 +953,19 @@ class _HomeScreenState extends HomeScreenState {
                     }
                     debugPrint("$_currentPOICount ------------------- POI count1");
                   }
+
+                  setState(() {});
                 },
                 onAmountSubmit: (str){
                   int? numOfPOIs = int.tryParse(str);
 
                   if (numOfPOIs != null) { _currentPOICount = numOfPOIs; }
                   debugPrint("$_currentPOICount ------------------- POI count2");
+                  setState(() {});
                 }, onTap: () { setState(() {
                   _showPOIOptionMenu = false;
-                }); },
+                }); 
+                },
               ),
           if (_showScheduleOverlay)
             ScheduleOverlay(
