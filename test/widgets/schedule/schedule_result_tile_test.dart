@@ -43,6 +43,7 @@ void main() {
         ScheduleResultTile(
           entry: buildEntry(room: ''),
           onTap: () {},
+          onAddToSchedule: () {  },
         ),
       ),
     );
@@ -60,6 +61,7 @@ void main() {
           onTap: () {
             tapCount++;
           },
+          onAddToSchedule: () {  },
         ),
       ),
     );
@@ -80,6 +82,7 @@ void main() {
           onTap: () {
             tapCount++;
           },
+          onAddToSchedule: () {  },
         ),
       ),
     );
