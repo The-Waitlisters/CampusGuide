@@ -33,7 +33,8 @@ class BuildingDetailContent extends StatelessWidget {
   Widget _buildAccessibilityIcons() {
     final bool show = building.isWheelchairAccessible ||
         building.hasBikeParking ||
-        building.hasCarParking;
+        building.hasCarParking ||
+        building.hasMetroAccess;
     if (!show) return const SizedBox.shrink();
 
     return Row(
@@ -42,6 +43,7 @@ class BuildingDetailContent extends StatelessWidget {
         if (building.isWheelchairAccessible) const Icon(Icons.accessible),
         if (building.hasBikeParking) const Icon(Icons.pedal_bike),
         if (building.hasCarParking) const Icon(Icons.local_parking),
+        if (building.hasMetroAccess) const Icon(Icons.train),
       ],
     );
   }
