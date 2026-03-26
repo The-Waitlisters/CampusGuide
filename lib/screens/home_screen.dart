@@ -7,7 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
-import 'package:proj/services/POI_option_menu.dart';
+import 'package:proj/widgets/home/poi_option_menu.dart';
 import 'package:proj/services/markerIconLoader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
@@ -15,6 +15,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
 import 'package:proj/widgets/home/campus_map.dart';
 import 'package:proj/widgets/home/poi_detail_sheet.dart';
+import 'package:proj/widgets/poi_toggle.dart';
 import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
@@ -125,7 +126,9 @@ class _HomeScreenState extends HomeScreenState {
 
   bool _showPOIOptionMenu = false;
 
-  int? _currentPOICount;
+  int _currentPOICount = 0;
+
+  bool firstRun = false;
 
   @visibleForTesting
   List<Marker> get markers => _markers;
@@ -174,7 +177,10 @@ class _HomeScreenState extends HomeScreenState {
     if (!mounted) return;
     setState(() {
       _markers..clear()..addAll(newMarkers);
-      _currentPOICount ??= _markers.length;
+      if(!firstRun) {
+        _currentPOICount = _markers.length;
+        firstRun = true;
+      }
 
       if (_markers.isEmpty) {
         _markers..clear()..addAll(newMarkers);
@@ -927,35 +933,35 @@ class _HomeScreenState extends HomeScreenState {
           if (_currentBuildingFromGPS != null &&
               _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
-
-          if (_showPOIOptionMenu)
+          if(_showPOIOptionMenu)
             POIOptionMenu(
-              position: locationPoint!,
-              calcDist: _computeDistance,
-              allPOIs: poiPresent..sort((p1, p2) {
-                return _computeDistance(p1.boundary, locationPoint!).compareTo(_computeDistance(p2.boundary, locationPoint!));
-              })..toList(),
-              onDistanceSubmit: (str){
-                double? distOfPOIs = double.tryParse(str);
+                position: locationPoint!,
+                calcDist: _computeDistance,
+                allPOIs: poiPresent..sort((p1, p2) {
+                  return _computeDistance(p1.boundary, locationPoint!).compareTo(_computeDistance(p2.boundary, locationPoint!));
+                })..toList(),
+                onDistanceSubmit: (str){
+                  double? distOfPOIs = double.tryParse(str);
 
-                if (distOfPOIs != null) {
-                  _currentPOICount = 0;
-                  for (var m in _markers) {
-                    if(_computeDistance(m.position, locationPoint!) <= distOfPOIs) {
-                      _currentPOICount = _currentPOICount! + 1;
+                  if (distOfPOIs != null) {
+                    _currentPOICount = 5;
+                    for (var m in _markers) {
+                      if(_computeDistance(m.position, locationPoint!) <= distOfPOIs) {
+                        _currentPOICount ++;
+                      }
                     }
+                    debugPrint("$_currentPOICount ------------------- POI count1");
                   }
-                  debugPrint("$_currentPOICount ------------------- POI count1");
-                }
-              },
-              onAmountSubmit: (str){
-                int? numOfPOIs = int.tryParse(str);
+                },
+                onAmountSubmit: (str){
+                  int? numOfPOIs = int.tryParse(str);
 
-                if (numOfPOIs != null) { _currentPOICount = numOfPOIs; }
-                debugPrint("$_currentPOICount ------------------- POI count2");
-              },
-            ),
-
+                  if (numOfPOIs != null) { _currentPOICount = numOfPOIs; }
+                  debugPrint("$_currentPOICount ------------------- POI count2");
+                }, onTap: () { setState(() {
+                  _showPOIOptionMenu = false;
+                }); },
+              ),
           if (_showScheduleOverlay)
             ScheduleOverlay(
               onClose: () {
@@ -1006,7 +1012,7 @@ class _HomeScreenState extends HomeScreenState {
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
           : <Polyline>{_directions.state.polyline!},
-      markers: Set<Marker>.of(_markers).take(_currentPOICount != null ? _currentPOICount! : 0).toSet(),
+      markers: Set<Marker>.of(_markers).take(_currentPOICount).toSet(),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
@@ -1094,6 +1100,36 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
+  Widget _buildPOISection() {
+    
+
+    final bool sheetOpen = _sheetController != null;
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      right: 0,
+      bottom: sheetOpen ? _sheetLiftMax : 0,
+      child: PoiToggle(onOpenPoiOptions: () {
+          setState(() {
+            _showPOIOptionMenu = true;
+            
+            debugPrint(_showPOIOptionMenu.toString());
+          });
+
+          if (_sheetController != null) {
+            _sheetController?.close();
+            setState(() {
+              _sheetController = null;
+            });
+          }
+      })
+    );
+
+    
+      
+  }
+
   Widget _topCard(
       {required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets
           .all(12), double? elevation,}) {
@@ -1150,19 +1186,7 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildPOISection() {
-    return Container(
-        alignment: Alignment.bottomRight,
-        child: ElevatedButton(
-          onPressed: () {
-            setState(() {
-              _showPOIOptionMenu = !_showPOIOptionMenu;
-            });
-          },
-          child: Text("POIs"),
-        ),
-    );
-  }
+  
 
   Widget _buildSearchOverlay() {
     return SearchOverlay(
