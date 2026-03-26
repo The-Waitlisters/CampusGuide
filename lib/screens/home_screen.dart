@@ -1143,10 +1143,10 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   Set<Polygon> get testPolygons => _polygons;
 
-  @visibleForTesting
+  @visibleForTesting // coverage:ignore-line
   Polyline? get testPolyline => _directions.state.polyline; // coverage:ignore-line
 
-  @visibleForTesting
+  @visibleForTesting // coverage:ignore-line
   String get testSelectedModeParam => _directions.mode.modeParam; // coverage:ignore-line
 
   @visibleForTesting
