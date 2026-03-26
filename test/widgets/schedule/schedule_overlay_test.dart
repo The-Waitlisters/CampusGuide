@@ -227,7 +227,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'SOEN 363');
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pump();
 
     expect(find.text('My Schedule (1)'), findsOneWidget);
@@ -246,9 +246,9 @@ void main() {
     await tester.enterText(find.byType(TextField), 'SOEN 363');
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pump();
 
     expect(find.text('My Schedule (1)'), findsOneWidget);
@@ -266,7 +266,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'SOEN 363');
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pump();
 
     await tester.tap(find.text('My Schedule (1)'));
@@ -309,7 +309,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'SOEN 363');
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pumpAndSettle();
 
     expect(profile.stored.length, 1);
