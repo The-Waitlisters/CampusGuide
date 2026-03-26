@@ -16,7 +16,7 @@ class PoiToggle extends StatelessWidget {
           onPressed:
             onOpenPoiOptions
           ,
-          child: Text("POIs"),
+          child: Icon(Icons.dining),
         );
   }
 }

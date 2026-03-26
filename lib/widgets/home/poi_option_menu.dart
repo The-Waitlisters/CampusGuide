@@ -63,25 +63,34 @@ class POIOptionMenu extends StatelessWidget {
               ),
             ),
             ),
-
-            for(var i = 0; i < currentPOICount; i++)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
+            
+            SizedBox(
+              width: 500,
+              height: 200,
+              child: SingleChildScrollView(
+                child: Column(
                   children: [
-                    Image.asset(allPOIs[i].poiType, height: 35, width: 35,),
-                    Text(" : ${allPOIs[i].name}"),
-                    Spacer(),
-                    Text("Distance: ${calcDist(position, allPOIs[i].boundary).toStringAsFixed(2)} km",),
-                  ]
+                    for(var i = 0; i < currentPOICount; i++)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                              children: [
+                                Image.asset(allPOIs[i].poiType, height: 35, width: 35,),
+                                Text(" : ${allPOIs[i].name}"),
+                                Spacer(),
+                                Text("Distance: ${calcDist(position, allPOIs[i].boundary).toStringAsFixed(2)} km",),
+                              ]
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                ),
-                ),
+              ),
+            ),
           ],
-        ),
-      ),
-
+        )
+      )
     );
   }
 
