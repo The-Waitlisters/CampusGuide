@@ -125,7 +125,7 @@ class _HomeScreenState extends HomeScreenState {
 
   bool _showPOIOptionMenu = false;
 
-  int _currentPOICount = 0;
+  int? _currentPOICount;
 
   @visibleForTesting
   List<Marker> get markers => _markers;
@@ -174,6 +174,7 @@ class _HomeScreenState extends HomeScreenState {
     if (!mounted) return;
     setState(() {
       _markers..clear()..addAll(newMarkers);
+      _currentPOICount ??= _markers.length;
 
       if (_markers.isEmpty) {
         _markers..clear()..addAll(newMarkers);
@@ -941,7 +942,7 @@ class _HomeScreenState extends HomeScreenState {
                   _currentPOICount = 0;
                   for (var m in _markers) {
                     if(_computeDistance(m.position, locationPoint!) <= distOfPOIs) {
-                      _currentPOICount++;
+                      _currentPOICount = _currentPOICount! + 1;
                     }
                   }
                   debugPrint("$_currentPOICount ------------------- POI count1");
@@ -1005,7 +1006,7 @@ class _HomeScreenState extends HomeScreenState {
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
           : <Polyline>{_directions.state.polyline!},
-      markers: Set<Marker>.of(_markers).take(_currentPOICount).toSet(),
+      markers: Set<Marker>.of(_markers).take(_currentPOICount != null ? _currentPOICount! : 0).toSet(),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
