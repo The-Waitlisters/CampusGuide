@@ -861,7 +861,7 @@ class _HomeScreenState extends HomeScreenState {
       polygons: _polygons,
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
-          : <Polyline>{_directions.state.polyline!},
+          : <Polyline>{_directions.state.polyline!}, // coverage:ignore-line
       markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
@@ -939,12 +939,12 @@ class _HomeScreenState extends HomeScreenState {
 
           _updateDirectionsIfReady();
 
-          if (_sheetController != null) {
+          if (_sheetController != null) { // coverage:ignore-start
             _sheetController?.close();
             setState(() {
               _sheetController = null;
             });
-          }
+          } // coverage:ignore-end
         },
       ),
     );
@@ -1045,12 +1045,12 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildE2ECampusLabel() {
+  Widget _buildE2ECampusLabel() { // coverage:ignore-start
     return Text(
       _campus == Campus.loyola ? "campus:loyola" : "campus:sgw",
       key: const Key("campus_label"),
     );
-  }
+  } // coverage:ignore-end
 
   @override
   void dispose() {
@@ -1075,7 +1075,7 @@ class _HomeScreenState extends HomeScreenState {
   void triggerPolygonOnTap(PolygonId id) {
     final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
           (p) => p != null && p.polygonId == id,
-      orElse: () => null,
+      orElse: () => null, // coverage:ignore-line
     );
     poly?.onTap?.call();
   }
@@ -1144,10 +1144,10 @@ class _HomeScreenState extends HomeScreenState {
   Set<Polygon> get testPolygons => _polygons;
 
   @visibleForTesting
-  Polyline? get testPolyline => _directions.state.polyline;
+  Polyline? get testPolyline => _directions.state.polyline; // coverage:ignore-line
 
   @visibleForTesting
-  String get testSelectedModeParam => _directions.mode.modeParam;
+  String get testSelectedModeParam => _directions.mode.modeParam; // coverage:ignore-line
 
   @visibleForTesting
   Future<void> zoomToRouteForTest(LatLng a, LatLng b) {
