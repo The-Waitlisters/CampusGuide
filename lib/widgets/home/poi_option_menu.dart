@@ -34,34 +34,34 @@ class POIOptionMenu extends StatelessWidget {
         child: Column(
           children: [
             ElevatedButton(
-          onPressed: onTap,
-          child: Text("X")
-          ),
-
-          Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: TextField(
-              onSubmitted: onDistanceSubmit,
-              decoration: InputDecoration(
-                hintText: 'Maximum distance (km)',
-                border: InputBorder.none,
-              ),
+                onPressed: onTap,
+                child: Text("X")
             ),
-          ),
-          ),
 
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: TextField(
-                onSubmitted: onAmountSubmit,
-                decoration: InputDecoration(
-                  hintText: 'Points of Interest to show',
-                  border: InputBorder.none,
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: TextField(
+                  onSubmitted: onDistanceSubmit,
+                  decoration: InputDecoration(
+                    hintText: 'Maximum distance (km)',
+                    border: InputBorder.none,
+                  ),
                 ),
               ),
             ),
+
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: TextField(
+                  onSubmitted: onAmountSubmit,
+                  decoration: InputDecoration(
+                    hintText: 'Points of Interest to show',
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
             ),
             
             SizedBox(

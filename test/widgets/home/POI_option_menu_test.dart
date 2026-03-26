@@ -11,6 +11,7 @@ void main() {
       Widget testPOIMenu = MaterialApp(
           home: Stack(
               children: [POIOptionMenu(
+                currentPOICount: 1,
                 position: LatLng(0, 0),
                 allPOIs: [Poi(id: '0', name: '0', boundary: LatLng(0, 0), fullName: '0', description: '0', campus: Campus.sgw, poiType: "assets/coffee.png")],
                 onDistanceSubmit: (str) {},
@@ -25,6 +26,10 @@ void main() {
 
       expect(find.text("Maximum distance (km)"), findsOneWidget);
       expect(find.text("Distance: 1.00 km"), findsOneWidget);
+    });
+
+    testWidgets("Check", (WidgetTester tester) async {
+
     });
 
   });
