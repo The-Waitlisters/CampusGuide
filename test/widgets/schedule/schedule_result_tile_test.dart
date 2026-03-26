@@ -66,7 +66,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byType(InkWell).first);
     await tester.pump();
 
     expect(tapCount, 1);
@@ -87,7 +87,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byType(InkWell).first);
     await tester.pump();
 
     expect(tapCount, 0);
