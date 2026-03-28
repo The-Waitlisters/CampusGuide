@@ -122,7 +122,7 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
-  LatLng? locationPoint;
+  LatLng locationPoint = LatLng(0, 0);
 
   bool _showPOIOptionMenu = false;
 
@@ -182,12 +182,8 @@ class _HomeScreenState extends HomeScreenState {
         firstRun = true;
       }
 
-      if (_markers.isEmpty) {
-        _markers..clear()..addAll(newMarkers);
-      }
-
       _markers.sort((m1, m2) {
-        return _computeDistance(m1.position, locationPoint!).compareTo(_computeDistance(m2.position, locationPoint!));
+        return _computeDistance(m1.position, locationPoint).compareTo(_computeDistance(m2.position, locationPoint));
       });
     });
   }
@@ -559,7 +555,7 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _startPoi = poi;
       _endPoi = null;
-      _startFromCurrentLocation = true;
+      _startFromCurrentLocation = false;
       _locationRequiredMessage = null;
     });
     await _updateDirectionsIfReady();
@@ -936,10 +932,10 @@ class _HomeScreenState extends HomeScreenState {
           if(_showPOIOptionMenu)
             POIOptionMenu(
                 currentPOICount: _currentPOICount,
-                position: locationPoint!,
+                position: locationPoint,
                 calcDist: _computeDistance,
                 allPOIs: poiPresent..sort((p1, p2) {
-                  return _computeDistance(p1.boundary, locationPoint!).compareTo(_computeDistance(p2.boundary, locationPoint!));
+                  return _computeDistance(p1.boundary, locationPoint).compareTo(_computeDistance(p2.boundary, locationPoint));
                 })..toList(),
                 onDistanceSubmit: (str){
                   double? distOfPOIs = double.tryParse(str);
@@ -947,7 +943,7 @@ class _HomeScreenState extends HomeScreenState {
                   if (distOfPOIs != null) {
                     _currentPOICount = 0;
                     for (var m in _markers) {
-                      if(_computeDistance(m.position, locationPoint!) <= distOfPOIs) {
+                      if(_computeDistance(m.position, locationPoint) <= distOfPOIs) {
                         _currentPOICount ++;
                       }
                     }

@@ -66,7 +66,7 @@ class POIOptionMenu extends StatelessWidget {
             
             SizedBox(
               width: 500,
-              height: currentPOICount * 43,
+              height: currentPOICount <= 5 ? currentPOICount * 43.0 : 200,
               child: SingleChildScrollView(
                 child: Column(
                   children: [
