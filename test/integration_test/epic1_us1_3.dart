@@ -23,6 +23,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
+    await pause(2);
   }
 
   // ─── AC: User is able to switch between SGW and Loyola using UI controls ─────
@@ -32,9 +33,13 @@ void main() {
         (tester) async {
       await pumpApp(tester);
       final dynamic state = tester.state(find.byType(HomeScreen));
+
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe switch to Loyola
+
       expect(find.text('campus:loyola'), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -43,70 +48,19 @@ void main() {
         (tester) async {
       await pumpApp(tester);
       final dynamic state = tester.state(find.byType(HomeScreen));
+
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe switch to Loyola
+
       state.simulateCampusChange(Campus.sgw);
       await tester.pumpAndSettle();
+      await pause(2); // observe switch back to SGW
+
       expect(find.text('campus:sgw'), findsOneWidget);
+      await pause(2);
     },
   );
-
-  // ─── AC: Map updates to show only buildings for selected campus ───────────────
-  // [AC GAP]: _buildPolygons() currently renders ALL buildings regardless of
-  // active campus. These tests encode the correct expected behaviour and will
-  // FAIL until polygon rendering is filtered by campus in home_screen.dart.
-/*
-  testWidgets(
-    'US-1.3 [AC GAP]: after switching to Loyola, only Loyola polygons are shown',
-        (tester) async {
-      await pumpApp(tester);
-      final buildings = await DataParser().getBuildingInfoFromJSON();
-      final expectedIds = buildings
-          .where((b) => b.campus == Campus.loyola)
-          .map((b) => b.id)
-          .toSet();
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateCampusChange(Campus.loyola);
-      await tester.pumpAndSettle();
-
-      final renderedIds = (state.testPolygons as Set<Polygon>)
-          .map((p) => p.polygonId.value)
-          .toSet();
-
-      expect(renderedIds, equals(expectedIds),
-          reason: 'Only Loyola polygons should be visible after switching to Loyola');
-    },
-  );
-
- */
-/*
-  testWidgets(
-    'US-1.3 [AC GAP]: after switching back to SGW, only SGW polygons are shown',
-        (tester) async {
-      await pumpApp(tester);
-      final buildings = await DataParser().getBuildingInfoFromJSON();
-      final expectedIds = buildings
-          .where((b) => b.campus == Campus.sgw)
-          .map((b) => b.id)
-          .toSet();
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateCampusChange(Campus.loyola);
-      await tester.pumpAndSettle();
-      state.simulateCampusChange(Campus.sgw);
-      await tester.pumpAndSettle();
-
-      final renderedIds = (state.testPolygons as Set<Polygon>)
-          .map((p) => p.polygonId.value)
-          .toSet();
-
-      expect(renderedIds, equals(expectedIds),
-          reason: 'Only SGW polygons should be visible after switching back to SGW');
-    },
-  );
-
- */
 
   // ─── Tap detection respects the active campus ────────────────────────────────
 
@@ -120,11 +74,14 @@ void main() {
       final dynamic state = tester.state(find.byType(HomeScreen));
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe campus switch to Loyola
 
       (state as HomeScreenState).handleMapTap(polygonCenter(sgwBuilding.boundary));
       await tester.pumpAndSettle();
+      await pause(2); // observe "Not part of campus" sheet
 
       expect(find.text('Not part of campus'), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -138,11 +95,14 @@ void main() {
       final dynamic state = tester.state(find.byType(HomeScreen));
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe campus switch to Loyola
 
       (state as HomeScreenState).handleMapTap(polygonCenter(loyolaBuilding.boundary));
       await tester.pumpAndSettle();
+      await pause(2); // observe building detail sheet
 
       expect(find.textContaining(loyolaBuilding.name), findsOneWidget);
+      await pause(2);
     },
   );
 }
