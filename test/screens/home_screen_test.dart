@@ -12,6 +12,7 @@ import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/poi.dart';
 import 'package:proj/models/course_schedule_entry.dart';
+import 'package:proj/models/user_role.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
 import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
 import 'package:proj/screens/indoor_map_screen.dart';
@@ -2120,7 +2121,7 @@ Future<void> main() async {
     testWidgets('opens schedule overlay when menu selected', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: HomeScreen(),
+          home: HomeScreen(role: UserRole.user),
         ),
       );
 
