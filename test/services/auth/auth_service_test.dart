@@ -73,7 +73,7 @@ void main() {
 
       when(() => mockProfile.getUserProfile(any())).thenAnswer(
             (_) async => {
-          'role': 'authenticated',
+          'role': 'user',
           'firstName': 'Taylor',
           'lastName': 'Kim',
         },
