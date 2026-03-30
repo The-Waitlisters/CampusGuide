@@ -92,11 +92,14 @@ class _HomeScreenState extends HomeScreenState {
 
   bool get _isGuest => widget.role == UserRole.guest;
 
-  String get _userChipLabel => _isGuest
-      ? 'Guest'
-      : ((widget.displayName?.trim().isNotEmpty ?? false)
-      ? widget.displayName!.trim()
-      : 'User');
+  String get _userChipLabel {
+    if (_isGuest) return 'Guest';
+    final displayName = widget.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+    return 'User';
+  }
 
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
@@ -839,7 +842,7 @@ class _HomeScreenState extends HomeScreenState {
               final svc = widget.authService ?? AuthService();
               await svc.signOut();
 
-              if (!mounted) return;
+              if (!context.mounted) return;
 
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
