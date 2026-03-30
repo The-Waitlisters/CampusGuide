@@ -82,13 +82,13 @@ class _AuthGateState extends State<AuthGate> {
               );
             }
 
-            // Safety: if profile is malformed/missing role, fallback to guest
             final role = appUser.role;
-            if (role == UserRole.guest && !appUser.isGuest) {
-              return HomeScreen(role: UserRole.guest, authService: _authService);
-            }
-
-            return HomeScreen(role: role, authService: _authService);          },
+            return HomeScreen(
+              role: role,
+              displayName: appUser.firstName,
+              authService: _authService,
+            );
+          },
         );
       },
     );

@@ -6,15 +6,10 @@ import 'package:proj/screens/auth/login_screen.dart';
 import 'package:proj/screens/auth/register_screen.dart';
 import 'package:proj/services/auth/auth_service.dart';
 import 'package:proj/services/auth/user_profile_service.dart';
-import 'package:proj/models/user_role.dart';
 
 class MockUserProfileService extends Mock implements UserProfileService {}
 
 void main() {
-
-  setUpAll(() {
-    registerFallbackValue(UserRole.student);
-  });
 
   late AuthService authService;
   late MockUserProfileService mockProfile;
@@ -26,9 +21,10 @@ void main() {
     when(() => mockProfile.createUserProfile(
       uid: any(named: 'uid'),
       email: any(named: 'email'),
-      role: any(named: 'role'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
     )).thenAnswer((_) async {});
-    when(() => mockProfile.getUserRole(any())).thenAnswer((_) async => throw Exception('not used'));
+    when(() => mockProfile.getUserProfile(any())).thenAnswer((_) async => throw Exception('not used'));
 
     authService = AuthService(
       auth: mockAuth,
@@ -46,9 +42,8 @@ void main() {
 
   testWidgets('RegisterScreen renders controls', (tester) async {
     await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: authService)));
-    expect(find.byType(TextField), findsNWidgets(2));
-    expect(find.text('Account type'), findsOneWidget);
-    expect(find.text('Student'), findsWidgets);
-    expect(find.text('Teacher'), findsWidgets);
+    expect(find.byType(TextField), findsNWidgets(4));
+    expect(find.text('First name'), findsOneWidget);
+    expect(find.text('Last name'), findsOneWidget);
   });
 }

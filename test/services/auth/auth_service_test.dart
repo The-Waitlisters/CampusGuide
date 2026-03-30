@@ -9,10 +9,6 @@ class MockUserProfileService extends Mock implements UserProfileService {}
 
 void main() {
 
-  setUpAll(() {
-    registerFallbackValue(UserRole.student);
-  });
-
   late MockFirebaseAuth mockAuth;
   late MockUserProfileService mockProfile;
   late AuthService authService;
@@ -41,62 +37,55 @@ void main() {
       expect(authService.isGuestMode, false);
     });
 
-    test('signup rejects guest role', () async {
-      expect(
-            () => authService.signUpStudentOrTeacher(
-          email: 'x@y.com',
-          password: '123456',
-          role: UserRole.guest,
-        ),
-        throwsA(isA<ArgumentError>()),
-      );
-    });
-
-    test('signup student calls profile createUserProfile', () async {
+    test('signup creates profile with first/last name', () async {
       when(() => mockProfile.createUserProfile(
         uid: any(named: 'uid'),
         email: any(named: 'email'),
-        role: any(named: 'role'),
+        firstName: any(named: 'firstName'),
+        lastName: any(named: 'lastName'),
       )).thenAnswer((_) async {});
 
-      final user = await authService.signUpStudentOrTeacher(
-        email: 'student@test.com',
+      final user = await authService.signUp(
+        email: 'user@test.com',
         password: '123456',
-        role: UserRole.student,
+        firstName: 'Brett',
+        lastName: 'Lee',
       );
 
-      expect(user.role, UserRole.student);
+      expect(user.role, UserRole.user);
+      expect(user.firstName, 'Brett');
+      expect(user.lastName, 'Lee');
       verify(() => mockProfile.createUserProfile(
         uid: user.uid!,
-        email: 'student@test.com',
-        role: UserRole.student,
+        email: 'user@test.com',
+        firstName: 'Brett',
+        lastName: 'Lee',
       )).called(1);
     });
 
-    test('signIn returns role from profile service', () async {
+    test('signIn returns authenticated user with profile names', () async {
       // create user in mock auth first
       await mockAuth.createUserWithEmailAndPassword(
-        email: 'teacher@test.com',
+        email: 'person@test.com',
         password: 'abcdef',
       );
       await mockAuth.signOut();
 
-      // For createUserProfile (named params)
-      when(() => mockProfile.createUserProfile(
-        uid: any(named: 'uid'),
-        email: any(named: 'email'),
-        role: any(named: 'role'),
-      )).thenAnswer((_) async {});
+      when(() => mockProfile.getUserProfile(any())).thenAnswer(
+            (_) async => {
+          'role': 'authenticated',
+          'firstName': 'Taylor',
+          'lastName': 'Kim',
+        },
+      );
 
-
-      when(() => mockProfile.getUserRole(any())).thenAnswer((_) async => UserRole.teacher);
-
-      final user = await authService.signInStudentOrTeacher(
-        email: 'teacher@test.com',
+      final user = await authService.signIn(
+        email: 'person@test.com',
         password: 'abcdef',
       );
 
-      expect(user.role, UserRole.teacher);
+      expect(user.role, UserRole.user);
+      expect(user.firstName, 'Taylor');
       expect(user.isGuest, false);
     });
   });

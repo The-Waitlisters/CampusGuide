@@ -13,18 +13,25 @@ class UserProfileService {
   Future<void> createUserProfile({
     required String uid,
     required String email,
-    required UserRole role,
+    required String firstName,
+    required String lastName,
   }) async {
     await _users.doc(uid).set({
       'email': email,
-      'role': role.value, // student | teacher
+      'role': UserRole.user.value,
+      'firstName': firstName,
+      'lastName': lastName,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<UserRole> getUserRole(String uid) async {
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
     final doc = await _users.doc(uid).get();
-    final data = doc.data();
+    return doc.data();
+  }
+
+  Future<UserRole> getUserRole(String uid) async {
+    final data = await getUserProfile(uid);
 
     if (data == null || data['role'] == null) {
       return UserRole.guest; // safe fallback

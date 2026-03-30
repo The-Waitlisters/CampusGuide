@@ -32,15 +32,12 @@ class AuthService {
     }
   }
 
-  Future<AppUser> signUpStudentOrTeacher({
+  Future<AppUser> signUp({
     required String email,
     required String password,
-    required UserRole role,
+    required String firstName,
+    required String lastName,
   }) async {
-    if (role == UserRole.guest) {
-      throw ArgumentError('Guest role is not valid for account creation.');
-    }
-
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -50,19 +47,22 @@ class AuthService {
     await _profileService.createUserProfile(
       uid: uid,
       email: email,
-      role: role,
+      firstName: firstName,
+      lastName: lastName,
     );
 
     _guestMode = false;
     return AppUser(
       uid: uid,
       email: email,
-      role: role,
+      role: UserRole.user,
+      firstName: firstName,
+      lastName: lastName,
       isGuest: false,
     );
   }
 
-  Future<AppUser> signInStudentOrTeacher({
+  Future<AppUser> signIn({
     required String email,
     required String password,
   }) async {
@@ -72,7 +72,10 @@ class AuthService {
     );
 
     final user = cred.user!;
-    final role = await _profileService.getUserRole(user.uid);
+    final profile = await _profileService.getUserProfile(user.uid);
+    final role = profile == null
+        ? UserRole.guest
+        : UserRoleX.fromValue((profile['role'] as String?) ?? '');
 
     if (role == UserRole.guest) {
       // protect against broken/missing profile
@@ -84,6 +87,8 @@ class AuthService {
       uid: user.uid,
       email: user.email,
       role: role,
+      firstName: profile?['firstName'] as String?,
+      lastName: profile?['lastName'] as String?,
       isGuest: false,
     );
   }
@@ -94,12 +99,17 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) return null;
 
-    final role = await _profileService.getUserRole(user.uid);
+    final profile = await _profileService.getUserProfile(user.uid);
+    final role = profile == null
+        ? UserRole.guest
+        : UserRoleX.fromValue((profile['role'] as String?) ?? '');
 
     return AppUser(
       uid: user.uid,
       email: user.email,
       role: role,
+      firstName: profile?['firstName'] as String?,
+      lastName: profile?['lastName'] as String?,
       isGuest: false,
     );
   }

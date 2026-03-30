@@ -31,7 +31,8 @@ import '../services/auth/auth_service.dart';
 import 'auth/auth_gate.dart';
 
 class HomeScreen extends StatefulWidget {
-  final UserRole role; // New Addition
+  final UserRole role;
+  final String? displayName;
   final AuthService? authService;
 
   final DataParser? dataParser;
@@ -45,7 +46,8 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({
     super.key,
-    this.role = UserRole.guest, // NEW default
+    this.role = UserRole.guest,
+    this.displayName,
     this.authService,
     this.dataParser,
     this.buildingLocator,
@@ -77,16 +79,13 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
 
-  // Adding role helpers
   bool get _isGuest => widget.role == UserRole.guest;
-  bool get _isStudent => widget.role == UserRole.student;
-  bool get _isTeacher => widget.role == UserRole.teacher;
 
-  String get _roleLabel => switch (widget.role) {
-    UserRole.guest => 'Guest',
-    UserRole.student => 'Student',
-    UserRole.teacher => 'Teacher',
-  };
+  String get _userChipLabel => _isGuest
+      ? 'Guest'
+      : ((widget.displayName?.trim().isNotEmpty ?? false)
+      ? widget.displayName!.trim()
+      : 'User');
 
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
@@ -755,7 +754,7 @@ class _HomeScreenState extends HomeScreenState {
             padding: const EdgeInsets.only(right: 12),
             child: Center(
               child: Chip(
-                label: Text(_roleLabel),
+                label: Text(_userChipLabel),
                 visualDensity: VisualDensity.compact,
               ),
             ),
@@ -909,12 +908,10 @@ class _HomeScreenState extends HomeScreenState {
 
     final bool sheetOpen = _sheetController != null;
 
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      left: 0,
-      right: 0,
-      bottom: sheetOpen ? _sheetLiftMax : 0,
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: sheetOpen ? _sheetLiftMax : 12,
       child: UseAsStart(
         selected: building,
         onSetStart: () {
@@ -1019,7 +1016,7 @@ class _HomeScreenState extends HomeScreenState {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                  'Schedule is available for student/teacher accounts only.',
+                  'Schedule is available for user-authenticated accounts only.',
                 ),
               ),
             );

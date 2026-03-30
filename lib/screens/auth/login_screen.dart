@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await widget.authService.signInStudentOrTeacher(
+      await widget.authService.signIn(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
       );

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-
-import '../../models/user_role.dart';
 import '../../services/auth/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -13,15 +11,18 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
-  UserRole _selectedRole = UserRole.student;
   bool _loading = false;
   String? _error;
 
   @override
   void dispose() {
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
@@ -42,16 +43,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    if (_firstNameCtrl.text.trim().isEmpty || _lastNameCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Please enter both first and last name.');
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      await widget.authService.signUpStudentOrTeacher(
+      await widget.authService.signUp(
+        firstName: _firstNameCtrl.text.trim(),
+        lastName: _lastNameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
-        role: _selectedRole,
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -81,6 +88,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     children: [
                       TextField(
+                        controller: _firstNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(labelText: 'First name'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _lastNameCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(labelText: 'Last name'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(labelText: 'Email'),
@@ -90,33 +109,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _passCtrl,
                         obscureText: true,
                         decoration: const InputDecoration(labelText: 'Password'),
-                      ),
-                      const SizedBox(height: 14),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Account type',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SegmentedButton<UserRole>(
-                        segments: const [
-                          ButtonSegment<UserRole>(
-                            value: UserRole.student,
-                            label: Text('Student'),
-                            icon: Icon(Icons.school_outlined),
-                          ),
-                          ButtonSegment<UserRole>(
-                            value: UserRole.teacher,
-                            label: Text('Teacher'),
-                            icon: Icon(Icons.menu_book_outlined),
-                          ),
-                        ],
-                        selected: {_selectedRole},
-                        onSelectionChanged: (selection) {
-                          setState(() => _selectedRole = selection.first);
-                        },
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 10),
