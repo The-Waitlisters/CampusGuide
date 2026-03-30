@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -17,11 +18,14 @@ import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
+import '../services/directions/web_directions_client_stub.dart'
+    if (dart.library.html) '../services/directions/web_directions_client.dart';
 import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
+import '../widgets/home/route_polyline_overlay.dart';
 import '../widgets/home/search_overlay.dart';
 import 'indoor_map_screen.dart';
 import '../widgets/use_as_start.dart';
@@ -103,9 +107,19 @@ class _HomeScreenState extends HomeScreenState {
   bool _showSearchResults = false;
   late final DirectionsController _directions;
 
+  /// Last known camera position — passed to RoutePolylineOverlay so it can
+  /// reproject LatLng points to screen coordinates on every camera move.
+  CameraPosition? _lastCamera;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
   static const double _sheetLiftMax = 210.0;
+
+  /// On Flutter web, clicking a button that overlays the Google Maps platform
+  /// view causes the click to propagate to the map's onTap handler.  Setting
+  /// this flag before programmatically closing the sheet lets handleMapTap
+  /// absorb that spurious tap instead of showing "Not part of campus".
+  bool _suppressNextMapTap = false;
 
   late BuildingLocator _buildingLocator;
 
@@ -165,9 +179,12 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-  void _onCameraMove(CameraPosition _) {
+  void _onCameraMove(CameraPosition position) {
+    _lastCamera = position;
     _markerRebuildDebounce?.cancel();
     _markerRebuildDebounce = Timer(const Duration(milliseconds: 300), _rebuildMarkers);
+    // Trigger a rebuild so RoutePolylineOverlay repaints with the new camera.
+    if (kIsWeb && _directions.state.legs.isNotEmpty) setState(() {});
   }
 
   @visibleForTesting
@@ -198,12 +215,17 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _initDirections() {
-    _directions = widget.testDirectionsController ?? DirectionsController(
-      client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
-    );
+    // On web the REST Directions API is blocked by CORS; use the JS SDK client.
+    // On mobile/desktop use the standard HTTP client.
+    final client = kIsWeb
+        ? WebDirectionsClient()
+        : GoogleDirectionsClient(apiKey: Secrets.directionsApiKey);
+
+    _directions = widget.testDirectionsController ??
+        DirectionsController(client: client);
     // coverage:ignore-line
     assert(() {
-      if (Secrets.directionsApiKey.isEmpty) {
+      if (!kIsWeb && Secrets.directionsApiKey.isEmpty) {
         debugPrint(
             'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
@@ -466,7 +488,7 @@ class _HomeScreenState extends HomeScreenState {
     debugPrint('Directions done: err=${_directions.state.errorMessage} '
         'points=${_directions.state.polyline?.points.length}');
 
-    if (start != null && _directions.state.polyline != null) {
+    if (start != null && _directions.state.hasRoute) {
       await _zoomToRoute(start, end);
     }
   }
@@ -639,6 +661,10 @@ class _HomeScreenState extends HomeScreenState {
 
   @override
   void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
+    if (_suppressNextMapTap) {
+      _suppressNextMapTap = false;
+      return;
+    }
     if (_sheetController != null) {
       _sheetController?.close();
       _sheetController = null;
@@ -771,14 +797,30 @@ class _HomeScreenState extends HomeScreenState {
           startBuilding: _startBuilding,
           endBuilding: _endBuilding,
           onSetStart: () async {
+            _suppressNextMapTap = true;
             await _handleSetAsStart(building);
             _sheetController?.close();
             _sheetController = null;
+            // On non-web platforms the propagated tap never arrives, so reset
+            // the flag after the current event loop to avoid eating a real tap.
+            // 200 ms is long enough for any delayed propagated web tap event
+            // to arrive and be suppressed, but short enough to be invisible
+            // to a user who taps the map again on non-web platforms.
+            Future.delayed(const Duration(milliseconds: 200), () {
+              if (mounted) _suppressNextMapTap = false;
+            });
           },
           onSetDestination: () async {
+            _suppressNextMapTap = true;
             await _handleSetAsDestination(building);
             _sheetController?.close();
             _sheetController = null;
+            // 200 ms is long enough for any delayed propagated web tap event
+            // to arrive and be suppressed, but short enough to be invisible
+            // to a user who taps the map again on non-web platforms.
+            Future.delayed(const Duration(milliseconds: 200), () {
+              if (mounted) _suppressNextMapTap = false;
+            });
           },
           onViewIndoorMap: () {
             _sheetController?.close();
@@ -807,6 +849,15 @@ class _HomeScreenState extends HomeScreenState {
       body: Stack(
         children: [
           if (!isE2EMode) _buildMapLayer(),
+          // On Flutter Web, google_maps_flutter_web silently drops all
+          // polylines. RoutePolylineOverlay draws them with CustomPaint
+          // using synchronous Mercator projection — no platform channel.
+          // The GoogleMap `polylines:` param remains for iOS / Android.
+          if (kIsWeb)
+            RoutePolylineOverlay(
+              legs:           _directions.state.legs,
+              cameraPosition: _lastCamera ?? _initialCamera,
+            ),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
@@ -861,9 +912,7 @@ class _HomeScreenState extends HomeScreenState {
     return CampusMap(
       initialCamera: _initialCamera,
       polygons: _polygons,
-      polylines: _directions.state.polyline == null
-          ? <Polyline>{}
-          : <Polyline>{_directions.state.polyline!},
+      polylines: _directions.state.polylines,
       markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
@@ -997,7 +1046,9 @@ class _HomeScreenState extends HomeScreenState {
       },
       onRetry: _updateDirectionsIfReady,
       placeholderMessage: _directions.state.placeholderMessage,
-      selectedModeParam: _directions.mode.modeParam,
+         etaType: _directions.state.etaType,
+         legs: _directions.state.legs,
+         selectedModeParam: _directions.mode.modeParam,
       onModeChanged: (modeParam) {
         setState(() => _modeChangedByUser = true);
         _directions.setMode(strategyForModeParam(modeParam));
