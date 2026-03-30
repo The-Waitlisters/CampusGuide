@@ -88,5 +88,58 @@ void main() {
       expect(user.firstName, 'Taylor');
       expect(user.isGuest, false);
     });
+
+    test('signIn throws when profile has no valid role', () async {
+      await mockAuth.createUserWithEmailAndPassword(
+        email: 'broken@test.com',
+        password: 'abcdef',
+      );
+      await mockAuth.signOut();
+
+      when(() => mockProfile.getUserProfile(any())).thenAnswer((_) async => {
+        'firstName': 'Broken',
+      });
+
+      expect(
+            () => authService.signIn(
+          email: 'broken@test.com',
+          password: 'abcdef',
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('getCurrentAppUser returns null when no signed-in user', () async {
+      final appUser = await authService.getCurrentAppUser();
+      expect(appUser, isNull);
+    });
+
+    test('getCurrentAppUser returns guest when guest mode is enabled', () async {
+      await authService.continueAsGuest();
+      final appUser = await authService.getCurrentAppUser();
+      expect(appUser, isNotNull);
+      expect(appUser!.isGuest, isTrue);
+      expect(appUser.role, UserRole.guest);
+    });
+
+    test('getCurrentAppUser returns names and mapped role for signed-in user', () async {
+      await mockAuth.createUserWithEmailAndPassword(
+        email: 'legacy@test.com',
+        password: 'abcdef',
+      );
+
+      when(() => mockProfile.getUserProfile(any())).thenAnswer((_) async => {
+        'role': 'student',
+        'firstName': 'Legacy',
+        'lastName': 'User',
+      });
+
+      final appUser = await authService.getCurrentAppUser();
+
+      expect(appUser, isNotNull);
+      expect(appUser!.role, UserRole.user);
+      expect(appUser.firstName, 'Legacy');
+      expect(appUser.lastName, 'User');
+    });
   });
 }
