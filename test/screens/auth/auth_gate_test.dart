@@ -9,6 +9,7 @@ import 'package:proj/screens/auth/auth_gate.dart';
 import 'package:proj/screens/auth/login_screen.dart';
 import 'package:proj/services/auth/auth_service.dart';
 import 'package:proj/services/auth/user_profile_service.dart';
+import 'package:proj/models/app_user.dart';
 
 class MockUserProfileService extends Mock implements UserProfileService {}
 
@@ -24,6 +25,30 @@ class FakeWaitingAuthService extends AuthService {
 
   @override
   Stream<User?> get authStateChanges => stream;
+}
+
+class FakeAuthGateService extends AuthService {
+  FakeAuthGateService({
+    required this.stream,
+    required this.currentUserFuture,
+    this.guestMode = false,
+  }) : super(
+    auth: MockFirebaseAuth(),
+    profileService: MockUserProfileService(),
+  );
+
+  final Stream<User?> stream;
+  final Future<AppUser?> Function() currentUserFuture;
+  final bool guestMode;
+
+  @override
+  Stream<User?> get authStateChanges => stream;
+
+  @override
+  bool get isGuestMode => guestMode;
+
+  @override
+  Future<AppUser?> getCurrentAppUser() => currentUserFuture();
 }
 
 void main() {
@@ -60,4 +85,29 @@ void main() {
 
     await controller.close();
   });
+
+  testWidgets('AuthGate shows error view when profile loading throws', (tester) async {
+    final service = FakeAuthGateService(
+      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
+      currentUserFuture: () async => throw StateError('profile failed'),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Failed to load user profile.'), findsOneWidget);
+  });
+
+  testWidgets('AuthGate returns LoginScreen when app user resolves to null', (tester) async {
+    final service = FakeAuthGateService(
+      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
+      currentUserFuture: () async => null,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+  });
+
 }
