@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await widget.authService.signIn(
         email: _emailCtrl.text.trim(),
-        password: _passCtrl.text.trim(),
+        password: _passCtrl.text,
       );
       // AuthGate StreamBuilder handles transition automatically
     } catch (e) {
