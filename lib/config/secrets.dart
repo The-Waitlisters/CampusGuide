@@ -1,12 +1,16 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 class Secrets {
-  static String get directionsApiKey =>
-      dotenv.env['DIRECTIONS_API_KEY'] ?? '';
+  static String directionsApiKey = const String.fromEnvironment(
+    'DIRECTIONS_API_KEY',
+    defaultValue: '',
+  );
 
-  static String get concordiaUserId =>
-      dotenv.env['CONCORDIA_USER_ID'] ?? '';
+  static const concordiaUserId = String.fromEnvironment(
+    'CONCORDIA_USER_ID',
+    defaultValue: '',
+  );
 
-  static String get concordiaApiKey =>
-      dotenv.env['CONCORDIA_API_KEY'] ?? '';
+  static const concordiaApiKey = String.fromEnvironment(
+    'CONCORDIA_API_KEY',
+    defaultValue: '',
+  );
 }

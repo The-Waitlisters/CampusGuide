@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
+import 'package:proj/services/markerIconLoader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
@@ -15,7 +16,6 @@ import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
-import '../services/marker_icon_loader.dart';
 import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
@@ -58,7 +58,7 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
-  List<dynamic> get markers => []; // coverage:ignore-line
+  get markers => []; // coverage:ignore-line
 
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
@@ -116,7 +116,6 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
-  @override
   @visibleForTesting
   List<Marker> get markers => _markers;
 
