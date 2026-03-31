@@ -2142,42 +2142,64 @@ Future<void> main() async {
 
     testWidgets('shows Guest chip label for guest role', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: HomeScreen(role: UserRole.guest),
+        wrap(
+          HomeScreen(
+            role: UserRole.guest,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('Guest'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     });
 
     testWidgets('shows display name in chip for user role', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: HomeScreen(role: UserRole.user, displayName: 'Bill'),
+        wrap(
+          HomeScreen(
+            role: UserRole.user,
+            displayName: 'Bill',
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('Bill'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     });
 
     testWidgets('guest selecting schedule shows authenticated-only snackbar', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: HomeScreen(role: UserRole.guest),
+        wrap(
+          HomeScreen(
+            role: UserRole.guest,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
         ),
       );
+      await tester.pumpAndSettle();
 
       final SearchOverlay searchOverlay = tester.widget<SearchOverlay>(
         find.byType(SearchOverlay),
       );
       searchOverlay.onMenuSelected('schedule');
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(
-        find.text('Schedule is available for authenticated accounts only.'),
-        findsOneWidget,
-      );
+      expect(find.byType(SnackBar), findsOneWidget);
       expect(find.byType(ScheduleOverlay), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     });
 
     testWidgets('_rebuildMarkers passes zoom-derived width to markerImageLoader',

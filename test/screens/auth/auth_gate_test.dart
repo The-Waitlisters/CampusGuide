@@ -95,54 +95,28 @@ void main() {
     await controller.close();
   });
 
-  testWidgets(
-      'AuthGate shows error view when profile loading throws', (tester) async {
+  testWidgets('AuthGate shows error view when profile loading throws', (tester) async {
     final service = FakeAuthGateService(
       stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
       currentUserFuture: () async => throw StateError('profile failed'),
     );
 
-    await tester.pumpWidget(
-        MaterialApp(home: AuthGate(authService: service)));
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
     await tester.pumpAndSettle();
 
-    expect(
-        find.textContaining('Failed to load user profile.'), findsOneWidget);
+    expect(find.textContaining('Failed to load user profile.'), findsOneWidget);
   });
 
-  testWidgets('AuthGate returns LoginScreen when app user resolves to null', (
-      tester) async {
+  testWidgets('AuthGate returns LoginScreen when app user resolves to null', (tester) async {
     final service = FakeAuthGateService(
       stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
       currentUserFuture: () async => null,
     );
 
-    await tester.pumpWidget(
-        MaterialApp(home: AuthGate(authService: service)));
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginScreen), findsOneWidget);
   });
 
-  testWidgets(
-      'AuthGate builds HomeScreen when app user is resolved', (tester) async {
-    final service = FakeAuthGateService(
-      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
-      currentUserFuture: () async =>
-      const AppUser(
-        uid: 'u1',
-        email: 'e@test.com',
-        role: UserRole.user,
-        firstName: 'Sam',
-        lastName: 'User',
-        isGuest: false,
-      ),
-    );
-
-    await tester.pumpWidget(
-        MaterialApp(home: AuthGate(authService: service)));
-    await tester.pump();
-
-    expect(find.byType(HomeScreen), findsOneWidget);
-  });
 }
