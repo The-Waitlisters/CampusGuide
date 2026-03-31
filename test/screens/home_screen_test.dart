@@ -2140,6 +2140,46 @@ Future<void> main() async {
       await tester.pump(const Duration(milliseconds: 500));
     });
 
+    testWidgets('shows Guest chip label for guest role', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(role: UserRole.guest),
+        ),
+      );
+
+      expect(find.text('Guest'), findsOneWidget);
+    });
+
+    testWidgets('shows display name in chip for user role', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(role: UserRole.user, displayName: 'Bill'),
+        ),
+      );
+
+      expect(find.text('Bill'), findsOneWidget);
+    });
+
+    testWidgets('guest selecting schedule shows authenticated-only snackbar', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HomeScreen(role: UserRole.guest),
+        ),
+      );
+
+      final SearchOverlay searchOverlay = tester.widget<SearchOverlay>(
+        find.byType(SearchOverlay),
+      );
+      searchOverlay.onMenuSelected('schedule');
+      await tester.pump();
+
+      expect(
+        find.text('Schedule is available for authenticated accounts only.'),
+        findsOneWidget,
+      );
+      expect(find.byType(ScheduleOverlay), findsNothing);
+    });
+
     testWidgets('_rebuildMarkers passes zoom-derived width to markerImageLoader',
         (WidgetTester tester) async {
       // FakeGoogleMapController.getZoomLevel() returns 0.0

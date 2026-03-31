@@ -7,9 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:proj/screens/auth/auth_gate.dart';
 import 'package:proj/screens/auth/login_screen.dart';
+import 'package:proj/screens/home_screen.dart';
 import 'package:proj/services/auth/auth_service.dart';
 import 'package:proj/services/auth/user_profile_service.dart';
 import 'package:proj/models/app_user.dart';
+import 'package:proj/models/user_role.dart';
 
 class MockUserProfileService extends Mock implements UserProfileService {}
 
@@ -52,7 +54,8 @@ class FakeAuthGateService extends AuthService {
 }
 
 void main() {
-  testWidgets('AuthGate shows LoginScreen when user is unauthenticated', (tester) async {
+  testWidgets('AuthGate shows LoginScreen when user is unauthenticated', (
+      tester) async {
     final mockAuth = MockFirebaseAuth(signedIn: false);
     final mockProfile = MockUserProfileService();
 
@@ -68,9 +71,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginScreen), findsOneWidget);
+
+    final login = tester.widget<LoginScreen>(find.byType(LoginScreen));
+    login.onGuestContinue?.call();
+    await tester.pump();
   });
 
-  testWidgets('AuthGate shows loading indicator while auth stream is waiting', (tester) async {
+  testWidgets(
+      'AuthGate shows loading indicator while auth stream is waiting', (
+      tester) async {
     // Never emits and never closes -> stays in waiting
     final controller = StreamController<User?>();
 
@@ -86,28 +95,54 @@ void main() {
     await controller.close();
   });
 
-  testWidgets('AuthGate shows error view when profile loading throws', (tester) async {
+  testWidgets(
+      'AuthGate shows error view when profile loading throws', (tester) async {
     final service = FakeAuthGateService(
       stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
       currentUserFuture: () async => throw StateError('profile failed'),
     );
 
-    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pumpWidget(
+        MaterialApp(home: AuthGate(authService: service)));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Failed to load user profile.'), findsOneWidget);
+    expect(
+        find.textContaining('Failed to load user profile.'), findsOneWidget);
   });
 
-  testWidgets('AuthGate returns LoginScreen when app user resolves to null', (tester) async {
+  testWidgets('AuthGate returns LoginScreen when app user resolves to null', (
+      tester) async {
     final service = FakeAuthGateService(
       stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
       currentUserFuture: () async => null,
     );
 
-    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pumpWidget(
+        MaterialApp(home: AuthGate(authService: service)));
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginScreen), findsOneWidget);
   });
 
+  testWidgets(
+      'AuthGate builds HomeScreen when app user is resolved', (tester) async {
+    final service = FakeAuthGateService(
+      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
+      currentUserFuture: () async =>
+      const AppUser(
+        uid: 'u1',
+        email: 'e@test.com',
+        role: UserRole.user,
+        firstName: 'Sam',
+        lastName: 'User',
+        isGuest: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+        MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+  });
 }

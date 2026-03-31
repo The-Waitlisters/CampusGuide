@@ -37,6 +37,17 @@ void main() {
       expect(authService.isGuestMode, false);
     });
 
+    test('signOut signs out firebase user when authenticated user exists', () async {
+      await mockAuth.createUserWithEmailAndPassword(
+        email: 'signedin@test.com',
+        password: '123456',
+      );
+
+      expect(mockAuth.currentUser, isNotNull);
+      await authService.signOut();
+      expect(mockAuth.currentUser, isNull);
+    });
+
     test('signup creates profile with first/last name', () async {
       when(() => mockProfile.createUserProfile(
             uid: any(named: 'uid'),

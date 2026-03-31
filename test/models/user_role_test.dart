@@ -22,9 +22,9 @@ void main() {
     test('fromValue maps legacy values to user', () {
       expect(UserRoleX.fromValue('student'), UserRole.user);
       expect(UserRoleX.fromValue('teacher'), UserRole.user);
+      expect(UserRoleX.fromValue('authenticated'), UserRole.user);
       expect(UserRoleX.fromValue('user'), UserRole.user);
     });
-
 
     test('fromValue falls back to guest for unknown', () {
       expect(UserRoleX.fromValue('unknown-role'), UserRole.guest);

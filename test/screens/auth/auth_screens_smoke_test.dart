@@ -104,65 +104,119 @@ class MockUserProfileService extends Mock implements UserProfileService {}
   });
 
   testWidgets('LoginScreen maps auth errors to friendly messages', (tester) async {
-  final fake = FakeAuthService(signInThrows: Exception('invalid-email'));
+    final fake = FakeAuthService(signInThrows: Exception('invalid-email'));
 
-  await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: fake)));
-  await tester.enterText(find.byType(TextField).at(0), 'not-an-email');
-  await tester.enterText(find.byType(TextField).at(1), '123456');
-  await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
-  await tester.pumpAndSettle();
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: fake)));
+    await tester.enterText(find.byType(TextField).at(0), 'not-an-email');
+    await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
+    await tester.pumpAndSettle();
 
-  expect(find.text('Please enter a valid email.'), findsOneWidget);
+    expect(find.text('Please enter a valid email.'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen maps user-not-found error', (tester) async {
+    final fake = FakeAuthService(signInThrows: Exception('user-not-found'));
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: fake)));
+    await tester.enterText(find.byType(TextField).at(0), 'x@test.com');
+    await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
+    await tester.pumpAndSettle();
+    expect(find.text('No account found for this email.'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen maps wrong-password error', (tester) async {
+    final fake = FakeAuthService(signInThrows: Exception('wrong-password'));
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: fake)));
+    await tester.enterText(find.byType(TextField).at(0), 'x@test.com');
+    await tester.enterText(find.byType(TextField).at(1), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Login'));
+    await tester.pumpAndSettle();
+    expect(find.text('Incorrect email or password.'), findsOneWidget);
   });
 
   testWidgets('LoginScreen continue as guest triggers callback', (tester) async {
-  final fake = FakeAuthService();
-  var callbackCalled = false;
+    final fake = FakeAuthService();
+    var callbackCalled = false;
 
-  await tester.pumpWidget(
-  MaterialApp(
-  home: LoginScreen(
-  authService: fake,
-  onGuestContinue: () => callbackCalled = true,
-  ),
-  ),
-  );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginScreen(
+          authService: fake,
+          onGuestContinue: () => callbackCalled = true,
+        ),
+      ),
+    );
 
-  await tester.tap(find.widgetWithText(TextButton, 'Continue as Guest'));
-  await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Continue as Guest'));
+    await tester.pumpAndSettle();
 
-  expect(fake.continueAsGuestCalled, isTrue);
-  expect(callbackCalled, isTrue);
+    expect(fake.continueAsGuestCalled, isTrue);
+    expect(callbackCalled, isTrue);
   });
 
   testWidgets('LoginScreen navigates to RegisterScreen', (tester) async {
-  await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: authService)));
-  await tester.tap(find.widgetWithText(OutlinedButton, 'Create account'));
-  await tester.pumpAndSettle();
-  expect(find.byType(RegisterScreen), findsOneWidget);
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: authService)));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Create account'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RegisterScreen), findsOneWidget);
   });
 
   testWidgets('RegisterScreen validates first/last name before sign up', (tester) async {
-  final fake = FakeAuthService();
-  await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: fake)));
+    final fake = FakeAuthService();
+    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: fake)));
 
-  await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
-  await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+    await tester.pumpAndSettle();
 
-  expect(find.text('Please enter both first and last name.'), findsOneWidget);
+    expect(find.text('Please enter both first and last name.'), findsOneWidget);
   });
 
   testWidgets('RegisterScreen maps weak-password error to message', (tester) async {
-  final fake = FakeAuthService(signUpThrows: Exception('weak-password'));
-  await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: fake)));
+    final fake = FakeAuthService(signUpThrows: Exception('weak-password'));
+    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: fake)));
 
-  await tester.enterText(find.byType(TextField).at(0), 'Sam');
-  await tester.enterText(find.byType(TextField).at(1), 'User');
-  await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
-  await tester.enterText(find.byType(TextField).at(3), '123');
-  await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
-  await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+    await tester.pumpAndSettle();
 
-  expect(find.text('Password must be at least 6 characters.'), findsOneWidget);
+    expect(find.text('Password must be at least 6 characters.'), findsOneWidget);
+  });
+
+  testWidgets('RegisterScreen pops after successful signup', (tester) async {
+    final fake = FakeAuthService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RegisterScreen(authService: fake),
+                ),
+              );
+            },
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RegisterScreen), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RegisterScreen), findsNothing);
   });
   }
