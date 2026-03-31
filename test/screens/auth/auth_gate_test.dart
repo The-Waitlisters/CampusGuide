@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:proj/screens/auth/auth_gate.dart';
 import 'package:proj/screens/auth/login_screen.dart';
 import 'package:proj/screens/home_screen.dart';
@@ -14,6 +16,15 @@ import 'package:proj/models/app_user.dart';
 import 'package:proj/models/user_role.dart';
 
 class MockUserProfileService extends Mock implements UserProfileService {}
+
+/// Minimal geolocator stub: reports location disabled so HomeScreen
+/// returns early from _tryInitLocationTracking without platform calls.
+class _DisabledGeolocator extends Mock
+    with MockPlatformInterfaceMixin
+    implements GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() async => false;
+}
 
 // Fake service to control auth stream state (for waiting test)
 class FakeWaitingAuthService extends AuthService {
@@ -117,6 +128,70 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginScreen), findsOneWidget);
+  });
+
+  testWidgets('AuthGate shows HomeScreen directly when in guest mode', (tester) async {
+    GeolocatorPlatform.instance = _DisabledGeolocator();
+
+    final service = FakeAuthGateService(
+      stream: const Stream.empty(),
+      currentUserFuture: () async => null,
+      guestMode: true,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    // One pump is enough: isGuestMode is checked synchronously in build(),
+    // so HomeScreen is in the tree on the first frame.
+    await tester.pump(Duration.zero);
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+
+    // Dispose before real DataParser / map futures can hang pumpAndSettle.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets('AuthGate shows loading indicator while profile future is pending', (tester) async {
+    final profileCompleter = Completer<AppUser?>();
+    final service = FakeAuthGateService(
+      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
+      currentUserFuture: () => profileCompleter.future,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump(); // delivers user from stream; FutureBuilder enters waiting state
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    profileCompleter.complete(null);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('AuthGate shows HomeScreen when profile resolves to a valid AppUser', (tester) async {
+    GeolocatorPlatform.instance = _DisabledGeolocator();
+
+    const appUser = AppUser(
+      uid: 'u1',
+      email: 'user@test.com',
+      role: UserRole.user,
+      firstName: 'Jane',
+      isGuest: false,
+    );
+
+    final service = FakeAuthGateService(
+      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
+      currentUserFuture: () async => appUser,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump(Duration.zero); // stream delivers user
+    await tester.pump(Duration.zero); // FutureBuilder resolves appUser → HomeScreen built
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+
+    // Dispose before real DataParser / map futures can hang pumpAndSettle.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 100));
   });
 
 }

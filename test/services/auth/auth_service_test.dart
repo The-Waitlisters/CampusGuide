@@ -152,5 +152,37 @@ void main() {
         expect(appUser.firstName, 'Legacy');
         expect(appUser.lastName, 'User');
       });
+
+      test('signIn throws StateError when profile is null', () async {
+        await mockAuth.createUserWithEmailAndPassword(
+          email: 'noprofile@test.com',
+          password: 'abcdef',
+        );
+        await mockAuth.signOut();
+
+        when(() => mockProfile.getUserProfile(any())).thenAnswer((_) async => null);
+
+        expect(
+          () => authService.signIn(
+            email: 'noprofile@test.com',
+            password: 'abcdef',
+          ),
+          throwsA(isA<StateError>()),
+        );
+      });
+
+      test('getCurrentAppUser returns guest role when signed-in profile is null', () async {
+        await mockAuth.createUserWithEmailAndPassword(
+          email: 'nullprofile@test.com',
+          password: 'abcdef',
+        );
+
+        when(() => mockProfile.getUserProfile(any())).thenAnswer((_) async => null);
+
+        final appUser = await authService.getCurrentAppUser();
+
+        expect(appUser, isNotNull);
+        expect(appUser!.role, UserRole.guest);
+      });
     });
   }
