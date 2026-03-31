@@ -1988,9 +1988,6 @@ Future<void> main() async {
         );
         await tester.pumpAndSettle();
 
-        final dynamic state =
-        tester.state(find.byType(home_screen.HomeScreen).first);
-
         final bounds = home_screen.boundsForRoute(
           const LatLng(46.0, -73.0),
           const LatLng(45.0, -74.0),
@@ -2338,6 +2335,37 @@ Future<void> main() async {
         ).called(1);
 
         expect(state.testPolygons, isNotEmpty);
+      },
+    );
+
+    testWidgets(
+      'recenter button appears after map move and is tappable',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(wrap(home_screen.HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+        )));
+        // GPS stream emits → _lastKnownPosition is set
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+            tester.state(find.byType(home_screen.HomeScreen).first);
+
+        // Button should not be visible yet
+        expect(find.byTooltip('Recenter to my location'), findsNothing);
+
+        // Simulate a user-initiated camera move → _mapMoved = true
+        state.simulateCameraMove(
+          const CameraPosition(target: LatLng(45.5, -73.6), zoom: 15),
+        );
+        await tester.pump();
+
+        // Button should now appear
+        expect(find.byTooltip('Recenter to my location'), findsOneWidget);
+
+        // Tap it — covers the onPressed callback (line 1076)
+        await tester.tap(find.byTooltip('Recenter to my location'));
+        await tester.pump();
       },
     );
 
