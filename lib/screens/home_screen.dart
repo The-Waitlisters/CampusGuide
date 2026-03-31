@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
@@ -14,8 +16,6 @@ import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
 import 'package:proj/widgets/home/campus_map.dart';
-import 'package:proj/widgets/home/poi_detail_sheet.dart';
-import 'package:proj/widgets/poi_toggle.dart';
 import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
@@ -35,6 +35,18 @@ import '../services/concordia_api.dart';
 import '../services/schedule_lookup.dart';
 
 typedef MarkerImageLoader = Future<Uint8List> Function(String path, int width);
+extension StringExtension on String {
+    String capitalize() {
+      List<String> current = "${this[0].toUpperCase()}${this.substring(1).toLowerCase()}".split(' ');
+      String newOne = "";
+      for (final b in current) {
+        newOne += "${b[0].toUpperCase()}${b.substring(1).toLowerCase()} ";
+        
+      }
+      
+      return newOne;
+    }
+}
 
 class HomeScreen extends StatefulWidget {
   final DataParser? dataParser;
@@ -124,11 +136,22 @@ class _HomeScreenState extends HomeScreenState {
 
   LatLng locationPoint = LatLng(0, 0);
 
-  bool _showPOIOptionMenu = false;
-
-  int _currentPOICount = 0;
-
   bool firstRun = false;
+
+  bool _loading = false;
+
+  bool showPoiSettings = false;
+  bool restaurants = false;
+  bool cafes = false;
+  bool parks = false;
+  double nearbyPois = 5;
+  String type = "Popularity";
+
+  final TextEditingController minPriceController = TextEditingController();
+  final TextEditingController maxPriceController = TextEditingController();
+
+  
+
 
   @visibleForTesting
   List<Marker> get markers => _markers;
@@ -140,7 +163,27 @@ class _HomeScreenState extends HomeScreenState {
     _initDependencies();
     _initDirections();
     _tryInitLocationTracking();
-    _initMarkers();
+  }
+
+  void resetFilters() {
+    setState(() {
+      restaurants = false;
+      cafes = false;
+      parks = false;
+      minPriceController.clear();
+      maxPriceController.clear();
+      _markers.clear();
+    });
+  }
+
+  void applyFilters() {
+    debugPrint('restaurants: $restaurants');
+    debugPrint('cafes: $cafes');
+    debugPrint('parks: $parks');
+    debugPrint('min: ${minPriceController.text}');
+    debugPrint('max: ${maxPriceController.text}');
+    _loadNearbyPois(restaurants, cafes, parks, nearbyPois, type);
+    
   }
 
   double _iconSizeForZoom(double zoom) {
@@ -152,46 +195,6 @@ class _HomeScreenState extends HomeScreenState {
     return minSize + t * (maxSize - minSize);
   }
 
-  Future<void> _rebuildMarkers() async {
-    final double zoom = _mapController != null
-        ? await _mapController!.getZoomLevel()
-        : 15.0;
-    final double logicalSize = _iconSizeForZoom(zoom);
-    final List<Marker> newMarkers = [];
-
-    for (int i = 0; i < poiPresent.length; i++) {
-      final Uint8List markIcons = await widget.markerImageLoader(
-        poiPresent.elementAt(i).poiType,
-        logicalSize.round(),
-      );
-      newMarkers.add(Marker(
-        markerId: MarkerId(i.toString()),
-        icon: BitmapDescriptor.fromBytes(markIcons, size: Size(logicalSize, logicalSize)),
-        position: poiPresent.elementAt(i).boundary,
-        onTap: () => setState(() {
-          _showPoiDetailSheet(poiPresent.elementAt(i));
-        }),
-      ));
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _markers..clear()..addAll(newMarkers);
-      if(!firstRun) {
-        _currentPOICount = _markers.length;
-        firstRun = true;
-      }
-
-      _markers.sort((m1, m2) {
-        return _computeDistance(m1.position, locationPoint).compareTo(_computeDistance(m2.position, locationPoint));
-      });
-    });
-  }
-
-  void _onCameraMove(CameraPosition _) {
-    _markerRebuildDebounce?.cancel();
-    _markerRebuildDebounce = Timer(const Duration(milliseconds: 300), _rebuildMarkers);
-  }
 
   @visibleForTesting
   Future<void> simulatePointerDown(Offset position) async {
@@ -321,19 +324,197 @@ class _HomeScreenState extends HomeScreenState {
     }); 
   }
 
-  void _initMarkers() {
-    data.getMarkersFromJSON().then((list) {
-      if(!mounted) {
-        return list;
+    Future<void> _loadNearbyPois(bool restaurant, bool cafe, bool park, double nearbyPois, String type) async {
+    if (_mapController == null) return;
+
+    setState(() {
+      _loading = true;
+      _markers.clear();
+    });
+
+    try {
+
+      type = type.toUpperCase();
+      
+      final double zoom = _mapController != null
+        ? await _mapController!.getZoomLevel()
+        : 15.0;
+      final double logicalSize = _iconSizeForZoom(zoom);
+
+      final Uint8List markIconResto = await widget.markerImageLoader(
+        "assets/restaurant.png",
+        logicalSize.round(),
+      );
+
+      final Uint8List markIconCoffee = await widget.markerImageLoader(
+        "assets/coffee.png",
+        logicalSize.round(),
+      );
+
+      final places;
+      final places2;
+      final places3;
+
+      if(restaurant) {
+        places = await _searchNearbyPlaces(
+        latitude: locationPoint.latitude,
+        longitude: locationPoint.longitude,
+        radiusMeters: 1200,
+        maxResultCount: nearbyPois,
+        includedTypes: ['restaurant'],
+        rankPreference: type
+      );
+      _finishLoadingPois(places, markIconResto, logicalSize);
       }
 
-      setState(() {
-        poiPresent = list;
-      });
-      _rebuildMarkers();
+      if(cafe) {
+        places2 = await _searchNearbyPlaces(
+        latitude: locationPoint.latitude,
+        longitude: locationPoint.longitude,
+        radiusMeters: 1200,
+        maxResultCount: nearbyPois,
+        includedTypes: ['cafe'],
+        rankPreference: type
+      );
+      _finishLoadingPois(places2, markIconCoffee, logicalSize);
+      }
 
-      return list;
-    });
+      if(park) {
+        places3= await _searchNearbyPlaces(
+        latitude: locationPoint.latitude,
+        longitude: locationPoint.longitude,
+        radiusMeters: 1200,
+        maxResultCount: nearbyPois,
+        includedTypes: ['park'],
+        rankPreference: type
+      );
+      _finishLoadingPois(places3, markIconResto, logicalSize);
+      }
+      
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load places: $e')),
+      );
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  void _finishLoadingPois(List<dynamic> places, Uint8List markIcon, double logicalSize) {
+    final Set<Marker> newMarkers = places.map((place) {
+        final placeId = place['id'] as String? ?? UniqueKey().toString();
+        final displayName =
+            (place['displayName']?['text'] as String?) ?? 'Unknown place';
+        final location = place['location'] as Map<String, dynamic>? ?? {};
+        final lat = (location['latitude'] as num).toDouble();
+        final lng = (location['longitude'] as num).toDouble();
+
+        String? primaryType = place['primaryType'] as String?;
+        primaryType = primaryType!.replaceAll('_', ' ').capitalize();
+        final rating = place['rating'];
+        final address = place['shortFormattedAddress'];
+
+        final photos = (place['photos'] as List?) ?? [];
+
+        List<String?> photoName = [];
+        if (photos.isNotEmpty) {
+          for(Map<String, dynamic> photo in photos) {
+            photoName.add(buildPhotoUrl(photoName: photo['name'], apiKey: Secrets.directionsApiKey));
+          }
+        }
+
+        final regularOpeningHours =
+            place['regularOpeningHours'] as Map<String, dynamic>?;
+        final weekdayDescriptions =
+            (regularOpeningHours?['weekdayDescriptions'] as List?)
+                    ?.cast<String>() ??
+                const [];
+
+        final openNow = regularOpeningHours?['openNow'] as bool?;
+        return Marker(
+          markerId: MarkerId(placeId),
+          position: LatLng(lat, lng),
+          icon: BitmapDescriptor.fromBytes(markIcon, size: Size(logicalSize, logicalSize)),
+           onTap: () => setState(() {
+            _showPoiDetailSheet(Poi(id: placeId, name: displayName, boundary: LatLng(lat, lng), description: [
+              if (primaryType != null) primaryType,
+            ].join(' • '),
+            openingHours: weekdayDescriptions,
+            openNow: openNow,
+            rating: rating,
+            address: address,
+            photoName: photoName,
+            campus: _currentBuildingFromGPS?.campus ?? _campus, //set current building as campus, otherwise, set currently toggled campus
+            )
+            );
+          }),
+        );
+      }).toSet();
+      
+
+      setState(() {
+        _markers
+          .addAll(newMarkers);
+      });
+  }
+
+  String buildPhotoUrl({ //Helper function to build photo url to be able to fetch with Places API
+  required String photoName, 
+  required String apiKey,
+  int maxWidthPx = 400,
+}) {
+  return 'https://places.googleapis.com/v1/$photoName/media'
+      '?key=$apiKey&maxWidthPx=$maxWidthPx';
+}
+
+
+  Future<List<dynamic>> _searchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required double radiusMeters,
+    required double maxResultCount,
+    required String rankPreference,
+    required List<String> includedTypes,
+  }) async {
+    final uri = Uri.parse(
+      'https://places.googleapis.com/v1/places:searchNearby',
+    );
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': Secrets.directionsApiKey,
+        'X-Goog-FieldMask':
+            'places.id,places.displayName,places.location,places.primaryType,places.rating,places.regularOpeningHours,places.priceRange,places.userRatingCount,places.shortFormattedAddress,places.photos',
+      },
+      body: jsonEncode({
+        'includedPrimaryTypes': includedTypes,
+        'maxResultCount': maxResultCount,
+        'rankPreference': rankPreference,
+        'locationRestriction': {
+          'circle': {
+            'center': {
+              'latitude': latitude,
+              'longitude': longitude,
+            },
+            'radius': radiusMeters,
+          },
+        },
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Places API error ${response.statusCode}: ${response.body}',
+      );
+    }
+
+    final Map<String, dynamic> jsonBody = jsonDecode(response.body);
+    return (jsonBody['places'] as List<dynamic>?) ?? [];
   }
 
   double _computeDistance(LatLng point1, LatLng point2) {
@@ -480,7 +661,7 @@ class _HomeScreenState extends HomeScreenState {
     }
 
     if(_endPoi == null) {
-    end = polygonCenter(_endBuilding!.boundary);
+      end = polygonCenter(_endBuilding!.boundary);
     } else {
       end = _endPoi!.boundary;
     }
@@ -565,7 +746,7 @@ class _HomeScreenState extends HomeScreenState {
     debugPrint('Set as Destination: ${poi.name}');
     setState(() {
       _endPoi = poi;
-      if (_startPoi == null) _startFromCurrentLocation = true;
+      if (_startPoi == null && _startBuilding == null) _startFromCurrentLocation = true;
     });
     await _updateDirectionsIfReady();
   }
@@ -718,8 +899,10 @@ class _HomeScreenState extends HomeScreenState {
       _sheetController = null;
 
       _sheetController = scaffoldState.showBottomSheet((context) {
-        return PoiDetailSheet(
-          building: poi,
+        return BuildingDetailSheet(
+          poi: poi,
+          isPoi: true,
+          isAnnex: false,
           startBuilding: _startBuilding,
           endBuilding: _endBuilding,
           startPoi: _startPoi,
@@ -902,7 +1085,7 @@ class _HomeScreenState extends HomeScreenState {
                 builder: (_) => IndoorMapScreen(building: building),
               ),
             );
-          },
+          }, isPoi: false,
         );
       });
       _attachSheetAnimation(_sheetController);
@@ -925,44 +1108,44 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          _buildPOISection(),
+          //_buildPOISection(),
           if (_currentBuildingFromGPS != null &&
               _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
-          if(_showPOIOptionMenu)
-            POIOptionMenu(
-                currentPOICount: _currentPOICount,
-                position: locationPoint,
-                calcDist: _computeDistance,
-                allPOIs: poiPresent..sort((p1, p2) {
-                  return _computeDistance(p1.boundary, locationPoint).compareTo(_computeDistance(p2.boundary, locationPoint));
-                })..toList(),
-                onDistanceSubmit: (str){
-                  double? distOfPOIs = double.tryParse(str);
-
-                  if (distOfPOIs != null) {
-                    _currentPOICount = 0;
-                    for (var m in _markers) {
-                      if(_computeDistance(m.position, locationPoint) <= distOfPOIs) {
-                        _currentPOICount ++;
-                      }
-                    }
-                    debugPrint("$_currentPOICount ------------------- POI count1");
-                  }
-
-                  setState(() {});
-                },
-                onAmountSubmit: (str){
-                  int? numOfPOIs = int.tryParse(str);
-
-                  if (numOfPOIs != null) { _currentPOICount = numOfPOIs; }
-                  debugPrint("$_currentPOICount ------------------- POI count2");
-                  setState(() {});
-                }, onTap: () { setState(() {
-                  _showPOIOptionMenu = false;
-                }); 
-                },
-              ),
+          if(showPoiSettings)
+            PoiOptionMenu(restaurants: restaurants, cafes: cafes, parks: parks, minPriceController: minPriceController, maxPriceController: maxPriceController, currentSliderValue: nearbyPois, sortBy: type,
+    onRestaurantsChanged: (value) {
+                setState(() {
+                  restaurants = value ?? false;
+                });
+              },
+              onCafesChanged: (value) {
+                setState(() {
+                  cafes = value ?? false;
+                });
+              },
+              onParksChanged: (value) {
+                setState(() {
+                  parks = value ?? false;
+                });
+              },
+              onNearbyChanged: (value) {
+                setState(() {
+                  nearbyPois = value ?? 0;
+                });
+              },
+              onSortByChanged: (value) {
+                setState(() {
+                  type = value ?? '';
+                });
+              },
+              onReset: resetFilters,
+              onApply: applyFilters,
+              onClose: () {
+                setState(() {
+                  showPoiSettings = false;
+                });
+              }),
           if (_showScheduleOverlay)
             ScheduleOverlay(
               onClose: () {
@@ -986,11 +1169,15 @@ class _HomeScreenState extends HomeScreenState {
             ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(onPressed: () {
+        setState(() {
+        showPoiSettings = true;
+      });} , label: const Text('Points of Interest'), icon: const Icon(Icons.place),),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
     );
   }
 
   Widget _buildMapLayer() {
-    debugPrint("$_currentPOICount ----------------------------- POIs should be displayed");
     return MapLayer<CampusBuilding>(
       future: _buildingsFuture,
       hasPolygons: _polygons.isNotEmpty,
@@ -1013,7 +1200,7 @@ class _HomeScreenState extends HomeScreenState {
       polylines: _directions.state.polyline == null
           ? <Polyline>{}
           : <Polyline>{_directions.state.polyline!},
-      markers: Set<Marker>.of(_markers).take(_currentPOICount).toSet(),
+      markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: !isE2EMode,
       onMapCreated: (GoogleMapController controller) {
@@ -1034,7 +1221,7 @@ class _HomeScreenState extends HomeScreenState {
         FocusScope.of(context).unfocus();
         // coverage:ignore-end
       },
-      onCameraMove: _onCameraMove,
+     // onCameraMove: _onCameraMove,
 
     );
   }
@@ -1066,8 +1253,12 @@ class _HomeScreenState extends HomeScreenState {
 
   Widget _buildSetCurrentAsStartCard() {
     if (_currentBuildingFromGPS == null || !isInBuilding ||
-        _startBuilding != null) {
+        _startBuilding != null || _startPoi != null) {
       return const SizedBox.shrink();
+    }
+
+    if(_endBuilding != null || _endPoi != null) {
+     return const SizedBox.shrink();
     }
 
     final bool sheetOpen = _sheetController != null;
@@ -1101,35 +1292,7 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildPOISection() {
-    
-
-    final bool sheetOpen = _sheetController != null;
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      right: 0,
-      bottom: sheetOpen ? _sheetLiftMax : 0,
-      child: PoiToggle(onOpenPoiOptions: () {
-          setState(() {
-            _showPOIOptionMenu = true;
-            
-            debugPrint(_showPOIOptionMenu.toString());
-          });
-
-          if (_sheetController != null) {
-            _sheetController?.close();
-            setState(() {
-              _sheetController = null;
-            });
-          }
-      })
-    );
-
-    
-      
-  }
+  
 
   Widget _topCard(
       {required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets
@@ -1154,6 +1317,7 @@ class _HomeScreenState extends HomeScreenState {
   Widget _buildDirectionsCard() {
     return DirectionsCard(
       startBuilding: _startBuilding,
+      startPoi: _startPoi,
       endBuilding: _endBuilding,
       endPoi: _endPoi,
       useCurrentLocationAsStart: _startFromCurrentLocation &&
@@ -1166,6 +1330,7 @@ class _HomeScreenState extends HomeScreenState {
       distanceText: _directions.state.distanceText,
       onCancel: () {
         setState(() {
+          _startPoi = null; 
           _startBuilding = null;
           _endBuilding = null;
           _endPoi = null;
@@ -1186,8 +1351,6 @@ class _HomeScreenState extends HomeScreenState {
       },
     );
   }
-
-  
 
   Widget _buildSearchOverlay() {
     return SearchOverlay(
@@ -1244,6 +1407,8 @@ class _HomeScreenState extends HomeScreenState {
     _searchController.dispose();
     _gpsSub?.cancel();
     _directions.dispose();
+    minPriceController.dispose();
+    maxPriceController.dispose();
     super.dispose();
   }
 
@@ -1350,11 +1515,6 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void setMapControllerForTest(GoogleMapController controller) {
     _mapController = controller;
-  }
-
-  @visibleForTesting
-  void simulateCameraMove(CameraPosition position) {
-    _onCameraMove(position);
   }
 
 }

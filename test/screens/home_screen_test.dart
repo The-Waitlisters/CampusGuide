@@ -347,7 +347,7 @@ Poi testPoi({
   List<String> openingHours = const ['9-5'],
   String poiType = 'assets/coffee.png'
 }) {
-  return Poi(id: id, name: name, boundary: boundary, fullName: fullName, description: description, campus: campus, openingHours: openingHours, poiType: poiType);
+  return Poi(id: id, name: name, boundary: boundary, description: description, campus: campus, openingHours: openingHours, photoName: [], rating: 2, address: '', );
 }
 
 Poi testPoi2({
@@ -357,9 +357,9 @@ Poi testPoi2({
   LatLng boundary = const LatLng(0, 0),
   String description = 'A test building',
   Campus campus = Campus.sgw,
-  String poiType = 'assets/coffee.png'
+  List<String> openingHours = const ['Monday'],
 }) {
-  return Poi(id: id, name: name, boundary: boundary, fullName: fullName, description: description, campus: campus, poiType: poiType);
+  return Poi(id: id, name: name, boundary: boundary, description: description, campus: campus, openingHours: openingHours, photoName: [], rating: 2, address: '');
 }
 
 @GenerateMocks([DataParser, BuildingLocator])
@@ -1098,6 +1098,7 @@ Future<void> main() async {
                     endBuilding: null,
                     onSetStart: () {},
                     onSetDestination: () {},
+                    isPoi: false,
                   ),
                 ),
               ),

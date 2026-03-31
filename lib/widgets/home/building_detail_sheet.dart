@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/poi.dart';
 import 'package:proj/widgets/home/building_detail_content.dart';
 
 class BuildingDetailSheet extends StatelessWidget {
-  final CampusBuilding building;
+  final CampusBuilding? building;
   final bool isAnnex;
   final CampusBuilding? startBuilding;
   final CampusBuilding? endBuilding;
+  final bool isPoi;
+  final Poi? startPoi;
+  final Poi? endPoi;
+  final Poi? poi;
 
   final VoidCallback onSetStart;
   final VoidCallback onSetDestination;
@@ -14,13 +19,14 @@ class BuildingDetailSheet extends StatelessWidget {
 
   const BuildingDetailSheet({
     super.key,
-    required this.building,
+    this.building,
+    this.poi,
     required this.isAnnex,
     required this.startBuilding,
     required this.endBuilding,
     required this.onSetStart,
     required this.onSetDestination,
-    this.onViewIndoorMap,
+    this.onViewIndoorMap, required this.isPoi, this.startPoi, this.endPoi,
   });
 
   @override
@@ -46,7 +52,11 @@ class BuildingDetailSheet extends StatelessWidget {
               endBuilding: endBuilding,
               onSetStart: onSetStart,
               onSetDestination: onSetDestination,
-              onViewIndoorMap: onViewIndoorMap,
+              onViewIndoorMap: onViewIndoorMap, 
+              poi: poi,
+              isPoi: isPoi,
+              startPoi: startPoi,
+              endPoi: endPoi,
             ),
           ),
         );

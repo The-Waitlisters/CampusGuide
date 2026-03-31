@@ -57,19 +57,24 @@ class DirectionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (startBuilding == null && endBuilding == null) {
-      return const SizedBox.shrink();
+    if ((startBuilding == null && endBuilding == null) ) {
+        if(startPoi == null && endPoi == null) {
+          return const SizedBox.shrink();
+        }
     }
+
+    
+
 
     final startLabel = startBuilding != null
         ? '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}' 
         : (startPoi != null 
-          ? '${_campusLabel(startPoi!.campus)} - ${startPoi!.fullName ?? startPoi!.name}' 
+          ? '${_campusLabel(startPoi!.campus)} - ${startPoi!.name}' 
           :(useCurrentLocationAsStart ? 'Current location' : 'Not set'));
     final endLabel = endBuilding != null
         ? '${_campusLabel(endBuilding!.campus)} - ${endBuilding!.fullName ?? endBuilding!.name}'
         : (endPoi != null 
-          ? '${endPoi!.name} - ${endPoi!.fullName}' 
+          ? endPoi!.name 
           :'Not set');
 
     return Positioned(

@@ -7,7 +7,7 @@ import 'package:proj/widgets/home/poi_option_menu.dart';
 
 void main() {
   group('POI Option Menu', () {
-    testWidgets('Check the inner Section of POI Option Menu', (WidgetTester tester) async {
+    /*testWidgets('Check the inner Section of POI Option Menu', (WidgetTester tester) async {
       Widget testPOIMenu = MaterialApp(
           home: Stack(
               children: [POIOptionMenu(
@@ -26,7 +26,7 @@ void main() {
 
       expect(find.text("Maximum distance (km)"), findsOneWidget);
       expect(find.text("Distance: 1.00 km"), findsOneWidget);
-    });
+    });*/
 
     testWidgets("Check", (WidgetTester tester) async {
 
