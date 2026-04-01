@@ -9,7 +9,11 @@ coverage:
         target: 98%
         threshold: 1%
 
+ignore:
+  - "lib/firebase_options.dart"
+
 comment:
   layout: "reach,diff,flags,files"
   behavior: default
   require_changes: false
+

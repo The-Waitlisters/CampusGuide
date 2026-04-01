@@ -61,16 +61,6 @@ class _MapLayerState<T> extends State<MapLayer<T>> {
     return FutureBuilder<List<T>>(
       future: widget.future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error loading polygons: ${snapshot.error}'),
-          );
-        }
-
         final data = snapshot.data;
         if (!widget.hasPolygons && data != null) {
           widget.onDataReady(data);
@@ -79,11 +69,30 @@ class _MapLayerState<T> extends State<MapLayer<T>> {
         return Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: _handlePointerDown,
-          child: SizedBox(
-            key: widget.mapKey,
-            width: double.infinity,
-            height: double.infinity,
-            child: widget.map,
+          child: Stack(
+            children: [
+              SizedBox(
+                key: widget.mapKey,
+                width: double.infinity,
+                height: double.infinity,
+                child: widget.map,
+              ),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const Center(child: CircularProgressIndicator()),
+              if (snapshot.hasError)
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: SafeArea(
+                    child: Card(
+                      margin: const EdgeInsets.all(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text('Error loading polygons: ${snapshot.error}'),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
       },

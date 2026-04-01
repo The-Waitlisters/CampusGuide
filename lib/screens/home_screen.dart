@@ -29,10 +29,17 @@ import '../widgets/schedule/schedule_overlay.dart';
 import '../models/course_schedule_entry.dart';
 import '../services/concordia_api.dart';
 import '../services/schedule_lookup.dart';
+import '../models/user_role.dart';
+import '../services/auth/auth_service.dart';
+import 'auth/auth_gate.dart';
 
 typedef MarkerImageLoader = Future<Uint8List> Function(String path, int width);
 
 class HomeScreen extends StatefulWidget {
+  final UserRole role;
+  final String? displayName;
+  final AuthService? authService;
+
   final DataParser? dataParser;
   final BuildingLocator? buildingLocator;
   /// For tests: when non-null, used instead of the map's controller future
@@ -41,8 +48,12 @@ class HomeScreen extends StatefulWidget {
 
   final DirectionsController? testDirectionsController;
 
+
   const HomeScreen({
     super.key,
+    this.role = UserRole.guest,
+    this.displayName,
+    this.authService,
     this.dataParser,
     this.buildingLocator,
     this.testMapControllerCompleter,
@@ -78,6 +89,17 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+
+  bool get _isGuest => widget.role == UserRole.guest;
+
+  String get _userChipLabel {
+    if (_isGuest) return 'Guest';
+    final displayName = widget.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+    return 'User';
+  }
 
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
@@ -801,7 +823,40 @@ class _HomeScreenState extends HomeScreenState {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(title: const Text('The Waitlisters')),
+      appBar: AppBar(
+        title: const Text('The Waitlisters'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Chip(
+                label: Text(_userChipLabel),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              final svc = widget.authService ?? AuthService();
+              await svc.signOut();
+
+              if (!context.mounted) return;
+
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => AuthGate(authService: svc),
+                ),
+                    (route) => false,
+              );
+            },
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+
+
       body: Stack(
         children: [
           if (!isE2EMode) _buildMapLayer(),
@@ -809,8 +864,7 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          if (_currentBuildingFromGPS != null &&
-              _startBuilding == null) _buildSetCurrentAsStartCard(),
+          _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
 
           if (_showScheduleOverlay)
@@ -914,20 +968,20 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildSetCurrentAsStartCard() {
-    if (_currentBuildingFromGPS == null || !isInBuilding ||
-        _startBuilding != null) {
+    final building = _currentBuildingFromGPS; // capture locally
+
+    if (building == null || !isInBuilding || _startBuilding != null) {
       return const SizedBox.shrink();
     }
 
     final bool sheetOpen = _sheetController != null;
 
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      left: 0,
-      bottom: sheetOpen ? _sheetLiftMax : 0,
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: sheetOpen ? _sheetLiftMax : 12,
       child: UseAsStart(
-        selected: _currentBuildingFromGPS!,
+        selected: building,
         onSetStart: () {
           debugPrint(
               'Set as Start pressed for ${_currentBuildingFromGPS?.name}');
@@ -1026,6 +1080,17 @@ class _HomeScreenState extends HomeScreenState {
       },
       onMenuSelected: (String value) {
         if (value == 'schedule') {
+          if (_isGuest) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Schedule is available for user-authenticated accounts only.',
+                ),
+              ),
+            );
+            return;
+          }
+
           setState(() {
             _showScheduleOverlay = true;
           });

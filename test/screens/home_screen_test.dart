@@ -12,6 +12,7 @@ import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/poi.dart';
 import 'package:proj/models/course_schedule_entry.dart';
+import 'package:proj/models/user_role.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
 import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
 import 'package:proj/screens/indoor_map_screen.dart';
@@ -29,9 +30,35 @@ import 'package:proj/widgets/home/building_detail_sheet.dart';
 import 'package:proj/widgets/home/search_overlay.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 import 'package:proj/widgets/use_as_start.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:proj/screens/auth/login_screen.dart';
+import 'package:proj/services/auth/auth_service.dart';
+import 'package:proj/services/auth/user_profile_service.dart';
 import '../services/directions/directions_controller_and_strategy_test.dart';
 import 'home_screen_test.mocks.dart';
+
+class _MockUserProfileSvc extends Mock implements UserProfileService {}
+
+/// Fake auth service used in the logout test: overrides signOut/authStateChanges
+/// so we don't need a real Firebase connection.
+class _FakeAuthService extends AuthService {
+  _FakeAuthService()
+      : super(
+          auth: MockFirebaseAuth(),
+          profileService: _MockUserProfileSvc(),
+        );
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Stream<User?> get authStateChanges => Stream<User?>.value(null);
+
+  @override
+  bool get isGuestMode => false;
+}
 
 
 class MockGeolocatorPlatform extends Mock
@@ -2120,7 +2147,7 @@ Future<void> main() async {
     testWidgets('opens schedule overlay when menu selected', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: HomeScreen(),
+          home: HomeScreen(role: UserRole.user),
         ),
       );
 
@@ -2137,6 +2164,68 @@ Future<void> main() async {
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('shows Guest chip label for guest role', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            role: UserRole.guest,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Guest'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('shows display name in chip for user role', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            role: UserRole.user,
+            displayName: 'Bill',
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bill'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('guest selecting schedule shows authenticated-only snackbar', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            role: UserRole.guest,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final SearchOverlay searchOverlay = tester.widget<SearchOverlay>(
+        find.byType(SearchOverlay),
+      );
+      searchOverlay.onMenuSelected('schedule');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(ScheduleOverlay), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     });
 
     testWidgets('_rebuildMarkers passes zoom-derived width to markerImageLoader',
@@ -2340,6 +2429,57 @@ Future<void> main() async {
         expect(state.testPolygons, isNotEmpty);
       },
     );
+
+    testWidgets('tapping logout signs out and navigates away from HomeScreen',
+        (WidgetTester tester) async {
+      final fakeAuth = _FakeAuthService();
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        authService: fakeAuth,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.logout));
+      await tester.pumpAndSettle();
+
+      // HomeScreen has been removed from the stack; AuthGate renders LoginScreen.
+      expect(find.byType(home_screen.HomeScreen), findsNothing);
+      expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('GPS status card shows building name when fullName is null',
+        (WidgetTester tester) async {
+      final building = CampusBuilding(
+        id: 'b_noname',
+        name: 'HAL',
+        fullName: null,
+        description: null,
+        campus: Campus.sgw,
+        boundary: const [
+          LatLng(0, 0), LatLng(0, 2), LatLng(2, 2), LatLng(2, 0), LatLng(0, 0),
+        ],
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenReturn(BuildingStatus(building: building, treatedAsInside: true));
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      // fullName is null so the chip falls through to building.name
+      expect(find.text('HAL'), findsOneWidget);
+    });
 
   });
 }
