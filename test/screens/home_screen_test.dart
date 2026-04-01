@@ -2437,7 +2437,7 @@ Future<void> main() async {
             (WidgetTester tester) async {
           final mockAuth = MockAuthService();
           when(mockAuth.getCurrentAppUser()).thenAnswer(
-                (_) async => AppUser(uid: 'test-uid-123', email: 'a@b.com', role: UserRole.student, isGuest: false),
+                (_) async => AppUser(uid: 'test-uid-123', email: 'a@b.com', role: UserRole.user, isGuest: false),
           );
 
           await tester.pumpWidget(
@@ -2475,7 +2475,7 @@ Future<void> main() async {
 
       expect(find.byType(ScheduleOverlay), findsNothing);
       expect(
-        find.text('Schedule is available for student/teacher accounts only.'),
+        find.text('Schedule is available for user-authenticated accounts only.'),
         findsOneWidget,
       );
     });
