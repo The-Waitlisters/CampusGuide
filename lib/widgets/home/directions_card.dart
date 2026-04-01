@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/poi.dart';
 import 'package:proj/services/directions/transport_mode_strategy.dart';
@@ -51,6 +52,8 @@ class DirectionsCard extends StatelessWidget {
     required this.selectedModeParam,
     required this.onModeChanged,
   }) ;
+
+  static String _campusLabel(Campus c) => c == Campus.sgw ? 'SGW' : 'Loyola';
 
   @override
   Widget build(BuildContext context) {
