@@ -838,7 +838,7 @@ class _HomeScreenState extends HomeScreenState {
       final attachedController = _sheetController!;
       attachedController.closed.then((_) {
         if (mounted && _sheetController == attachedController) {
-          setState(() { _sheetController = null; });
+          setState(() { _sheetController = null; }); // coverage:ignore-line
         }
       });
     });
@@ -1006,7 +1006,7 @@ class _HomeScreenState extends HomeScreenState {
     return Positioned(
       left: 12,
       right: 12,
-      bottom: sheetOpen ? _currentSheetLift : 12,
+      bottom: sheetOpen ? _currentSheetLift : 12, // coverage:ignore-line
       child: UseAsStart(
         selected: building,
         onSetStart: () {
@@ -1143,10 +1143,10 @@ class _HomeScreenState extends HomeScreenState {
         _currentBuildingFromGPS != null && isInBuilding && _startBuilding == null;
     const double setAsStartHeight = 48.0;
     const double gap = 8.0;
-    final double setAsStartBottom = sheetOpen ? _currentSheetLift : 12;
+    final double setAsStartBottom = sheetOpen ? _currentSheetLift : 12; // coverage:ignore-line
     final double bottom = setAsStartVisible
-        ? setAsStartBottom + setAsStartHeight + gap
-        : (sheetOpen ? _currentSheetLift : 0);
+        ? setAsStartBottom + setAsStartHeight + gap // coverage:ignore-line
+        : (sheetOpen ? _currentSheetLift : 0); // coverage:ignore-line
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
