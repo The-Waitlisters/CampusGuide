@@ -127,6 +127,8 @@ class _HomeScreenState extends HomeScreenState {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
   static const double _sheetLiftMax = 210.0;
+  static const double _sheetLiftSmall = 100.0;
+  double _currentSheetLift = _sheetLiftMax;
 
   late BuildingLocator _buildingLocator;
 
@@ -679,7 +681,7 @@ class _HomeScreenState extends HomeScreenState {
   void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
     if (_sheetController != null) {
       _sheetController?.close();
-      _sheetController = null;
+      setState(() { _sheetController = null; });
       return;
     }
 
@@ -708,6 +710,7 @@ class _HomeScreenState extends HomeScreenState {
     }
 
     _sheetController?.close();
+    _currentSheetLift = _sheetLiftSmall;
     _sheetController = scaffoldState.showBottomSheet(
           (_) =>
       const Padding(
@@ -801,6 +804,7 @@ class _HomeScreenState extends HomeScreenState {
 
       _sheetController?.close();
       _sheetController = null;
+      _currentSheetLift = _sheetLiftMax;
 
       _sheetController = scaffoldState.showBottomSheet((context) {
         return BuildingDetailSheet(
@@ -831,8 +835,11 @@ class _HomeScreenState extends HomeScreenState {
       });
       _attachSheetAnimation(_sheetController);
 
-      _sheetController!.closed.then((_) {
-        if (mounted) _sheetController = null;
+      final attachedController = _sheetController!;
+      attachedController.closed.then((_) {
+        if (mounted && _sheetController == attachedController) {
+          setState(() { _sheetController = null; });
+        }
       });
     });
   }
@@ -999,7 +1006,7 @@ class _HomeScreenState extends HomeScreenState {
     return Positioned(
       left: 12,
       right: 12,
-      bottom: sheetOpen ? _sheetLiftMax : 12,
+      bottom: sheetOpen ? _currentSheetLift : 12,
       child: UseAsStart(
         selected: building,
         onSetStart: () {
@@ -1132,11 +1139,19 @@ class _HomeScreenState extends HomeScreenState {
 
   Widget _buildRecenterButton() {
     final bool sheetOpen = _sheetController != null;
+    final bool setAsStartVisible =
+        _currentBuildingFromGPS != null && isInBuilding && _startBuilding == null;
+    const double setAsStartHeight = 48.0;
+    const double gap = 8.0;
+    final double setAsStartBottom = sheetOpen ? _currentSheetLift : 12;
+    final double bottom = setAsStartVisible
+        ? setAsStartBottom + setAsStartHeight + gap
+        : (sheetOpen ? _currentSheetLift : 0);
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       right: 12,
-      bottom: sheetOpen ? _sheetLiftMax : 0,
+      bottom: bottom,
       child: FloatingActionButton.small(
         heroTag: 'recenter',
         onPressed: () async {
