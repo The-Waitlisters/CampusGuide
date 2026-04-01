@@ -74,10 +74,9 @@ class LocationDisabledGeolocatorPlatform extends Mock
 }
 
 class FakeDataParser extends DataParser {
-  FakeDataParser(this._buildings, this._poi);
+  FakeDataParser(this._buildings);
 
   final List<CampusBuilding> _buildings;
-  final List<Poi> _poi;
 
   @override
   Future<List<CampusBuilding>> getBuildingInfoFromJSON() async {
@@ -85,11 +84,6 @@ class FakeDataParser extends DataParser {
     return _buildings;
   }
 
-  @override
-  Future<List<Poi>> getMarkersFromJSON() async {
-    poiPresent = _poi;
-    return _poi;
-  }
 }
 
 class FakeGeocodingSuccess extends GeocodingPlatform with MockPlatformInterfaceMixin {
@@ -489,7 +483,6 @@ Future<void> main() async {
 
       when(mockDataParser.getBuildingInfoFromJSON())
           .thenAnswer((_) async => <CampusBuilding>[]);
-      when(mockDataParser.getMarkersFromJSON()).thenAnswer((_) async => <Poi>[]);
       when(mockDataParser.buildingsPresent).thenReturn(<CampusBuilding>[]);
       when(mockDataParser.poiPresent).thenReturn(<Poi>[]);
       when(mockBuildingLocator.update(
@@ -558,41 +551,6 @@ Future<void> main() async {
         });
 
 
-    testWidgets('_rebuildMarkers adds one marker per POI', (WidgetTester tester) async {
-      Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
-          return Uint8List.fromList([1, 2, 3, 4]);
-        }
-
-        when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-          (_) async => [
-            testPoi(),
-            testPoi2()
-          ],
-        );
-
-      await tester.pumpWidget(
-          MaterialApp(
-            home: HomeScreen(
-              dataParser: mockDataParser,
-              markerImageLoader: fakeMarkerImageLoader,
-              testMapControllerCompleter: Completer<GoogleMapController>(),
-            ),
-          ),
-        );
-
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-
-        final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
-
-        expect(state.markers.length, 2);
-
-        expect(state.markers[0].markerId.value, '0');
-        expect(state.markers[0].position, const LatLng(0, 0));
-        expect(state.markers[1].markerId.value, '1');
-        expect(state.markers[1].position, const LatLng(0, 0));
-
-  });
 
     
     testWidgets('shows error message when buildings future fails',
@@ -656,15 +614,6 @@ Future<void> main() async {
           verify(mockDataParser.getBuildingInfoFromJSON()).called(1);
         });
 
-    testWidgets('calls getMarkersFromJSON on init when parser is provided',
-            (WidgetTester tester) async {
-          await tester.pumpWidget(wrap(home_screen.HomeScreen(
-            dataParser: mockDataParser
-          )));
-          await tester.pump();
-
-          verify(mockDataParser.getMarkersFromJSON()).called(1);
-        });
 
     testWidgets('location services disabled does not start stream',
             (WidgetTester tester) async {
@@ -1987,6 +1936,7 @@ Future<void> main() async {
         );
         await tester.pumpAndSettle();
 
+        // ignore: unused_local_variable
         final dynamic state =
         tester.state(find.byType(home_screen.HomeScreen).first);
 
@@ -2138,121 +2088,6 @@ Future<void> main() async {
       await tester.pump(const Duration(milliseconds: 500));
     });
 
-    testWidgets('_rebuildMarkers passes zoom-derived width to markerImageLoader',
-        (WidgetTester tester) async {
-      // FakeGoogleMapController.getZoomLevel() returns 0.0
-      // zoom=0 → clamped to minZoom(13) → logicalSize=24 → round=24
-      final fakeController = FakeGoogleMapController();
-      final capturedWidths = <int>[];
-
-      Future<Uint8List> capturingLoader(String path, int width) async {
-        capturedWidths.add(width);
-        return Uint8List.fromList([1, 2, 3, 4]);
-      }
-
-      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-        (_) async => [testPoi(), testPoi2()],
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            markerImageLoader: capturingLoader,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final dynamic state = tester.state(find.byType(HomeScreen).first);
-      state.setMapControllerForTest(fakeController);
-      capturedWidths.clear();
-
-      // Trigger a rebuild now that the controller is set
-      state.simulateCameraMove(const CameraPosition(target: LatLng(45.5, -73.6), zoom: 16));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
-
-      // zoom=0 from FakeGoogleMapController → clamps to 13 → width=24
-      expect(capturedWidths.every((w) => w == 24), isTrue);
-    });
-
-    testWidgets('_rebuildMarkers uses fallback zoom 15 when controller is null',
-        (WidgetTester tester) async {
-      // zoom=15 → t=(15-13)/7≈0.286 → size=24+0.286*32≈33.14 → round=33
-      final capturedWidths = <int>[];
-
-      Future<Uint8List> capturingLoader(String path, int width) async {
-        capturedWidths.add(width);
-        return Uint8List.fromList([1, 2, 3, 4]);
-      }
-
-      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-        (_) async => [testPoi(), testPoi2()],
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            markerImageLoader: capturingLoader,
-            testMapControllerCompleter: Completer<GoogleMapController>(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // Controller is null so zoom fallback is 15.0 → width = 33
-      expect(capturedWidths.every((w) => w == 33), isTrue);
-    });
-
-    testWidgets('_onCameraMove debounces and triggers marker rebuild',
-        (WidgetTester tester) async {
-      int rebuildCount = 0;
-
-      Future<Uint8List> countingLoader(String path, int width) async {
-        rebuildCount++;
-        return Uint8List.fromList([1, 2, 3, 4]);
-      }
-
-      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-        (_) async => [testPoi()],
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            markerImageLoader: countingLoader,
-            testMapControllerCompleter: Completer<GoogleMapController>(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      final int countAfterInit = rebuildCount;
-
-      // Simulate 5 rapid camera moves — debounce should collapse into one rebuild
-      final dynamic state = tester.state(find.byType(HomeScreen).first);
-      const fakePosition = CameraPosition(target: LatLng(45.5, -73.6), zoom: 15);
-      for (int i = 0; i < 5; i++) {
-        state.simulateCameraMove(fakePosition);
-      }
-
-      // Before debounce fires, no extra rebuild yet
-      expect(rebuildCount, countAfterInit);
-
-      // After debounce window, exactly one extra rebuild
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
-
-      expect(rebuildCount, countAfterInit + 1);
-    });
 
     testWidgets(
       'simulateCampusChange resets locator, clears GPS building, and rebuilds polygons',

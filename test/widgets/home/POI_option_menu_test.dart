@@ -1,9 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:proj/models/campus.dart';
-import 'package:proj/models/poi.dart';
-import 'package:proj/widgets/home/poi_option_menu.dart';
 
 void main() {
   group('POI Option Menu', () {

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:proj/config/secrets.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/poi.dart';
 
@@ -155,6 +154,8 @@ Widget _buildPhotoGallery() {
   @override
   Widget build(BuildContext context) {
     String open = "";
+    bool status = true;
+    (poi) ?? status == false;
     
     (poi?.openNow ?? false) ? open = "Open": open = "Closed";
     return Column(
@@ -164,7 +165,7 @@ Widget _buildPhotoGallery() {
         if(isPoi) Column(crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('${poi?.description ?? ''}, Rating: ${poi?.rating}/5'),
-          Text(open, style: TextStyle(color: (poi!.openNow! ? Colors.green : Colors.red)),)
+           Text(open, style: TextStyle(color: ((poi!.openNow ?? false) ? Colors.green : Colors.red)),)
           ],
           ),
           
@@ -209,8 +210,9 @@ Widget _buildPhotoGallery() {
           Text('Opening Hours', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
           const SizedBox(height: 12),
           for(final hour in poi!.openingHours) Text(hour),
+          if(poi!.openingHours.isEmpty) Text('Location is closed for the forseeable future')
+          ],
           
-          ]
           
       ],
     );

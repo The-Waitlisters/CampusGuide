@@ -1,12 +1,9 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import './campus.dart';
+import 'package:proj/models/location.dart';
 
-class CampusBuilding {
-  final String id;
-  final String name;
+class CampusBuilding extends MapLocation{
+
   final String? fullName; // Optional full name
-  final String? description; // Optional description
-  final Campus campus;
   final List<LatLng> boundary;
   final List<String> openingHours;
   final bool isWheelchairAccessible;
@@ -16,12 +13,12 @@ class CampusBuilding {
   final List<String> services;
 
   CampusBuilding({
-    required this.id,
-    required this.name,
-    required this.campus,
+    required super.id,
+    required super.name,
+    required super.campus,
+    required super.description,
     required this.boundary,
     required this.fullName,
-    required this.description,
     this.openingHours = const [],
     this.isWheelchairAccessible = false,
     this.hasBikeParking = false,
