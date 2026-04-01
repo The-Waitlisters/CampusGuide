@@ -2018,9 +2018,6 @@ Future<void> main() async {
         );
         await tester.pumpAndSettle();
 
-        final dynamic state =
-        tester.state(find.byType(home_screen.HomeScreen).first);
-
         final bounds = home_screen.boundsForRoute(
           const LatLng(46.0, -73.0),
           const LatLng(45.0, -74.0),
@@ -2455,31 +2452,58 @@ Future<void> main() async {
         });
 
     testWidgets('guest user opening schedule shows snackbar and not overlay',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            role: UserRole.guest,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+            (WidgetTester tester) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: HomeScreen(
+                dataParser: mockDataParser,
+                buildingLocator: mockBuildingLocator,
+                role: UserRole.guest,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
 
-      final SearchOverlay searchOverlay =
-      tester.widget<SearchOverlay>(find.byType(SearchOverlay));
+          final SearchOverlay searchOverlay =
+          tester.widget<SearchOverlay>(find.byType(SearchOverlay));
 
-      searchOverlay.onMenuSelected('schedule');
-      await tester.pumpAndSettle();
+          searchOverlay.onMenuSelected('schedule');
+          await tester.pumpAndSettle();
 
-      expect(find.byType(ScheduleOverlay), findsNothing);
-      expect(
-        find.text('Schedule is available for user-authenticated accounts only.'),
-        findsOneWidget,
-      );
-    });
- testWidgets('tapping logout signs out and navigates away from HomeScreen',
+          expect(find.byType(ScheduleOverlay), findsNothing);
+          expect(
+            find.text('Schedule is available for user-authenticated accounts only.'),
+            findsOneWidget,
+          );
+        });
+
+    testWidgets(
+      'recenter button appears after map move and is tappable',
+          (WidgetTester tester) async {
+        await tester.pumpWidget(wrap(home_screen.HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+        )));
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+        tester.state(find.byType(home_screen.HomeScreen).first);
+
+        expect(find.byTooltip('Recenter to my location'), findsNothing);
+
+        state.simulateCameraMove(
+          const CameraPosition(target: LatLng(45.5, -73.6), zoom: 15),
+        );
+        await tester.pump();
+
+        expect(find.byTooltip('Recenter to my location'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Recenter to my location'));
+        await tester.pump();
+      },
+    );
+
+    testWidgets('tapping logout signs out and navigates away from HomeScreen',
         (WidgetTester tester) async {
       final fakeAuth = _FakeAuthService();
 
