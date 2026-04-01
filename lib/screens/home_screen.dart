@@ -127,6 +127,8 @@ class _HomeScreenState extends HomeScreenState {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
   static const double _sheetLiftMax = 210.0;
+  static const double _sheetLiftSmall = 100.0;
+  double _currentSheetLift = _sheetLiftMax;
 
   late BuildingLocator _buildingLocator;
 
@@ -135,6 +137,9 @@ class _HomeScreenState extends HomeScreenState {
 
   bool isInBuilding = false;
   bool _showScheduleOverlay = false;
+  bool _mapMoved = false;
+  bool _programmaticCameraMove = false;
+  LatLng? _lastKnownPosition;
 
   final List<Marker> _markers = <Marker>[];
 
@@ -189,6 +194,11 @@ class _HomeScreenState extends HomeScreenState {
   void _onCameraMove(CameraPosition _) {
     _markerRebuildDebounce?.cancel();
     _markerRebuildDebounce = Timer(const Duration(milliseconds: 300), _rebuildMarkers);
+    if (!_programmaticCameraMove && !_mapMoved) {
+      setState(() {
+        _mapMoved = true;
+      });
+    }
   }
 
   @visibleForTesting
@@ -278,6 +288,11 @@ class _HomeScreenState extends HomeScreenState {
           ),
         ).listen((Position pos) {
           final userPoint = LatLng(pos.latitude, pos.longitude);
+          if (mounted) {
+            setState(() {
+              _lastKnownPosition = userPoint;
+            });
+          }
           final result = _buildingLocator.update(
             userPoint: userPoint,
             campus: _campus,
@@ -609,6 +624,9 @@ class _HomeScreenState extends HomeScreenState {
         : _mapController;
     if (controller == null) return;
     final info = campusInfo[campus]!;
+    setState(() {
+      _programmaticCameraMove = true;
+    });
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: info.center, zoom: info.zoom),
@@ -619,6 +637,8 @@ class _HomeScreenState extends HomeScreenState {
       _campus = campus;
       _buildingLocator.reset();
       _currentBuildingFromGPS = null;
+      _mapMoved = false;
+      _programmaticCameraMove = false;
     });
   }
 
@@ -661,7 +681,7 @@ class _HomeScreenState extends HomeScreenState {
   void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
     if (_sheetController != null) {
       _sheetController?.close();
-      _sheetController = null;
+      setState(() { _sheetController = null; });
       return;
     }
 
@@ -690,6 +710,7 @@ class _HomeScreenState extends HomeScreenState {
     }
 
     _sheetController?.close();
+    _currentSheetLift = _sheetLiftSmall;
     _sheetController = scaffoldState.showBottomSheet(
           (_) =>
       const Padding(
@@ -783,6 +804,7 @@ class _HomeScreenState extends HomeScreenState {
 
       _sheetController?.close();
       _sheetController = null;
+      _currentSheetLift = _sheetLiftMax;
 
       _sheetController = scaffoldState.showBottomSheet((context) {
         return BuildingDetailSheet(
@@ -813,8 +835,11 @@ class _HomeScreenState extends HomeScreenState {
       });
       _attachSheetAnimation(_sheetController);
 
-      _sheetController!.closed.then((_) {
-        if (mounted) _sheetController = null;
+      final attachedController = _sheetController!;
+      attachedController.closed.then((_) {
+        if (mounted && _sheetController == attachedController) {
+          setState(() { _sheetController = null; }); // coverage:ignore-line
+        }
       });
     });
   }
@@ -864,7 +889,9 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          _buildSetCurrentAsStartCard(),
+          if (_mapMoved && _lastKnownPosition != null) _buildRecenterButton(),
+          if (_currentBuildingFromGPS != null &&
+              _startBuilding == null) _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
 
           if (_showScheduleOverlay)
@@ -918,7 +945,7 @@ class _HomeScreenState extends HomeScreenState {
           : <Polyline>{_directions.state.polyline!}, // coverage:ignore-line
       markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
-      myLocationButtonEnabled: !isE2EMode,
+      myLocationButtonEnabled: false,
       onMapCreated: (GoogleMapController controller) {
         // coverage:ignore-start
         setState(() {
@@ -979,7 +1006,7 @@ class _HomeScreenState extends HomeScreenState {
     return Positioned(
       left: 12,
       right: 12,
-      bottom: sheetOpen ? _sheetLiftMax : 12,
+      bottom: sheetOpen ? _currentSheetLift : 12, // coverage:ignore-line
       child: UseAsStart(
         selected: building,
         onSetStart: () {
@@ -1107,6 +1134,47 @@ class _HomeScreenState extends HomeScreenState {
 
         _onBuildingTapped(b);
       },
+    );
+  }
+
+  Widget _buildRecenterButton() {
+    final bool sheetOpen = _sheetController != null;
+    final bool setAsStartVisible =
+        _currentBuildingFromGPS != null && isInBuilding && _startBuilding == null;
+    const double setAsStartHeight = 48.0;
+    const double gap = 8.0;
+    final double setAsStartBottom = sheetOpen ? _currentSheetLift : 12; // coverage:ignore-line
+    final double bottom = setAsStartVisible
+        ? setAsStartBottom + setAsStartHeight + gap // coverage:ignore-line
+        : (sheetOpen ? _currentSheetLift : 0); // coverage:ignore-line
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      right: 12,
+      bottom: bottom,
+      child: FloatingActionButton.small(
+        heroTag: 'recenter',
+        onPressed: () async {
+          // coverage:ignore-start
+          final pos = _lastKnownPosition;
+          if (pos == null) return;
+          final controller = _mapController;
+          if (controller == null) return;
+          setState(() {
+            _programmaticCameraMove = true;
+          });
+          await controller.animateCamera(
+            CameraUpdate.newLatLng(pos),
+          );
+          setState(() {
+            _mapMoved = false;
+            _programmaticCameraMove = false;
+          });
+          // coverage:ignore-end
+        },
+        tooltip: 'Recenter to my location',
+        child: const Icon(Icons.my_location),
+      ),
     );
   }
 
