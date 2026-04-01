@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:mocktail/mocktail.dart';
@@ -65,6 +66,10 @@ class FakeAuthGateService extends AuthService {
 }
 
 void main() {
+  setUpAll(() {
+    dotenv.testLoad(fileInput: '');
+  });
+
   testWidgets('AuthGate shows LoginScreen when user is unauthenticated', (
       tester) async {
     final mockAuth = MockFirebaseAuth(signedIn: false);
