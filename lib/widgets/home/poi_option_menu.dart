@@ -130,7 +130,7 @@ class PoiOptionMenu extends StatelessWidget {
                             value: nightClub,
                             onChanged: onNightClubChanged,
                           ),
-                          Text('Bars/Night Clubs'),
+                          Text('Night Clubs'),
                         ],
                       ),
 
