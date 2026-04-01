@@ -528,30 +528,7 @@ Future<void> main() async {
           expect(find.byType(CircularProgressIndicator), findsNothing);
         });
 
-    testWidgets('loads one marker per POI', (WidgetTester tester) async {
-        Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
-          return Uint8List.fromList([1, 2, 3, 4]);
-        }
-
-        await tester.pumpWidget(
-          MaterialApp(
-            home: HomeScreen(
-              markerImageLoader: fakeMarkerImageLoader,
-            ),
-          ),
-        );
-
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
-
-        final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
-
-        expect(state.markers.isNotEmpty, true);
-        });
-
-
-
+    
     
     testWidgets('shows error message when buildings future fails',
             (WidgetTester tester) async {

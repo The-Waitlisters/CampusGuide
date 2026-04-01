@@ -1575,10 +1575,10 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   /// For tests: invoke the private `_onBuildingTapped` method, including the null branch.
-  /* @visibleForTesting
+   @visibleForTesting
   void simulateBuildingTap(CampusBuilding? building) {
     _onBuildingTapped(building);
-  }*/
+  }
 
   /// For tests: complete the internal map controller completer so the Listener
   /// `onPointerDown` logic can await `_controller.future`.
