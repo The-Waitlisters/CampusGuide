@@ -9,6 +9,7 @@ class CampusBuilding extends MapLocation{
   final bool isWheelchairAccessible;
   final bool hasBikeParking;
   final bool hasCarParking;
+  final bool hasMetroAccess;
   final List<String> departments;
   final List<String> services;
 
@@ -23,6 +24,7 @@ class CampusBuilding extends MapLocation{
     this.isWheelchairAccessible = false,
     this.hasBikeParking = false,
     this.hasCarParking = false,
+    this.hasMetroAccess = false,
     this.departments = const [],
     this.services = const [],
   });
