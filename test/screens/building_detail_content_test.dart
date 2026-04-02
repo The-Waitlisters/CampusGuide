@@ -47,6 +47,7 @@ Widget _wrap(CampusBuilding b, {bool isAnnex = false, CampusBuilding? start}) {
         endBuilding: null,
         onSetStart: () {},
         onSetDestination: () {},
+        isPoi: false,
       ),
     ),
   );
@@ -204,6 +205,7 @@ void main() {
             onSetStart: () {},
             onSetDestination: () {},
             onViewIndoorMap: () => tapped = true,
+            isPoi: false,
           ),
         ),
       ),
