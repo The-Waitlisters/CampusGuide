@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use, prefer_typing_uninitialized_variables
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,7 +21,10 @@ import 'package:proj/services/building_locator.dart';
 import 'package:proj/widgets/home/campus_map.dart';
 import 'package:proj/widgets/home/results.dart';
 import '../config/secrets.dart';
+import '../data/indoor_map_data.dart';
 import '../main.dart';
+import '../models/floor.dart';
+import '../models/room.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../services/route_logic.dart';
@@ -104,6 +108,7 @@ class _HomeScreenState extends HomeScreenState {
   late DataParser data;
   GoogleMapController? _mapController;
   Campus _campus = Campus.sgw;
+  Floor? _indoorFloor;
   // ignore: unused_field
   LatLng? _cursorPoint;
   LatLng? lastTap;
@@ -129,6 +134,12 @@ class _HomeScreenState extends HomeScreenState {
 
   /// Shown when destination-first but location is unavailable.
   String? _locationRequiredMessage;
+
+  GroundOverlay? _groundOverlay;
+  // Screen-coordinate floor plan overlay (web fallback)
+  _FloorOverlayTransform? _floorOverlayTransform;
+  LatLng? _overlaySwCorner;
+  LatLng? _overlayNeCorner;
 
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
@@ -245,6 +256,9 @@ class _HomeScreenState extends HomeScreenState {
       setState(() {
         _mapMoved = true;
       });
+    }
+    if (_overlaySwCorner != null && _overlayNeCorner != null) {
+      _recomputeFloorOverlay();
     }
   }
 
@@ -875,6 +889,80 @@ class _HomeScreenState extends HomeScreenState {
     await _updateDirectionsIfReady();
   }
 
+  Future<void> _buildGroundOverlay(CampusBuilding building, Floor floor) async {
+    if (floor.imagePath == null) return;
+
+    final boundary = building.boundary;
+    if (boundary.isEmpty) return;
+
+    double minLat = boundary[0].latitude;
+    double maxLat = boundary[0].latitude;
+    double minLng = boundary[0].longitude;
+    double maxLng = boundary[0].longitude;
+    for (final p in boundary) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    setState(() {
+      _overlaySwCorner = LatLng(minLat, minLng);
+      _overlayNeCorner = LatLng(maxLat, maxLng);
+    });
+
+    _recomputeFloorOverlay();
+  }
+
+  Future<void> _recomputeFloorOverlay() async {
+    final controller = _mapController;
+    final sw = _overlaySwCorner;
+    final ne = _overlayNeCorner;
+    final floor = _indoorFloor;
+    if (controller == null || sw == null || ne == null || floor == null) return;
+
+    try {
+      final pSW = await controller.getScreenCoordinate(sw);
+      final pNE = await controller.getScreenCoordinate(ne);
+      final pNW = await controller.getScreenCoordinate(LatLng(ne.latitude, sw.longitude));
+      final pSE = await controller.getScreenCoordinate(LatLng(sw.latitude, ne.longitude));
+
+      if (!mounted) return;
+
+      // Center of the four corners
+      final cx = (pSW.x + pNE.x + pNW.x + pSE.x) / 4.0;
+      final cy = (pSW.y + pNE.y + pNW.y + pSE.y) / 4.0;
+
+      // Width: average of top and bottom edge lengths
+      final topW = _dist(pNW.x, pNW.y, pNE.x, pNE.y);
+      final botW = _dist(pSW.x, pSW.y, pSE.x, pSE.y);
+      final width = (topW + botW) / 2.0;
+
+      // Height: average of left and right edge lengths
+      final leftH = _dist(pNW.x, pNW.y, pSW.x, pSW.y);
+      final rightH = _dist(pNE.x, pNE.y, pSE.x, pSE.y);
+      final height = (leftH + rightH) / 2.0;
+
+      // Rotation from the top edge NW→NE
+      final angle = math.atan2(
+        (pNE.y - pNW.y).toDouble(),
+        (pNE.x - pNW.x).toDouble(),
+      );
+
+      setState(() {
+        _floorOverlayTransform = _FloorOverlayTransform(
+          cx: cx, cy: cy, width: width, height: height, angle: angle,
+        );
+      });
+    } catch (_) {}
+  }
+
+  static double _dist(int x1, int y1, int x2, int y2) {
+    final dx = (x2 - x1).toDouble();
+    final dy = (y2 - y1).toDouble();
+    return math.sqrt(dx * dx + dy * dy);
+  }
+
   Future<void> _handlePoiAsStart(Poi poi) async {
     debugPrint('Set as Start: ${poi.name}');
     setState(() {
@@ -1276,6 +1364,10 @@ class _HomeScreenState extends HomeScreenState {
       body: Stack(
         children: [
           if (!isE2EMode) _buildMapLayer(),
+
+          if (_floorOverlayTransform != null && _indoorFloor?.imagePath != null)
+            _buildFloorPlanWidget(),
+
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
@@ -1378,15 +1470,27 @@ class _HomeScreenState extends HomeScreenState {
                   // Set as outdoor destination for directions
                   _handleSetAsDestination(destination);
 
-                  // Navigate to indoor map with room pre-selected
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => IndoorMapScreen(
-                        building: destination,
-                        initialDestinationRoomId: entry.room,
-                      ),
-                    ),
-                  );
+                  // Find which floor the room is on
+                  loadIndoorMapForBuilding(destination).then((indoorMap) {
+                    if (indoorMap == null || !mounted) return;
+                    final stripped = entry.room.replaceAll(RegExp(r'^[A-Za-z]+-?'), '');
+                    for (final floor in indoorMap.floors) {
+                      final match = floor.rooms.cast<Room?>().firstWhere(
+                            (r) => r!.id == entry.room || r.name == entry.room || r.id == stripped || r.name == stripped,
+                        orElse: () => null,
+                      );
+                      if (match != null) {
+                        setState(() => _indoorFloor = floor);
+
+                        debugPrint('_groundOverlay: $_groundOverlay');
+                        debugPrint('floor imagePath: ${floor.imagePath}');
+
+                        _buildGroundOverlay(destination, floor);
+                        break;
+                      }
+                    }
+                  });
+
                 }
               },
               lookupService: ScheduleLookupService(
@@ -1421,6 +1525,26 @@ class _HomeScreenState extends HomeScreenState {
         icon: const Icon(Icons.place),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
+    );
+  }
+
+  Widget _buildFloorPlanWidget() {
+    final t = _floorOverlayTransform!;
+    final imagePath = _indoorFloor!.imagePath!;
+    return Positioned(
+      left: t.cx - t.width / 2,
+      top: t.cy - t.height / 2,
+      width: t.width,
+      height: t.height,
+      child: IgnorePointer(
+        child: Transform.rotate(
+          angle: t.angle,
+          child: Opacity(
+            opacity: 0.7,
+            child: Image.asset(imagePath, fit: BoxFit.fill),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1469,7 +1593,7 @@ class _HomeScreenState extends HomeScreenState {
         // coverage:ignore-end
       },
 
-      // onCameraMove: _onCameraMove,
+      onCameraMove: _onCameraMove,
     );
   }
 
@@ -1841,4 +1965,19 @@ LatLngBounds boundsForRoute(LatLng a, LatLng b) {
   );
 
   return LatLngBounds(southwest: sw, northeast: ne);
+}
+
+class _FloorOverlayTransform {
+  const _FloorOverlayTransform({
+    required this.cx,
+    required this.cy,
+    required this.width,
+    required this.height,
+    required this.angle,
+  });
+  final double cx;
+  final double cy;
+  final double width;
+  final double height;
+  final double angle;
 }

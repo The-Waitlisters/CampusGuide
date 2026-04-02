@@ -72,68 +72,65 @@ class ScheduleDisplay extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: ListView.builder(
-                itemCount: entries.length,
-                itemBuilder: (BuildContext context, int index) {
-                  final CourseScheduleEntry entry = entries[index];
+            child: ListView.builder(
+              itemCount: entries.length,
+              itemBuilder: (BuildContext context, int index) {
+                final CourseScheduleEntry entry = entries[index];
 
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: entry.hasRoom ? () => onRoomTap(entry) : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: Colors.grey.shade300),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                entry.dayAndTime,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                entry.room.isEmpty ? 'N/A' : entry.room,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: entry.hasRoom
-                                      ? Colors.black
-                                      : Colors.grey,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => onRemove(entry),
-                              icon: const Icon(Icons.remove_circle_outline),
-                              color: Colors.grey,
-                              tooltip: 'Remove from schedule',
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: entry.hasRoom ? () => onRoomTap(entry) : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade300),
                         ),
                       ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              entry.dayAndTime,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              entry.room.isEmpty ? 'N/A' : entry.room,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: entry.hasRoom
+                                    ? Colors.black
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => onRemove(entry),
+                            icon: const Icon(Icons.remove_circle_outline),
+                            color: Colors.grey,
+                            tooltip: 'Remove from schedule',
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ],
