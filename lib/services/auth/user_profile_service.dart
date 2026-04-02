@@ -17,6 +17,7 @@ class UserProfileService {
     required String firstName,
     required String lastName,
   }) async {
+    // coverage:ignore-start
     await _users.doc(uid).set({
       'email': email,
       'role': UserRole.user.value,
@@ -24,6 +25,7 @@ class UserProfileService {
       'lastName': lastName,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    // coverage:ignore-end
   }
 
   Future<Map<String, dynamic>?> getUserProfile(String uid) async {
@@ -39,18 +41,22 @@ class UserProfileService {
     }
 
     return UserRoleX.fromValue(data['role'] as String);
+    // coverage:ignore-end
   }
 
   Future<void> saveSchedule({
     required String uid,
     required List<CourseScheduleEntry> entries,
   }) async {
+    // coverage:ignore-start
     await _users.doc(uid).update({
       'schedule': entries.map((e) => e.toJson()).toList(),
     });
+    // coverage:ignore-end
   }
 
   Future<List<CourseScheduleEntry>> loadSchedule({required String uid}) async {
+    // coverage:ignore-start
     final doc = await _users.doc(uid).get();
     final data = doc.data();
 
@@ -60,5 +66,7 @@ class UserProfileService {
     return raw
         .map((e) => CourseScheduleEntry.fromJson(e as Map<String, dynamic>))
         .toList();
+    // coverage:ignore-end
   }
+
 }

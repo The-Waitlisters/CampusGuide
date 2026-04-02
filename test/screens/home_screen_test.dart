@@ -49,9 +49,9 @@ class _MockUserProfileSvc extends Mock implements UserProfileService {}
 class _FakeAuthService extends AuthService {
   _FakeAuthService()
       : super(
-          auth: MockFirebaseAuth(),
-          profileService: _MockUserProfileSvc(),
-        );
+    auth: MockFirebaseAuth(),
+    profileService: _MockUserProfileSvc(),
+  );
 
   @override
   Future<void> signOut() async {}
@@ -499,7 +499,7 @@ Future<void> main() async {
 
   test('defaultMarkerImageLoader loads and converts an asset image', () async {
     final Uint8List bytes =
-        await defaultMarkerImageLoader('assets/coffee.png', 100);
+    await defaultMarkerImageLoader('assets/coffee.png', 100);
 
     expect(bytes, isNotEmpty);
   });
@@ -566,67 +566,67 @@ Future<void> main() async {
         });
 
     testWidgets('loads one marker per POI', (WidgetTester tester) async {
-        Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
-          return Uint8List.fromList([1, 2, 3, 4]);
-        }
+      Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
+        return Uint8List.fromList([1, 2, 3, 4]);
+      }
 
-        await tester.pumpWidget(
-          MaterialApp(
-            home: HomeScreen(
-              markerImageLoader: fakeMarkerImageLoader,
-            ),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            markerImageLoader: fakeMarkerImageLoader,
           ),
-        );
+        ),
+      );
 
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
 
-        final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
+      final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
 
-        expect(state.markers.isNotEmpty, true);
-        });
+      expect(state.markers.isNotEmpty, true);
+    });
 
 
     testWidgets('_rebuildMarkers adds one marker per POI', (WidgetTester tester) async {
       Future<Uint8List> fakeMarkerImageLoader(String path, int width) async {
-          return Uint8List.fromList([1, 2, 3, 4]);
-        }
+        return Uint8List.fromList([1, 2, 3, 4]);
+      }
 
-        when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-          (_) async => [
-            testPoi(),
-            testPoi2()
-          ],
-        );
+      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+            (_) async => [
+          testPoi(),
+          testPoi2()
+        ],
+      );
 
       await tester.pumpWidget(
-          MaterialApp(
-            home: HomeScreen(
-              dataParser: mockDataParser,
-              markerImageLoader: fakeMarkerImageLoader,
-              testMapControllerCompleter: Completer<GoogleMapController>(),
-            ),
+        MaterialApp(
+          home: HomeScreen(
+            dataParser: mockDataParser,
+            markerImageLoader: fakeMarkerImageLoader,
+            testMapControllerCompleter: Completer<GoogleMapController>(),
           ),
-        );
+        ),
+      );
 
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-        final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
+      final state = tester.state<HomeScreenState>(find.byType(HomeScreen));
 
-        expect(state.markers.length, 2);
+      expect(state.markers.length, 2);
 
-        expect(state.markers[0].markerId.value, '0');
-        expect(state.markers[0].position, const LatLng(0, 0));
-        expect(state.markers[0].infoWindow.title, 'Location: 0');
-        expect(state.markers[1].markerId.value, '1');
-        expect(state.markers[1].position, const LatLng(0, 0));
-        expect(state.markers[1].infoWindow.title, 'Location: 1');
+      expect(state.markers[0].markerId.value, '0');
+      expect(state.markers[0].position, const LatLng(0, 0));
+      expect(state.markers[0].infoWindow.title, 'Location: 0');
+      expect(state.markers[1].markerId.value, '1');
+      expect(state.markers[1].position, const LatLng(0, 0));
+      expect(state.markers[1].infoWindow.title, 'Location: 1');
 
-  });
+    });
 
-    
+
     testWidgets('shows error message when buildings future fails',
             (WidgetTester tester) async {
           when(mockDataParser.getBuildingInfoFromJSON())
@@ -691,7 +691,7 @@ Future<void> main() async {
     testWidgets('calls getMarkersFromJSON on init when parser is provided',
             (WidgetTester tester) async {
           await tester.pumpWidget(wrap(home_screen.HomeScreen(
-            dataParser: mockDataParser
+              dataParser: mockDataParser
           )));
           await tester.pump();
 
@@ -2229,120 +2229,120 @@ Future<void> main() async {
     });
 
     testWidgets('_rebuildMarkers passes zoom-derived width to markerImageLoader',
-        (WidgetTester tester) async {
-      // FakeGoogleMapController.getZoomLevel() returns 0.0
-      // zoom=0 → clamped to minZoom(13) → logicalSize=24 → round=24
-      final fakeController = FakeGoogleMapController();
-      final capturedWidths = <int>[];
+            (WidgetTester tester) async {
+          // FakeGoogleMapController.getZoomLevel() returns 0.0
+          // zoom=0 → clamped to minZoom(13) → logicalSize=24 → round=24
+          final fakeController = FakeGoogleMapController();
+          final capturedWidths = <int>[];
 
-      Future<Uint8List> capturingLoader(String path, int width) async {
-        capturedWidths.add(width);
-        return Uint8List.fromList([1, 2, 3, 4]);
-      }
+          Future<Uint8List> capturingLoader(String path, int width) async {
+            capturedWidths.add(width);
+            return Uint8List.fromList([1, 2, 3, 4]);
+          }
 
-      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-        (_) async => [testPoi(), testPoi2()],
-      );
+          when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+                (_) async => [testPoi(), testPoi2()],
+          );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            markerImageLoader: capturingLoader,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+          await tester.pumpWidget(
+            MaterialApp(
+              home: HomeScreen(
+                dataParser: mockDataParser,
+                buildingLocator: mockBuildingLocator,
+                markerImageLoader: capturingLoader,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
 
-      final dynamic state = tester.state(find.byType(HomeScreen).first);
-      state.setMapControllerForTest(fakeController);
-      capturedWidths.clear();
+          final dynamic state = tester.state(find.byType(HomeScreen).first);
+          state.setMapControllerForTest(fakeController);
+          capturedWidths.clear();
 
-      // Trigger a rebuild now that the controller is set
-      state.simulateCameraMove(const CameraPosition(target: LatLng(45.5, -73.6), zoom: 16));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
+          // Trigger a rebuild now that the controller is set
+          state.simulateCameraMove(const CameraPosition(target: LatLng(45.5, -73.6), zoom: 16));
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.pumpAndSettle();
 
-      // zoom=0 from FakeGoogleMapController → clamps to 13 → width=24
-      expect(capturedWidths.every((w) => w == 24), isTrue);
-    });
+          // zoom=0 from FakeGoogleMapController → clamps to 13 → width=24
+          expect(capturedWidths.every((w) => w == 24), isTrue);
+        });
 
     testWidgets('_rebuildMarkers uses fallback zoom 15 when controller is null',
-        (WidgetTester tester) async {
-      // zoom=15 → t=(15-13)/7≈0.286 → size=24+0.286*32≈33.14 → round=33
-      final capturedWidths = <int>[];
+            (WidgetTester tester) async {
+          // zoom=15 → t=(15-13)/7≈0.286 → size=24+0.286*32≈33.14 → round=33
+          final capturedWidths = <int>[];
 
-      Future<Uint8List> capturingLoader(String path, int width) async {
-        capturedWidths.add(width);
-        return Uint8List.fromList([1, 2, 3, 4]);
-      }
+          Future<Uint8List> capturingLoader(String path, int width) async {
+            capturedWidths.add(width);
+            return Uint8List.fromList([1, 2, 3, 4]);
+          }
 
-      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-        (_) async => [testPoi(), testPoi2()],
-      );
+          when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+                (_) async => [testPoi(), testPoi2()],
+          );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            markerImageLoader: capturingLoader,
-            testMapControllerCompleter: Completer<GoogleMapController>(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+          await tester.pumpWidget(
+            MaterialApp(
+              home: HomeScreen(
+                dataParser: mockDataParser,
+                buildingLocator: mockBuildingLocator,
+                markerImageLoader: capturingLoader,
+                testMapControllerCompleter: Completer<GoogleMapController>(),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
 
-      // Controller is null so zoom fallback is 15.0 → width = 33
-      expect(capturedWidths.every((w) => w == 33), isTrue);
-    });
+          // Controller is null so zoom fallback is 15.0 → width = 33
+          expect(capturedWidths.every((w) => w == 33), isTrue);
+        });
 
     testWidgets('_onCameraMove debounces and triggers marker rebuild',
-        (WidgetTester tester) async {
-      int rebuildCount = 0;
+            (WidgetTester tester) async {
+          int rebuildCount = 0;
 
-      Future<Uint8List> countingLoader(String path, int width) async {
-        rebuildCount++;
-        return Uint8List.fromList([1, 2, 3, 4]);
-      }
+          Future<Uint8List> countingLoader(String path, int width) async {
+            rebuildCount++;
+            return Uint8List.fromList([1, 2, 3, 4]);
+          }
 
-      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
-        (_) async => [testPoi()],
-      );
+          when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+                (_) async => [testPoi()],
+          );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomeScreen(
-            dataParser: mockDataParser,
-            buildingLocator: mockBuildingLocator,
-            markerImageLoader: countingLoader,
-            testMapControllerCompleter: Completer<GoogleMapController>(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+          await tester.pumpWidget(
+            MaterialApp(
+              home: HomeScreen(
+                dataParser: mockDataParser,
+                buildingLocator: mockBuildingLocator,
+                markerImageLoader: countingLoader,
+                testMapControllerCompleter: Completer<GoogleMapController>(),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
 
-      final int countAfterInit = rebuildCount;
+          final int countAfterInit = rebuildCount;
 
-      // Simulate 5 rapid camera moves — debounce should collapse into one rebuild
-      final dynamic state = tester.state(find.byType(HomeScreen).first);
-      const fakePosition = CameraPosition(target: LatLng(45.5, -73.6), zoom: 15);
-      for (int i = 0; i < 5; i++) {
-        state.simulateCameraMove(fakePosition);
-      }
+          // Simulate 5 rapid camera moves — debounce should collapse into one rebuild
+          final dynamic state = tester.state(find.byType(HomeScreen).first);
+          const fakePosition = CameraPosition(target: LatLng(45.5, -73.6), zoom: 15);
+          for (int i = 0; i < 5; i++) {
+            state.simulateCameraMove(fakePosition);
+          }
 
-      // Before debounce fires, no extra rebuild yet
-      expect(rebuildCount, countAfterInit);
+          // Before debounce fires, no extra rebuild yet
+          expect(rebuildCount, countAfterInit);
 
-      // After debounce window, exactly one extra rebuild
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
+          // After debounce window, exactly one extra rebuild
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.pumpAndSettle();
 
-      expect(rebuildCount, countAfterInit + 1);
-    });
+          expect(rebuildCount, countAfterInit + 1);
+        });
 
     testWidgets(
       'simulateCampusChange resets locator, clears GPS building, and rebuilds polygons',
@@ -2504,54 +2504,54 @@ Future<void> main() async {
     );
 
     testWidgets('tapping logout signs out and navigates away from HomeScreen',
-        (WidgetTester tester) async {
-      final fakeAuth = _FakeAuthService();
+            (WidgetTester tester) async {
+          final fakeAuth = _FakeAuthService();
 
-      await tester.pumpWidget(wrap(home_screen.HomeScreen(
-        dataParser: mockDataParser,
-        buildingLocator: mockBuildingLocator,
-        authService: fakeAuth,
-      )));
-      await tester.pumpAndSettle();
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            authService: fakeAuth,
+          )));
+          await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.logout));
-      await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(Icons.logout));
+          await tester.pumpAndSettle();
 
-      // HomeScreen has been removed from the stack; AuthGate renders LoginScreen.
-      expect(find.byType(home_screen.HomeScreen), findsNothing);
-      expect(find.byType(LoginScreen), findsOneWidget);
-    });
+          // HomeScreen has been removed from the stack; AuthGate renders LoginScreen.
+          expect(find.byType(home_screen.HomeScreen), findsNothing);
+          expect(find.byType(LoginScreen), findsOneWidget);
+        });
 
     testWidgets('GPS status card shows building name when fullName is null',
-        (WidgetTester tester) async {
-      final building = CampusBuilding(
-        id: 'b_noname',
-        name: 'HAL',
-        fullName: null,
-        description: null,
-        campus: Campus.sgw,
-        boundary: const [
-          LatLng(0, 0), LatLng(0, 2), LatLng(2, 2), LatLng(2, 0), LatLng(0, 0),
-        ],
-      );
+            (WidgetTester tester) async {
+          final building = CampusBuilding(
+            id: 'b_noname',
+            name: 'HAL',
+            fullName: null,
+            description: null,
+            campus: Campus.sgw,
+            boundary: const [
+              LatLng(0, 0), LatLng(0, 2), LatLng(2, 2), LatLng(2, 0), LatLng(0, 0),
+            ],
+          );
 
-      when(mockDataParser.getBuildingInfoFromJSON())
-          .thenAnswer((_) async => [building]);
-      when(mockDataParser.buildingsPresent).thenReturn([building]);
-      when(mockBuildingLocator.update(
-        userPoint: anyNamed('userPoint'),
-        campus: anyNamed('campus'),
-        buildings: anyNamed('buildings'),
-      )).thenReturn(BuildingStatus(building: building, treatedAsInside: true));
+          when(mockDataParser.getBuildingInfoFromJSON())
+              .thenAnswer((_) async => [building]);
+          when(mockDataParser.buildingsPresent).thenReturn([building]);
+          when(mockBuildingLocator.update(
+            userPoint: anyNamed('userPoint'),
+            campus: anyNamed('campus'),
+            buildings: anyNamed('buildings'),
+          )).thenReturn(BuildingStatus(building: building, treatedAsInside: true));
 
-      await tester.pumpWidget(wrap(home_screen.HomeScreen(
-        dataParser: mockDataParser,
-        buildingLocator: mockBuildingLocator,
-      )));
-      await tester.pumpAndSettle();
+          await tester.pumpWidget(wrap(home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          )));
+          await tester.pumpAndSettle();
 
-      // fullName is null so the chip falls through to building.name
-      expect(find.text('HAL'), findsOneWidget);
-    });
+          // fullName is null so the chip falls through to building.name
+          expect(find.text('HAL'), findsOneWidget);
+        });
   });
 }

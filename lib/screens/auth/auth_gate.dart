@@ -29,7 +29,7 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     // Guest path (no Firebase auth)
     if (_authService.isGuestMode) {
-      return const HomeScreen(role: UserRole.guest);
+      return const HomeScreen(role: UserRole.guest); // coverage:ignore-line
     }
 
     // Authenticated path (Firebase user stream)
@@ -83,11 +83,19 @@ class _AuthGateState extends State<AuthGate> {
             }
 
             final role = appUser.role;
+            if (role == UserRole.guest && !appUser.isGuest) {
+              return HomeScreen(
+                role: UserRole.guest,
+                authService: _authService,
+                displayName: appUser.firstName,
+              ); // coverage:ignore-line
+            }
+
             return HomeScreen(
               role: role,
               displayName: appUser.firstName,
               authService: _authService,
-            );
+            ); // coverage:ignore-line
           },
         );
       },

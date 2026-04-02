@@ -6,11 +6,40 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/course_schedule_entry.dart';
+import 'package:proj/models/user_role.dart';
+import 'package:proj/services/auth/user_profile_service.dart';
 import 'package:proj/services/schedule_lookup.dart';
 import 'package:proj/widgets/home/search_overlay.dart';
+import 'package:proj/widgets/schedule/schedule_display.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 
 import 'schedule_overlay_test.mocks.dart';
+
+/// Fake [UserProfileService] that stores schedules in memory.
+class _FakeProfileService implements UserProfileService {
+  List<CourseScheduleEntry> stored = [];
+
+  @override
+  Future<List<CourseScheduleEntry>> loadSchedule({required String uid}) async => stored;
+
+  @override
+  Future<void> saveSchedule({
+    required String uid,
+    required List<CourseScheduleEntry> entries,
+  }) async {
+    stored = List.of(entries);
+  }
+
+  @override
+  Future<void> createUserProfile({
+    required String uid,
+    required String email,
+    required UserRole role,
+  }) async {}
+
+  @override
+  Future<UserRole> getUserRole(String uid) async => UserRole.student;
+}
 
 @GenerateMocks([ScheduleLookupService])
 void main() {
@@ -170,6 +199,121 @@ void main() {
     await tester.pump();
 
     expect(selected, same(entry));
+  });
+
+  testWidgets('switching to My Schedule tab shows ScheduleDisplay', (tester) async {
+    await tester.pumpWidget(wrap(ScheduleOverlay(
+      onClose: () {},
+      onRoomSelected: (_) {},
+      lookupService: mockLookup,
+    )));
+
+    await tester.tap(find.text('My Schedule'));
+    await tester.pump();
+
+    expect(find.byType(ScheduleDisplay), findsOneWidget);
+  });
+
+  testWidgets('adding a search result to schedule updates My Schedule count', (tester) async {
+    final entry = buildEntry();
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(wrap(ScheduleOverlay(
+      onClose: () {},
+      onRoomSelected: (_) {},
+      lookupService: mockLookup,
+    )));
+
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    expect(find.text('My Schedule (1)'), findsOneWidget);
+  });
+
+  testWidgets('duplicate entries are ignored when added twice', (tester) async {
+    final entry = buildEntry();
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(wrap(ScheduleOverlay(
+      onClose: () {},
+      onRoomSelected: (_) {},
+      lookupService: mockLookup,
+    )));
+
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    expect(find.text('My Schedule (1)'), findsOneWidget);
+  });
+
+  testWidgets('removing an entry from My Schedule clears the count', (tester) async {
+    final entry = buildEntry();
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(wrap(ScheduleOverlay(
+      onClose: () {},
+      onRoomSelected: (_) {},
+      lookupService: mockLookup,
+    )));
+
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    await tester.tap(find.text('My Schedule (1)'));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.remove_circle_outline));
+    await tester.pump();
+
+    expect(find.text('My Schedule (1)'), findsNothing);
+  });
+
+  testWidgets('loads saved schedule when uid and profileService are provided', (tester) async {
+    final profile = _FakeProfileService();
+    profile.stored = [buildEntry()];
+
+    await tester.pumpWidget(wrap(ScheduleOverlay(
+      onClose: () {},
+      onRoomSelected: (_) {},
+      lookupService: mockLookup,
+      uid: 'user-123',
+      profileService: profile,
+    )));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Schedule (1)'), findsOneWidget);
+  });
+
+  testWidgets('persists schedule via profileService when entry is added with uid', (tester) async {
+    final profile = _FakeProfileService();
+    final entry = buildEntry();
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(wrap(ScheduleOverlay(
+      onClose: () {},
+      onRoomSelected: (_) {},
+      lookupService: mockLookup,
+      uid: 'user-123',
+      profileService: profile,
+    )));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pumpAndSettle();
+
+    expect(profile.stored.length, 1);
+    expect(profile.stored.first.room, 'H-937');
   });
 
   testWidgets('submits search from keyboard action too', (WidgetTester tester) async {
