@@ -136,10 +136,11 @@ class _HomeScreenState extends HomeScreenState {
   String? _locationRequiredMessage;
 
   GroundOverlay? _groundOverlay;
-  // Screen-coordinate floor plan overlay (web fallback)
-  _FloorOverlayTransform? _floorOverlayTransform;
+  // Screen-coordinate floor plan overlay
+  final _overlayNotifier = ValueNotifier<_FloorOverlayTransform?>(null);
   LatLng? _overlaySwCorner;
   LatLng? _overlayNeCorner;
+  String? _overlayImagePath;
 
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
@@ -250,7 +251,7 @@ class _HomeScreenState extends HomeScreenState {
     return minSize + t * (maxSize - minSize);
   }
 
-  void _onCameraMove(CameraPosition _) {
+  void _onCameraMove(CameraPosition pos) {
     _markerRebuildDebounce?.cancel();
     if (!_programmaticCameraMove && !_mapMoved) {
       setState(() {
@@ -258,7 +259,7 @@ class _HomeScreenState extends HomeScreenState {
       });
     }
     if (_overlaySwCorner != null && _overlayNeCorner != null) {
-      _recomputeFloorOverlay();
+      _recomputeFloorOverlayFromCamera(pos);
     }
   }
 
@@ -911,69 +912,56 @@ class _HomeScreenState extends HomeScreenState {
       if (p.longitude > maxLng) maxLng = p.longitude;
     }
 
-    setState(() {
-      _overlaySwCorner = LatLng(minLat, minLng);
-      _overlayNeCorner = LatLng(maxLat, maxLng);
-    });
-
-    _recomputeFloorOverlay();
+    _overlaySwCorner = LatLng(minLat, minLng);
+    _overlayNeCorner = LatLng(maxLat, maxLng);
+    _overlayImagePath = floor.imagePath;
   }
 
-  Future<void> _recomputeFloorOverlay() async {
-    final controller = _mapController;
+  void _recomputeFloorOverlayFromCamera(CameraPosition camera) {
     final sw = _overlaySwCorner;
     final ne = _overlayNeCorner;
-    final floor = _indoorFloor;
-    if (controller == null || sw == null || ne == null || floor == null) return;
+    if (sw == null || ne == null) return;
+    final size = context.size;
+    if (size == null) return;
 
-    try {
-      final pSW = await controller.getScreenCoordinate(sw);
-      final pNE = await controller.getScreenCoordinate(ne);
-      final pNW = await controller.getScreenCoordinate(
-        LatLng(ne.latitude, sw.longitude),
-      );
-      final pSE = await controller.getScreenCoordinate(
-        LatLng(sw.latitude, ne.longitude),
-      );
+    final nw = LatLng(ne.latitude, sw.longitude);
+    final se = LatLng(sw.latitude, ne.longitude);
 
-      if (!mounted) return;
+    final pSW = _latLngToScreen(sw, camera, size);
+    final pNE = _latLngToScreen(ne, camera, size);
+    final pNW = _latLngToScreen(nw, camera, size);
+    final pSE = _latLngToScreen(se, camera, size);
 
-      // Center of the four corners
-      final cx = (pSW.x + pNE.x + pNW.x + pSE.x) / 4.0;
-      final cy = (pSW.y + pNE.y + pNW.y + pSE.y) / 4.0;
+    final cx = (pSW.dx + pNE.dx + pNW.dx + pSE.dx) / 4.0;
+    final cy = (pSW.dy + pNE.dy + pNW.dy + pSE.dy) / 4.0;
+    final width = ((pNE - pNW).distance + (pSE - pSW).distance) / 2.0;
+    final height = ((pSW - pNW).distance + (pSE - pNE).distance) / 2.0;
+    final angle = math.atan2(pNE.dy - pNW.dy, pNE.dx - pNW.dx);
 
-      // Width: average of top and bottom edge lengths
-      final topW = _dist(pNW.x, pNW.y, pNE.x, pNE.y);
-      final botW = _dist(pSW.x, pSW.y, pSE.x, pSE.y);
-      final width = (topW + botW) / 2.0;
-
-      // Height: average of left and right edge lengths
-      final leftH = _dist(pNW.x, pNW.y, pSW.x, pSW.y);
-      final rightH = _dist(pNE.x, pNE.y, pSE.x, pSE.y);
-      final height = (leftH + rightH) / 2.0;
-
-      // Rotation from the top edge NW→NE
-      final angle = math.atan2(
-        (pNE.y - pNW.y).toDouble(),
-        (pNE.x - pNW.x).toDouble(),
-      );
-
-      setState(() {
-        _floorOverlayTransform = _FloorOverlayTransform(
-          cx: cx,
-          cy: cy,
-          width: width,
-          height: height,
-          angle: angle,
-        );
-      });
-    } catch (_) {}
+    // Update notifier directly — no setState, no rebuild
+    _overlayNotifier.value = _FloorOverlayTransform(
+      cx: cx, cy: cy, width: width, height: height, angle: angle,
+    );
   }
 
-  static double _dist(int x1, int y1, int x2, int y2) {
-    final dx = (x2 - x1).toDouble();
-    final dy = (y2 - y1).toDouble();
-    return math.sqrt(dx * dx + dy * dy);
+  static Offset _latLngToScreen(LatLng point, CameraPosition camera, Size size) {
+    double mercX(double lng) => (lng + 180.0) / 360.0;
+    double mercY(double lat) {
+      final s = math.sin(lat * math.pi / 180.0);
+      return (1.0 - math.log((1 + s) / (1 - s)) / (2 * math.pi)) / 2.0;
+    }
+    final scale = 256.0 * math.pow(2, camera.zoom);
+    final camX = mercX(camera.target.longitude) * scale;
+    final camY = mercY(camera.target.latitude) * scale;
+    final ptX = mercX(point.longitude) * scale;
+    final ptY = mercY(point.latitude) * scale;
+    final b = camera.bearing * math.pi / 180.0;
+    final dx = ptX - camX;
+    final dy = ptY - camY;
+    return Offset(
+      size.width / 2 + dx * math.cos(-b) - dy * math.sin(-b),
+      size.height / 2 + dx * math.sin(-b) + dy * math.cos(-b),
+    );
   }
 
   Future<void> _handlePoiAsStart(Poi poi) async {
@@ -1380,8 +1368,11 @@ class _HomeScreenState extends HomeScreenState {
         children: [
           if (!isE2EMode) _buildMapLayer(),
 
-          if (_floorOverlayTransform != null && _indoorFloor?.imagePath != null)
-            _buildFloorPlanWidget(),
+          if (_overlayImagePath != null)
+            _FloorPlanOverlayWidget(
+              notifier: _overlayNotifier,
+              imagePath: _overlayImagePath!,
+            ),
 
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
@@ -1557,25 +1548,6 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildFloorPlanWidget() {
-    final t = _floorOverlayTransform!;
-    final imagePath = _indoorFloor!.imagePath!;
-    return Positioned(
-      left: t.cx - t.width / 2,
-      top: t.cy - t.height / 2,
-      width: t.width,
-      height: t.height,
-      child: IgnorePointer(
-        child: Transform.rotate(
-          angle: t.angle,
-          child: Opacity(
-            opacity: 0.7,
-            child: Image.asset(imagePath, fit: BoxFit.fill),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildMapLayer() {
     return MapLayer<CampusBuilding>(
@@ -2014,4 +1986,44 @@ class _FloorOverlayTransform {
   final double width;
   final double height;
   final double angle;
+}
+
+// ---------------------------------------------------------------------------
+// Floor plan overlay — updates via ValueNotifier, never rebuilds HomeScreen
+// ---------------------------------------------------------------------------
+
+class _FloorPlanOverlayWidget extends StatelessWidget {
+  const _FloorPlanOverlayWidget({
+    required this.notifier,
+    required this.imagePath,
+  });
+
+  final ValueNotifier<_FloorOverlayTransform?> notifier;
+  final String imagePath;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<_FloorOverlayTransform?>(
+      valueListenable: notifier,
+      builder: (_, t, child) {
+        if (t == null) return const SizedBox.shrink();
+        return Positioned(
+          left: t.cx - t.width / 2,
+          top: t.cy - t.height / 2,
+          width: t.width,
+          height: t.height,
+          child: IgnorePointer(
+            child: Transform.rotate(
+              angle: t.angle,
+              child: child!,
+            ),
+          ),
+        );
+      },
+      child: Opacity(
+        opacity: 0.7,
+        child: Image.asset(imagePath, fit: BoxFit.fill),
+      ),
+    );
+  }
 }
