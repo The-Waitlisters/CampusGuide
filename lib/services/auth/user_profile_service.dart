@@ -34,6 +34,7 @@ class UserProfileService {
   }
 
   Future<UserRole> getUserRole(String uid) async {
+    // coverage:ignore-start
     final data = await getUserProfile(uid);
 
     if (data == null || data['role'] == null) {

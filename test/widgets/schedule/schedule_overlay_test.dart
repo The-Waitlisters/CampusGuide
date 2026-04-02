@@ -34,11 +34,15 @@ class _FakeProfileService implements UserProfileService {
   Future<void> createUserProfile({
     required String uid,
     required String email,
-    required UserRole role,
+    required String firstName,
+    required String lastName,
   }) async {}
 
   @override
-  Future<UserRole> getUserRole(String uid) async => UserRole.student;
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async => null;
+
+  @override
+  Future<UserRole> getUserRole(String uid) async => UserRole.user;
 }
 
 @GenerateMocks([ScheduleLookupService])

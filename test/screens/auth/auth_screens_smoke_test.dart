@@ -91,7 +91,7 @@ void main() {
   });
 
   setUpAll(() {
-    registerFallbackValue(UserRole.student);
+    registerFallbackValue(UserRole.user);
   });
 
   testWidgets('LoginScreen renders controls', (tester) async {
@@ -104,7 +104,7 @@ void main() {
 
   testWidgets('LoginScreen shows "Incorrect email or password" for invalid-credential', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signInStudentOrTeacher(
+    when(() => mock.signIn(
       email: any(named: 'email'),
       password: any(named: 'password'),
     )).thenThrow(Exception('[firebase_auth/invalid-credential] bad creds'));
@@ -118,7 +118,7 @@ void main() {
 
   testWidgets('LoginScreen shows error for invalid-email', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signInStudentOrTeacher(
+    when(() => mock.signIn(
       email: any(named: 'email'),
       password: any(named: 'password'),
     )).thenThrow(Exception('[firebase_auth/invalid-email]'));
@@ -132,7 +132,7 @@ void main() {
 
   testWidgets('LoginScreen shows error for user-not-found', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signInStudentOrTeacher(
+    when(() => mock.signIn(
       email: any(named: 'email'),
       password: any(named: 'password'),
     )).thenThrow(Exception('[firebase_auth/user-not-found]'));
@@ -146,7 +146,7 @@ void main() {
 
   testWidgets('LoginScreen shows error for wrong-password', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signInStudentOrTeacher(
+    when(() => mock.signIn(
       email: any(named: 'email'),
       password: any(named: 'password'),
     )).thenThrow(Exception('[firebase_auth/wrong-password]'));
@@ -160,7 +160,7 @@ void main() {
 
   testWidgets('LoginScreen shows generic error for unknown exception', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signInStudentOrTeacher(
+    when(() => mock.signIn(
       email: any(named: 'email'),
       password: any(named: 'password'),
     )).thenThrow(Exception('some unknown error'));
@@ -315,13 +315,18 @@ void main() {
 
   testWidgets('RegisterScreen shows error for email-already-in-use', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signUpStudentOrTeacher(
+    when(() => mock.signUp(
       email: any(named: 'email'),
       password: any(named: 'password'),
-      role: any(named: 'role'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
     )).thenThrow(Exception('[firebase_auth/email-already-in-use]'));
 
     await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await tester.pumpAndSettle();
 
@@ -330,13 +335,18 @@ void main() {
 
   testWidgets('RegisterScreen shows error for invalid-email', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signUpStudentOrTeacher(
+    when(() => mock.signUp(
       email: any(named: 'email'),
       password: any(named: 'password'),
-      role: any(named: 'role'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
     )).thenThrow(Exception('[firebase_auth/invalid-email]'));
 
     await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await tester.pumpAndSettle();
 
@@ -345,13 +355,18 @@ void main() {
 
   testWidgets('RegisterScreen shows error for weak-password', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signUpStudentOrTeacher(
+    when(() => mock.signUp(
       email: any(named: 'email'),
       password: any(named: 'password'),
-      role: any(named: 'role'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
     )).thenThrow(Exception('[firebase_auth/weak-password]'));
 
     await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await tester.pumpAndSettle();
 
@@ -360,40 +375,21 @@ void main() {
 
   testWidgets('RegisterScreen shows generic error for unknown exception', (tester) async {
     final mock = MockAuthService();
-    when(() => mock.signUpStudentOrTeacher(
+    when(() => mock.signUp(
       email: any(named: 'email'),
       password: any(named: 'password'),
-      role: any(named: 'role'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
     )).thenThrow(Exception('something went wrong'));
 
     await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
     await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
     await tester.pumpAndSettle();
 
     expect(find.text('Unable to create account right now. Please try again.'), findsOneWidget);
-  });
-
-  testWidgets('RegisterScreen switches selected role to Teacher', (tester) async {
-    final mock = MockAuthService();
-    UserRole? capturedRole;
-    when(() => mock.signUpStudentOrTeacher(
-      email: any(named: 'email'),
-      password: any(named: 'password'),
-      role: any(named: 'role'),
-    )).thenAnswer((invocation) async {
-      capturedRole = invocation.namedArguments[const Symbol('role')] as UserRole;
-      return AppUser(uid: '1', email: 'a@b.com', role: UserRole.teacher, isGuest: false);
-    });
-
-    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
-
-    // Switch to Teacher via SegmentedButton
-    await tester.tap(find.text('Teacher'));
-    await tester.pump();
-
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
-    await tester.pumpAndSettle();
-
-    expect(capturedRole, UserRole.teacher);
   });
 }
