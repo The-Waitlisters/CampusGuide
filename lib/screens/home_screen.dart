@@ -36,6 +36,9 @@ import '../widgets/schedule/schedule_overlay.dart';
 import '../models/course_schedule_entry.dart';
 import '../services/concordia_api.dart';
 import '../services/schedule_lookup.dart';
+import '../models/user_role.dart';
+import '../services/auth/auth_service.dart';
+import 'auth/auth_gate.dart';
 
 typedef MarkerImageLoader = Future<Uint8List> Function(String path, int width);
 
@@ -53,6 +56,10 @@ extension StringExtension on String {
 }
 
 class HomeScreen extends StatefulWidget {
+  final UserRole role;
+  final String? displayName;
+  final AuthService? authService;
+
   final DataParser? dataParser;
   final BuildingLocator? buildingLocator;
 
@@ -62,8 +69,12 @@ class HomeScreen extends StatefulWidget {
 
   final DirectionsController? testDirectionsController;
 
+
   const HomeScreen({
     super.key,
+    this.role = UserRole.guest,
+    this.displayName,
+    this.authService,
     this.dataParser,
     this.buildingLocator,
     this.testMapControllerCompleter,
@@ -102,6 +113,17 @@ class _HomeScreenState extends HomeScreenState {
   Poi? _startPoi;
   Poi? _endPoi;
 
+  bool get _isGuest => widget.role == UserRole.guest;
+
+  String get _userChipLabel {
+    if (_isGuest) return 'Guest';
+    final displayName = widget.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+    return 'User';
+  }
+
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
 
@@ -128,6 +150,8 @@ class _HomeScreenState extends HomeScreenState {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
   static const double _sheetLiftMax = 210.0;
+  static const double _sheetLiftSmall = 100.0;
+  double _currentSheetLift = _sheetLiftMax;
 
   late BuildingLocator _buildingLocator;
 
@@ -136,6 +160,9 @@ class _HomeScreenState extends HomeScreenState {
 
   bool isInBuilding = false;
   bool _showScheduleOverlay = false;
+  bool _mapMoved = false;
+  bool _programmaticCameraMove = false;
+  LatLng? _lastKnownPosition;
 
   final List<Marker> _markers = <Marker>[];
 
@@ -298,6 +325,11 @@ class _HomeScreenState extends HomeScreenState {
         ).listen((Position pos) {
           final userPoint = LatLng(pos.latitude, pos.longitude);
           locationPoint = userPoint;
+          if (mounted) {
+            setState(() {
+              _lastKnownPosition = userPoint;
+            });
+          }
           final result = _buildingLocator.update(
             userPoint: userPoint,
             campus: _campus,
@@ -947,6 +979,9 @@ class _HomeScreenState extends HomeScreenState {
         : _mapController;
     if (controller == null) return;
     final info = campusInfo[campus]!;
+    setState(() {
+      _programmaticCameraMove = true;
+    });
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: info.center, zoom: info.zoom),
@@ -956,7 +991,9 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _campus = campus;
       _buildingLocator.reset();
-      //_currentBuildingFromGPS = null;
+      _currentBuildingFromGPS = null;
+      _mapMoved = false;
+      _programmaticCameraMove = false;
     });
   }
 
@@ -1032,7 +1069,7 @@ class _HomeScreenState extends HomeScreenState {
   void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
     if (_sheetController != null) {
       _sheetController?.close();
-      _sheetController = null;
+      setState(() { _sheetController = null; });
       return;
     }
 
@@ -1064,6 +1101,7 @@ class _HomeScreenState extends HomeScreenState {
     }
     notCampus = true;
     _sheetController?.close();
+    _currentSheetLift = _sheetLiftSmall;
     _sheetController = scaffoldState.showBottomSheet(
       (_) => const Padding(
         padding: EdgeInsets.all(16),
@@ -1152,6 +1190,7 @@ class _HomeScreenState extends HomeScreenState {
       notCampus = false;
       _sheetController?.close();
       _sheetController = null;
+      _currentSheetLift = _sheetLiftMax;
 
       _sheetController = scaffoldState.showBottomSheet((context) {
         return BuildingDetailSheet(
@@ -1182,6 +1221,13 @@ class _HomeScreenState extends HomeScreenState {
         );
       });
       _attachSheetAnimation(_sheetController);
+
+      final attachedController = _sheetController!;
+      attachedController.closed.then((_) {
+        if (mounted && _sheetController == attachedController) {
+          setState(() { _sheetController = null; }); // coverage:ignore-line
+        }
+      });
     });
   }
 
@@ -1189,7 +1235,40 @@ class _HomeScreenState extends HomeScreenState {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(title: const Text('The Waitlisters')),
+      appBar: AppBar(
+        title: const Text('The Waitlisters'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: Chip(
+                label: Text(_userChipLabel),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              final svc = widget.authService ?? AuthService();
+              await svc.signOut();
+
+              if (!context.mounted) return;
+
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => AuthGate(authService: svc),
+                ),
+                    (route) => false,
+              );
+            },
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+
+
       body: Stack(
         children: [
           if (!isE2EMode) _buildMapLayer(),
@@ -1197,7 +1276,7 @@ class _HomeScreenState extends HomeScreenState {
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
           _buildSearchOverlay(),
-          //_buildPOISection(),
+          if (_mapMoved && _lastKnownPosition != null) _buildRecenterButton(),
           if (_currentBuildingFromGPS != null &&
               (_startBuilding == null && _startPoi == null))
             _buildSetCurrentAsStartCard(),
@@ -1345,7 +1424,7 @@ class _HomeScreenState extends HomeScreenState {
           : <Polyline>{_directions.state.polyline!}, // coverage:ignore-line
       markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
-      myLocationButtonEnabled: !isE2EMode,
+      myLocationButtonEnabled: false,
       onMapCreated: (GoogleMapController controller) {
         // coverage:ignore-start
         setState(() {
@@ -1394,7 +1473,8 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildSetCurrentAsStartCard() {
-    if (_currentBuildingFromGPS == null ||
+    final building = _currentBuildingFromGPS;
+    if (building == null ||
         !isInBuilding ||
         _startBuilding != null ||
         _startPoi != null) {
@@ -1407,13 +1487,12 @@ class _HomeScreenState extends HomeScreenState {
 
     final bool sheetOpen = _sheetController != null;
 
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      left: 0,
-      bottom: sheetOpen ? (notCampus ? 90 : _sheetLiftMax) : 25,
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: sheetOpen ? _currentSheetLift : 12, // coverage:ignore-line
       child: UseAsStart(
-        selected: _currentBuildingFromGPS!,
+        selected: building,
         onSetStart: () {
           debugPrint(
             'Set as Start pressed for ${_currentBuildingFromGPS?.name}',
@@ -1517,6 +1596,17 @@ class _HomeScreenState extends HomeScreenState {
       },
       onMenuSelected: (String value) {
         if (value == 'schedule') {
+          if (_isGuest) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Schedule is available for user-authenticated accounts only.',
+                ),
+              ),
+            );
+            return;
+          }
+
           setState(() {
             _showScheduleOverlay = true;
           });
@@ -1536,6 +1626,47 @@ class _HomeScreenState extends HomeScreenState {
           _showPoiDetailSheet(b);
         }
       },
+    );
+  }
+
+  Widget _buildRecenterButton() {
+    final bool sheetOpen = _sheetController != null;
+    final bool setAsStartVisible =
+        _currentBuildingFromGPS != null && isInBuilding && _startBuilding == null;
+    const double setAsStartHeight = 48.0;
+    const double gap = 8.0;
+    final double setAsStartBottom = sheetOpen ? _currentSheetLift : 12; // coverage:ignore-line
+    final double bottom = setAsStartVisible
+        ? setAsStartBottom + setAsStartHeight + gap // coverage:ignore-line
+        : (sheetOpen ? _currentSheetLift : 0); // coverage:ignore-line
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      right: 12,
+      bottom: bottom,
+      child: FloatingActionButton.small(
+        heroTag: 'recenter',
+        onPressed: () async {
+          // coverage:ignore-start
+          final pos = _lastKnownPosition;
+          if (pos == null) return;
+          final controller = _mapController;
+          if (controller == null) return;
+          setState(() {
+            _programmaticCameraMove = true;
+          });
+          await controller.animateCamera(
+            CameraUpdate.newLatLng(pos),
+          );
+          setState(() {
+            _mapMoved = false;
+            _programmaticCameraMove = false;
+          });
+          // coverage:ignore-end
+        },
+        tooltip: 'Recenter to my location',
+        child: const Icon(Icons.my_location),
+      ),
     );
   }
 

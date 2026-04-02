@@ -12,6 +12,7 @@ import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/poi.dart';
 import 'package:proj/models/course_schedule_entry.dart';
+import 'package:proj/models/user_role.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
 import 'package:proj/screens/home_screen.dart' show HomeScreenState, HomeScreen;
 import 'package:proj/screens/indoor_map_screen.dart';
@@ -29,9 +30,35 @@ import 'package:proj/widgets/home/building_detail_sheet.dart';
 import 'package:proj/widgets/home/search_overlay.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 import 'package:proj/widgets/use_as_start.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:proj/screens/auth/login_screen.dart';
+import 'package:proj/services/auth/auth_service.dart';
+import 'package:proj/services/auth/user_profile_service.dart';
 import '../services/directions/directions_controller_and_strategy_test.dart';
 import 'home_screen_test.mocks.dart';
+
+class _MockUserProfileSvc extends Mock implements UserProfileService {}
+
+/// Fake auth service used in the logout test: overrides signOut/authStateChanges
+/// so we don't need a real Firebase connection.
+class _FakeAuthService extends AuthService {
+  _FakeAuthService()
+      : super(
+          auth: MockFirebaseAuth(),
+          profileService: _MockUserProfileSvc(),
+        );
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Stream<User?> get authStateChanges => Stream<User?>.value(null);
+
+  @override
+  bool get isGuestMode => false;
+}
 
 
 class MockGeolocatorPlatform extends Mock
@@ -1913,10 +1940,6 @@ Future<void> main() async {
         );
         await tester.pumpAndSettle();
 
-        // ignore: unused_local_variable
-        final dynamic state =
-        tester.state(find.byType(home_screen.HomeScreen).first);
-
         final bounds = home_screen.boundsForRoute(
           const LatLng(46.0, -73.0),
           const LatLng(45.0, -74.0),
@@ -2046,7 +2069,7 @@ Future<void> main() async {
     testWidgets('opens schedule overlay when menu selected', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: HomeScreen(),
+          home: HomeScreen(role: UserRole.user),
         ),
       );
 
@@ -2065,6 +2088,183 @@ Future<void> main() async {
       await tester.pump(const Duration(milliseconds: 500));
     });
 
+    testWidgets('shows Guest chip label for guest role', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            role: UserRole.guest,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Guest'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('shows display name in chip for user role', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            role: UserRole.user,
+            displayName: 'Bill',
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bill'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('guest selecting schedule shows authenticated-only snackbar', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            role: UserRole.guest,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final SearchOverlay searchOverlay = tester.widget<SearchOverlay>(
+        find.byType(SearchOverlay),
+      );
+      searchOverlay.onMenuSelected('schedule');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(ScheduleOverlay), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('_rebuildMarkers passes zoom-derived width to markerImageLoader',
+        (WidgetTester tester) async {
+      // FakeGoogleMapController.getZoomLevel() returns 0.0
+      // zoom=0 → clamped to minZoom(13) → logicalSize=24 → round=24
+      final fakeController = FakeGoogleMapController();
+      final capturedWidths = <int>[];
+
+      Future<Uint8List> capturingLoader(String path, int width) async {
+        capturedWidths.add(width);
+        return Uint8List.fromList([1, 2, 3, 4]);
+      }
+
+      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+        (_) async => [testPoi(), testPoi2()],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            markerImageLoader: capturingLoader,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(HomeScreen).first);
+      state.setMapControllerForTest(fakeController);
+      capturedWidths.clear();
+
+      // Trigger a rebuild now that the controller is set
+      state.simulateCameraMove(const CameraPosition(target: LatLng(45.5, -73.6), zoom: 16));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      // zoom=0 from FakeGoogleMapController → clamps to 13 → width=24
+      expect(capturedWidths.every((w) => w == 24), isTrue);
+    });
+
+    testWidgets('_rebuildMarkers uses fallback zoom 15 when controller is null',
+        (WidgetTester tester) async {
+      // zoom=15 → t=(15-13)/7≈0.286 → size=24+0.286*32≈33.14 → round=33
+      final capturedWidths = <int>[];
+
+      Future<Uint8List> capturingLoader(String path, int width) async {
+        capturedWidths.add(width);
+        return Uint8List.fromList([1, 2, 3, 4]);
+      }
+
+      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+        (_) async => [testPoi(), testPoi2()],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            markerImageLoader: capturingLoader,
+            testMapControllerCompleter: Completer<GoogleMapController>(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Controller is null so zoom fallback is 15.0 → width = 33
+      expect(capturedWidths.every((w) => w == 33), isTrue);
+    });
+
+    testWidgets('_onCameraMove debounces and triggers marker rebuild',
+        (WidgetTester tester) async {
+      int rebuildCount = 0;
+
+      Future<Uint8List> countingLoader(String path, int width) async {
+        rebuildCount++;
+        return Uint8List.fromList([1, 2, 3, 4]);
+      }
+
+      when(mockDataParser.getMarkersFromJSON()).thenAnswer(
+        (_) async => [testPoi()],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            markerImageLoader: countingLoader,
+            testMapControllerCompleter: Completer<GoogleMapController>(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final int countAfterInit = rebuildCount;
+
+      // Simulate 5 rapid camera moves — debounce should collapse into one rebuild
+      final dynamic state = tester.state(find.byType(HomeScreen).first);
+      const fakePosition = CameraPosition(target: LatLng(45.5, -73.6), zoom: 15);
+      for (int i = 0; i < 5; i++) {
+        state.simulateCameraMove(fakePosition);
+      }
+
+      // Before debounce fires, no extra rebuild yet
+      expect(rebuildCount, countAfterInit);
+
+      // After debounce window, exactly one extra rebuild
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      expect(rebuildCount, countAfterInit + 1);
+    });
 
     testWidgets(
       'simulateCampusChange resets locator, clears GPS building, and rebuilds polygons',
@@ -2151,6 +2351,87 @@ Future<void> main() async {
         expect(state.testPolygons, isNotEmpty);
       },
     );
+
+    testWidgets(
+      'recenter button appears after map move and is tappable',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(wrap(home_screen.HomeScreen(
+          dataParser: mockDataParser,
+          buildingLocator: mockBuildingLocator,
+        )));
+        // GPS stream emits → _lastKnownPosition is set
+        await tester.pumpAndSettle();
+
+        final dynamic state =
+            tester.state(find.byType(home_screen.HomeScreen).first);
+
+        // Button should not be visible yet
+        expect(find.byTooltip('Recenter to my location'), findsNothing);
+
+        // Simulate a user-initiated camera move → _mapMoved = true
+        state.simulateCameraMove(
+          const CameraPosition(target: LatLng(45.5, -73.6), zoom: 15),
+        );
+        await tester.pump();
+
+        // Button should now appear
+        expect(find.byTooltip('Recenter to my location'), findsOneWidget);
+
+        // Tap it — covers the onPressed callback (line 1076)
+        await tester.tap(find.byTooltip('Recenter to my location'));
+        await tester.pump();
+      },
+    );
+    testWidgets('tapping logout signs out and navigates away from HomeScreen',
+        (WidgetTester tester) async {
+      final fakeAuth = _FakeAuthService();
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        authService: fakeAuth,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.logout));
+      await tester.pumpAndSettle();
+
+      // HomeScreen has been removed from the stack; AuthGate renders LoginScreen.
+      expect(find.byType(home_screen.HomeScreen), findsNothing);
+      expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('GPS status card shows building name when fullName is null',
+        (WidgetTester tester) async {
+      final building = CampusBuilding(
+        id: 'b_noname',
+        name: 'HAL',
+        fullName: null,
+        description: null,
+        campus: Campus.sgw,
+        boundary: const [
+          LatLng(0, 0), LatLng(0, 2), LatLng(2, 2), LatLng(2, 0), LatLng(0, 0),
+        ],
+      );
+
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+      when(mockBuildingLocator.update(
+        userPoint: anyNamed('userPoint'),
+        campus: anyNamed('campus'),
+        buildings: anyNamed('buildings'),
+      )).thenReturn(BuildingStatus(building: building, treatedAsInside: true));
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      // fullName is null so the chip falls through to building.name
+      expect(find.text('HAL'), findsOneWidget);
+    });
 
   });
 }
