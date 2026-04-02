@@ -73,7 +73,6 @@ class HomeScreen extends StatefulWidget {
 
   final DirectionsController? testDirectionsController;
 
-
   const HomeScreen({
     super.key,
     this.role = UserRole.guest,
@@ -129,6 +128,7 @@ class _HomeScreenState extends HomeScreenState {
     }
     return 'User';
   }
+
   /// True when user chose destination first; route start is current GPS location.
   bool _startFromCurrentLocation = false;
 
@@ -237,7 +237,7 @@ class _HomeScreenState extends HomeScreenState {
       nightClub,
       nearbyPois,
       type,
-      distance*1000
+      distance * 1000,
     );
   }
 
@@ -289,13 +289,17 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _initDirections() {
-    _directions = widget.testDirectionsController ?? DirectionsController(
-      client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
-    );
+    _directions =
+        widget.testDirectionsController ??
+        DirectionsController(
+          client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
+        );
     assert(() {
       if (Secrets.directionsApiKey.isEmpty) {
-        debugPrint( // coverage:ignore-line
-            'Directions API key is missing (DIRECTIONS_API_KEY not set).');
+        debugPrint(
+          // coverage:ignore-line
+          'Directions API key is missing (DIRECTIONS_API_KEY not set).',
+        );
       }
       return true;
     }());
@@ -397,7 +401,7 @@ class _HomeScreenState extends HomeScreenState {
     bool nightClub,
     double nearbyPois,
     String type,
-    double distance
+    double distance,
   ) async {
     if (_mapController == null) return;
 
@@ -611,7 +615,8 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<void> _initUid() async {
     try {
-      final user = await (widget.authService ?? AuthService()).getCurrentAppUser();
+      final user = await (widget.authService ?? AuthService())
+          .getCurrentAppUser();
       if (mounted) setState(() => _uid = user?.uid);
     } catch (_) {
       // Firebase not initialized in test environment
@@ -924,8 +929,12 @@ class _HomeScreenState extends HomeScreenState {
     try {
       final pSW = await controller.getScreenCoordinate(sw);
       final pNE = await controller.getScreenCoordinate(ne);
-      final pNW = await controller.getScreenCoordinate(LatLng(ne.latitude, sw.longitude));
-      final pSE = await controller.getScreenCoordinate(LatLng(sw.latitude, ne.longitude));
+      final pNW = await controller.getScreenCoordinate(
+        LatLng(ne.latitude, sw.longitude),
+      );
+      final pSE = await controller.getScreenCoordinate(
+        LatLng(sw.latitude, ne.longitude),
+      );
 
       if (!mounted) return;
 
@@ -951,7 +960,11 @@ class _HomeScreenState extends HomeScreenState {
 
       setState(() {
         _floorOverlayTransform = _FloorOverlayTransform(
-          cx: cx, cy: cy, width: width, height: height, angle: angle,
+          cx: cx,
+          cy: cy,
+          width: width,
+          height: height,
+          angle: angle,
         );
       });
     } catch (_) {}
@@ -987,7 +1000,9 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
     final controller = widget.testMapControllerCompleter != null
-        ? await widget.testMapControllerCompleter!.future // coverage:ignore-line
+        ? await widget
+              .testMapControllerCompleter!
+              .future // coverage:ignore-line
         : _mapController;
     if (controller == null) return;
     final bounds = boundsForRoute(a, b);
@@ -1034,10 +1049,11 @@ class _HomeScreenState extends HomeScreenState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${building.campus.name.toUpperCase()} - ${building
-                    .name} - ${building.fullName}',
+                '${building.campus.name.toUpperCase()} - ${building.name} - ${building.fullName}',
                 style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(building.description ?? 'No description available'),
@@ -1050,9 +1066,9 @@ class _HomeScreenState extends HomeScreenState {
                     onPressed: _startBuilding?.id == building.id
                         ? null
                         : () async {
-                      Navigator.pop(context);
-                      await _handleSetAsStart(building);
-                    },
+                            Navigator.pop(context);
+                            await _handleSetAsStart(building);
+                          },
                     child: const Text('Set as Start'),
                   ),
                   const SizedBox(width: 12),
@@ -1060,9 +1076,9 @@ class _HomeScreenState extends HomeScreenState {
                     onPressed: _endBuilding?.id == building.id
                         ? null
                         : () async {
-                      Navigator.pop(context);
-                      await _handleSetAsDestination(building);
-                    },
+                            Navigator.pop(context);
+                            await _handleSetAsDestination(building);
+                          },
                     child: const Text('Set as Destination'),
                   ),
                 ],
@@ -1168,7 +1184,9 @@ class _HomeScreenState extends HomeScreenState {
   void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
     if (_sheetController != null) {
       _sheetController?.close();
-      setState(() { _sheetController = null; });
+      setState(() {
+        _sheetController = null;
+      });
       return;
     }
 
@@ -1349,17 +1367,14 @@ class _HomeScreenState extends HomeScreenState {
               if (!context.mounted) return;
 
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (_) => AuthGate(authService: svc),
-                ),
-                    (route) => false,
+                MaterialPageRoute(builder: (_) => AuthGate(authService: svc)),
+                (route) => false,
               );
             },
           ),
           const SizedBox(width: 6),
         ],
       ),
-
 
       body: Stack(
         children: [
@@ -1438,8 +1453,9 @@ class _HomeScreenState extends HomeScreenState {
                   showPoiSettings = false;
                   showResults = true;
                 });
-              }, distanceSliderValue: distance, 
-              onDistanceChanged: (value) {  
+              },
+              distanceSliderValue: distance,
+              onDistanceChanged: (value) {
                 setState(() {
                   distance = value ?? 0;
                 });
@@ -1461,10 +1477,14 @@ class _HomeScreenState extends HomeScreenState {
                 });
 
                 // Find the building matching the schedule entry's building code
-                final destination = buildingsPresent.cast<CampusBuilding?>().firstWhere(
-                      (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
-                  orElse: () => null,
-                );
+                final destination = buildingsPresent
+                    .cast<CampusBuilding?>()
+                    .firstWhere(
+                      (b) =>
+                          b!.name.toUpperCase() ==
+                          entry.buildingCode.toUpperCase(),
+                      orElse: () => null,
+                    );
 
                 if (destination != null) {
                   // Set as outdoor destination for directions
@@ -1473,10 +1493,17 @@ class _HomeScreenState extends HomeScreenState {
                   // Find which floor the room is on
                   loadIndoorMapForBuilding(destination).then((indoorMap) {
                     if (indoorMap == null || !mounted) return;
-                    final stripped = entry.room.replaceAll(RegExp(r'^[A-Za-z]+-?'), '');
+                    final stripped = entry.room.replaceAll(
+                      RegExp(r'^[A-Za-z]+-?'),
+                      '',
+                    );
                     for (final floor in indoorMap.floors) {
                       final match = floor.rooms.cast<Room?>().firstWhere(
-                            (r) => r!.id == entry.room || r.name == entry.room || r.id == stripped || r.name == stripped,
+                        (r) =>
+                            r!.id == entry.room ||
+                            r.name == entry.room ||
+                            r.id == stripped ||
+                            r.name == stripped,
                         orElse: () => null,
                       );
                       if (match != null) {
@@ -1490,7 +1517,6 @@ class _HomeScreenState extends HomeScreenState {
                       }
                     }
                   });
-
                 }
               },
               lookupService: ScheduleLookupService(
@@ -1509,9 +1535,12 @@ class _HomeScreenState extends HomeScreenState {
                 setState(() {
                   _showPoiDetailSheet(b);
                 });
-              }, onClose: () { setState(() {
-                showResults = false;
-              }); },
+              },
+              onClose: () {
+                setState(() {
+                  showResults = false;
+                });
+              },
             ),
         ],
       ),
@@ -1654,7 +1683,8 @@ class _HomeScreenState extends HomeScreenState {
 
           _updateDirectionsIfReady();
 
-          if (_sheetController != null) { // coverage:ignore-start
+          if (_sheetController != null) {
+            // coverage:ignore-start
             _sheetController?.close();
             setState(() {
               _sheetController = null;
@@ -1781,12 +1811,18 @@ class _HomeScreenState extends HomeScreenState {
   Widget _buildRecenterButton() {
     final bool sheetOpen = _sheetController != null;
     final bool setAsStartVisible =
-        _currentBuildingFromGPS != null && isInBuilding && _startBuilding == null;
+        _currentBuildingFromGPS != null &&
+        isInBuilding &&
+        _startBuilding == null;
     const double setAsStartHeight = 48.0;
     const double gap = 8.0;
-    final double setAsStartBottom = sheetOpen ? _currentSheetLift : 12; // coverage:ignore-line
+    final double setAsStartBottom = sheetOpen
+        ? _currentSheetLift
+        : 12; // coverage:ignore-line
     final double bottom = setAsStartVisible
-        ? setAsStartBottom + setAsStartHeight + gap // coverage:ignore-line
+        ? setAsStartBottom +
+              setAsStartHeight +
+              gap // coverage:ignore-line
         : (sheetOpen ? _currentSheetLift : 0); // coverage:ignore-line
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 220),
@@ -1804,9 +1840,7 @@ class _HomeScreenState extends HomeScreenState {
           setState(() {
             _programmaticCameraMove = true;
           });
-          await controller.animateCamera(
-            CameraUpdate.newLatLng(pos),
-          );
+          await controller.animateCamera(CameraUpdate.newLatLng(pos));
           setState(() {
             _mapMoved = false;
             _programmaticCameraMove = false;
@@ -1819,7 +1853,8 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildE2ECampusLabel() { // coverage:ignore-start
+  Widget _buildE2ECampusLabel() {
+    // coverage:ignore-start
     return Text(
       _campus == Campus.loyola ? "campus:loyola" : "campus:sgw",
       key: const Key("campus_label"),
@@ -1855,7 +1890,7 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   /// For tests: invoke the private `_onBuildingTapped` method, including the null branch.
-   @visibleForTesting
+  @visibleForTesting
   void simulateBuildingTap(CampusBuilding? building) {
     _onBuildingTapped(building);
   }
@@ -1950,7 +1985,6 @@ class _HomeScreenState extends HomeScreenState {
   void simulateCameraMove(CameraPosition position) {
     _onCameraMove(position);
   }
-
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
