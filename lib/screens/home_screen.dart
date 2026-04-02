@@ -1367,6 +1367,27 @@ class _HomeScreenState extends HomeScreenState {
                 setState(() {
                   _showScheduleOverlay = false;
                 });
+
+                // Find the building matching the schedule entry's building code
+                final destination = buildingsPresent.cast<CampusBuilding?>().firstWhere(
+                      (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
+                  orElse: () => null,
+                );
+
+                if (destination != null) {
+                  // Set as outdoor destination for directions
+                  _handleSetAsDestination(destination);
+
+                  // Navigate to indoor map with room pre-selected
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => IndoorMapScreen(
+                        building: destination,
+                        initialDestinationRoomId: entry.room,
+                      ),
+                    ),
+                  );
+                }
               },
               lookupService: ScheduleLookupService(
                 api: ConcordiaApiService(

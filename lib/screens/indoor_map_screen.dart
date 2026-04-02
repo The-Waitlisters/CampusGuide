@@ -15,6 +15,7 @@ class IndoorMapScreen extends StatefulWidget {
     super.key,
     required this.building,
     this.mapLoader,
+    this.initialDestinationRoomId,
   });
 
   final CampusBuilding building;
@@ -22,6 +23,9 @@ class IndoorMapScreen extends StatefulWidget {
   /// Override the data-loader; defaults to [loadIndoorMapForBuilding].
   /// Exposed for testing so tests can inject a synchronous stub.
   final Future<IndoorMap?> Function(CampusBuilding)? mapLoader;
+
+  /// If provided, this room will be pre-set as the destination after the map loads.
+  final String? initialDestinationRoomId;
 
   @override
   State<IndoorMapScreen> createState() => _IndoorMapScreenState();
@@ -74,6 +78,27 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
         } else if (map.floors.isNotEmpty) {
           _selectedFloorLevel = map.floorLevels.first;
           _navGraph = _currentFloorOf(map)?.navGraph;
+
+          // Pre-set destination room if provided
+          final destId = widget.initialDestinationRoomId;
+          if (destId != null) {
+            for (final floor in map.floors) {
+              final match = floor.rooms.cast<Room?>().firstWhere(
+                    (r) => r!.id == destId ||
+                    r.name == destId ||
+                    r.id == destId.replaceAll(RegExp(r'^[A-Za-z]+-?'), '') ||
+                    r.name == destId.replaceAll(RegExp(r'^[A-Za-z]+-?'), ''),
+                orElse: () => null,
+              );
+              if (match != null) {
+                _destinationRoom = match;
+                _selectedFloorLevel = floor.level;
+                _navGraph = floor.navGraph;
+                _computePath();
+                break;
+              }
+            }
+          }
         }
       });
     } catch (e) {
