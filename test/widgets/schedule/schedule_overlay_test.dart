@@ -381,4 +381,34 @@ void main() {
 
     expect(selectedValue, 'schedule');
   });
+
+  testWidgets('tapping room in My Schedule tab calls onRoomSelected', (tester) async {
+    // Covers line 175: onRoomTap path through ScheduleDisplay in My Schedule tab
+    final entry = buildEntry();
+    CourseScheduleEntry? selectedFromSchedule;
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(wrap(ScheduleOverlay(
+      onClose: () {},
+      onRoomSelected: (e) => selectedFromSchedule = e,
+      lookupService: mockLookup,
+    )));
+
+    // Add entry to schedule
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    // Switch to My Schedule tab
+    await tester.tap(find.text('My Schedule (1)'));
+    await tester.pump();
+
+    // Tap the room
+    await tester.tap(find.text('H-937'));
+    await tester.pump();
+
+    expect(selectedFromSchedule, same(entry));
+  });
+
 }

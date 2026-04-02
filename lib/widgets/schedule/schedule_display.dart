@@ -13,16 +13,18 @@ class ScheduleDisplay extends StatelessWidget {
     required this.onRoomTap,
   });
 
+  static BoxDecoration _containerDecoration(BuildContext context) => BoxDecoration(
+    border: Border.all(color: Colors.grey.shade300),
+    color: Colors.white,
+  );
+
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          color: Colors.white,
-        ),
+        decoration: _containerDecoration(context),
         child: const Text(
           'No courses added yet.\nSearch for a course and tap + to add it.',
           style: TextStyle(fontSize: 16, height: 1.5),
@@ -31,10 +33,7 @@ class ScheduleDisplay extends StatelessWidget {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        color: Colors.white,
-      ),
+      decoration: _containerDecoration(context),
       child: Column(
         children: [
           Container(

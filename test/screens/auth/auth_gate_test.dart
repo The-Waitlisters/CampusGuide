@@ -195,6 +195,55 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
   });
 
+
+  testWidgets('AuthGate LoginScreen onGuestContinue called when appUser is null', (tester) async {
+    // Covers line 81: onGuestContinue on LoginScreen shown when signed-in user has null profile
+    final service = _FakeAuthGateService(
+      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
+      currentUserFuture: () async => null,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump(); // stream delivers user
+    await tester.pump(); // FutureBuilder resolves null -> LoginScreen
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+
+    final login = tester.widget<LoginScreen>(find.byType(LoginScreen));
+    login.onGuestContinue?.call();
+    await tester.pump(); // FutureBuilder enters waiting state
+    await tester.pump(); // future resolves null -> LoginScreen again
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+  });
+
+  testWidgets('AuthGate shows guest HomeScreen when role is guest but isGuest is false', (tester) async {
+    // Covers lines 86, 92, 93: role == UserRole.guest && !appUser.isGuest branch
+    GeolocatorPlatform.instance = _DisabledGeolocator();
+
+    const appUser = AppUser(
+      uid: 'u1',
+      email: 'user@test.com',
+      role: UserRole.guest,
+      firstName: 'Jane',
+      isGuest: false,
+    );
+
+    final service = _FakeAuthGateService(
+      stream: Stream<User?>.value(MockUser(uid: 'u1', email: 'e@test.com')),
+      currentUserFuture: () async => appUser,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: AuthGate(authService: service)));
+    await tester.pump(Duration.zero);
+    await tester.pump(Duration.zero);
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+
   // ── AuthService unit tests ───────────────────────────────────────────────
 
   group('AuthService', () {
