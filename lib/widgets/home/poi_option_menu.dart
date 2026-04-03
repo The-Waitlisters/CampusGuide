@@ -117,7 +117,7 @@ class PoiOptionMenu extends StatelessWidget {
                           Text('Parks'),
                         ],
                       ),
-                      Row(
+                      Wrap(
                         children: [
                           Checkbox(value: parking, onChanged: onParkingChanged),
                           Text('Parking'),

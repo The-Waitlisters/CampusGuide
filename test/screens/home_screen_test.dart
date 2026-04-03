@@ -2615,27 +2615,29 @@ Future<void> main() async {
       state.setShowPoiSettingsForTest(true);
       await tester.pump();
 
-      await tester.tap(find.text('Restaurants'));
+      // Tap each checkbox (by index: 0=Restaurants, 1=Cafes, 2=Parks,
+      //   3=Parking, 4=FastFood, 5=NightClub)
+      await tester.tap(find.byType(Checkbox).at(0));
       await tester.pump();
       expect(state.restaurants, isTrue);
 
-      await tester.tap(find.text('Cafes'));
+      await tester.tap(find.byType(Checkbox).at(1));
       await tester.pump();
       expect(state.cafes, isTrue);
 
-      await tester.tap(find.text('Parks'));
+      await tester.tap(find.byType(Checkbox).at(2));
       await tester.pump();
       expect(state.parks, isTrue);
 
-      await tester.tap(find.text('Parking'));
+      await tester.tap(find.byType(Checkbox).at(3));
       await tester.pump();
       expect(state.parking, isTrue);
 
-      await tester.tap(find.text('Fast Food'));
+      await tester.tap(find.byType(Checkbox).at(4));
       await tester.pump();
       expect(state.fastFood, isTrue);
 
-      await tester.tap(find.text('Night Clubs'));
+      await tester.tap(find.byType(Checkbox).at(5));
       await tester.pump();
       expect(state.nightClub, isTrue);
 
@@ -2745,6 +2747,7 @@ Future<void> main() async {
       await tester.pump();
 
       await tester.tap(find.text('Result Poi'));
+      await tester.pump(); // fires post-frame callback for showBottomSheet
       await tester.pumpAndSettle();
 
       expect(find.byType(BuildingDetailSheet), findsOneWidget);
@@ -2799,8 +2802,10 @@ Future<void> main() async {
       await tester.enterText(find.byType(TextField).first, 'Searched Cafe');
       await tester.pump(const Duration(milliseconds: 400));
 
+      // .last selects the ListTile Text, not the TextField's EditableText
       expect(find.text('Searched Cafe'), findsAtLeastNWidgets(1));
-      await tester.tap(find.text('Searched Cafe').first);
+      await tester.tap(find.text('Searched Cafe').last);
+      await tester.pump(); // fires post-frame callback for showBottomSheet
       await tester.pumpAndSettle();
 
       expect(find.byType(BuildingDetailSheet), findsOneWidget);

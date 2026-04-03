@@ -1826,6 +1826,7 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void simulateShowPoiDetailSheet(Poi poi) {
     _showPoiDetailSheet(poi);
+    setState(() {}); // schedules a frame so the post-frame callback fires
   }
 
   @visibleForTesting

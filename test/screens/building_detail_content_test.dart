@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/poi.dart';
 import 'package:proj/widgets/home/building_detail_content.dart'; // correct import
 
 CampusBuilding _building({
@@ -52,6 +53,43 @@ Widget _wrap(CampusBuilding b, {bool isAnnex = false, CampusBuilding? start}) {
     ),
   );
 }
+
+Poi _poi({
+  String name = 'Test Poi',
+  String? description = 'A description',
+  double rating = 4.2,
+  bool? openNow = true,
+  List<String> openingHours = const ['Mon-Fri 9-5'],
+  List<String?> photoName = const [],
+}) =>
+    Poi(
+      id: 'poi1',
+      name: name,
+      campus: Campus.sgw,
+      description: description,
+      boundary: const LatLng(45.497, -73.578),
+      openNow: openNow,
+      openingHours: openingHours,
+      photoName: photoName,
+      rating: rating,
+      address: '1 Test St',
+    );
+
+Widget _wrapPoi(Poi p) => MaterialApp(
+      home: Material(
+        child: SingleChildScrollView(
+          child: BuildingDetailContent(
+            poi: p,
+            isAnnex: false,
+            startBuilding: null,
+            endBuilding: null,
+            onSetStart: () {},
+            onSetDestination: () {},
+            isPoi: true,
+          ),
+        ),
+      ),
+    );
 
 void main() {
   testWidgets('shows Annex in title when isAnnex=true', (tester) async {
@@ -232,5 +270,110 @@ void main() {
     await tester.pumpWidget(_wrap(b));
 
     expect(find.text('View indoor map'), findsNothing);
+  });
+
+  // --- POI branch tests (isPoi = true) ---
+
+  group('BuildingDetailContent POI branch', () {
+    testWidgets('shows description and rating', (tester) async {
+      final p = _poi(description: 'Nice place', rating: 3.5);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Nice place'), findsOneWidget);
+      expect(find.textContaining('3.5/5'), findsOneWidget);
+    });
+
+    testWidgets('shows Open when openNow=true', (tester) async {
+      final p = _poi(openNow: true);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+      expect(find.text('Open'), findsOneWidget);
+    });
+
+    testWidgets('shows Closed when openNow=false', (tester) async {
+      final p = _poi(openNow: false);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+      expect(find.text('Closed'), findsOneWidget);
+    });
+
+    testWidgets('shows "No photos available" when photoName is empty',
+        (tester) async {
+      final p = _poi(photoName: []);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+      expect(find.text('No photos available'), findsOneWidget);
+    });
+
+    testWidgets('shows opening hours when list is non-empty', (tester) async {
+      final p = _poi(openingHours: ['Mon-Fri 9-5', 'Sat 10-3']);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+      expect(find.text('Mon-Fri 9-5'), findsOneWidget);
+      expect(find.text('Sat 10-3'), findsOneWidget);
+    });
+
+    testWidgets('shows closed message when openingHours is empty',
+        (tester) async {
+      final p = _poi(openingHours: []);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Location is closed for the forseeable future'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('photo gallery renders PageView when photoName is non-empty',
+        (tester) async {
+      final p = _poi(photoName: ['https://example.com/photo1.jpg']);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+      expect(find.text('No photos available'), findsNothing);
+      expect(find.byType(PageView), findsOneWidget);
+    });
+
+    testWidgets('tapping photo opens zoomable dialog', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+      final p = _poi(photoName: ['https://example.com/photo1.jpg']);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+
+      // Tap the GestureDetector inside the PageView
+      final photoTap = find.descendant(
+        of: find.byType(PageView),
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(photoTap.first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+    });
+
+    testWidgets('close button in zoomable dialog dismisses it', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+      final p = _poi(photoName: ['https://example.com/photo1.jpg']);
+      await tester.pumpWidget(_wrapPoi(p));
+      await tester.pumpAndSettle();
+
+      final photoTap = find.descendant(
+        of: find.byType(PageView),
+        matching: find.byType(GestureDetector),
+      );
+      await tester.tap(photoTap.first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Dialog), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Dialog), findsNothing);
+    });
   });
 }
