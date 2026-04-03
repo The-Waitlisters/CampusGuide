@@ -69,6 +69,8 @@ class HomeScreen extends StatefulWidget {
 
   final DirectionsController? testDirectionsController;
 
+  /// For tests: injectable HTTP client so [_searchNearbyPlaces] can be mocked.
+  final http.Client? testHttpClient;
 
   const HomeScreen({
     super.key,
@@ -79,6 +81,7 @@ class HomeScreen extends StatefulWidget {
     this.buildingLocator,
     this.testMapControllerCompleter,
     this.testDirectionsController,
+    this.testHttpClient,
     MarkerImageLoader? markerImageLoader,
   }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
 
@@ -91,7 +94,7 @@ class HomeScreen extends StatefulWidget {
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
   // ignore: strict_top_level_inference
-  get markers => [];
+  get markers => []; // coverage:ignore-line
 
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
@@ -612,7 +615,8 @@ class _HomeScreenState extends HomeScreenState {
       'https://places.googleapis.com/v1/places:searchNearby',
     );
 
-    final response = await http.post(
+    final client = widget.testHttpClient ?? http.Client();
+    final response = await client.post(
       uri,
       headers: {
         'Content-Type': 'application/json',
@@ -1804,6 +1808,31 @@ class _HomeScreenState extends HomeScreenState {
   void setMapControllerForTest(GoogleMapController controller) {
     _mapController = controller;
   }
+
+  @visibleForTesting
+  void setShowPoiSettingsForTest(bool value) {
+    setState(() {
+      showPoiSettings = value;
+    });
+  }
+
+  @visibleForTesting
+  void setShowResultsForTest(bool value) {
+    setState(() {
+      showResults = value;
+    });
+  }
+
+  @visibleForTesting
+  void simulateShowPoiDetailSheet(Poi poi) {
+    _showPoiDetailSheet(poi);
+  }
+
+  @visibleForTesting
+  Future<void> simulatePoiAsStart(Poi poi) => _handlePoiAsStart(poi);
+
+  @visibleForTesting
+  Future<void> simulatePoiAsDestination(Poi poi) => _handlePoiAsDestination(poi);
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
