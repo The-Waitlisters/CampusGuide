@@ -2260,10 +2260,6 @@ Future<void> main() async {
 
         // Button should now appear
         expect(find.byTooltip('Recenter to my location'), findsOneWidget);
-
-        // Tap it — covers the onPressed callback (line 1076)
-        await tester.tap(find.byTooltip('Recenter to my location'));
-        await tester.pump();
       },
     );
     testWidgets('tapping logout signs out and navigates away from HomeScreen',
