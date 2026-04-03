@@ -7,8 +7,8 @@ enum NavEdgeType { hallway, roomToWaypoint, autoWaypoint }
 class NavNode {
   final String id;
   final String type;
-  final double x; // normalized 0..1
-  final double y; // normalized 0..1
+  final double x;
+  final double y;
   final String name;
 
   const NavNode({
@@ -20,16 +20,15 @@ class NavNode {
   });
 
   bool get isRoom => switch (type) {
-        'room' ||
-        'stair_landing' ||
-        'elevator_door' ||
-        'building_entry_exit' =>
-          true,
-        _ => false,
-      };
+    'room' ||
+    'stair_landing' ||
+    'elevator_door' ||
+    'building_entry_exit' =>
+    true,
+    _ => false,
+  };
 
-  bool get isWaypoint =>
-      type == 'hallway_waypoint' || type == 'doorway';
+  bool get isWaypoint => type == 'hallway_waypoint' || type == 'doorway';
 }
 
 class NavEdge {
@@ -38,11 +37,15 @@ class NavEdge {
   final double weight;
   final NavEdgeType edgeType;
 
+//for vertical preference
+  final String? rawType;
+
   const NavEdge({
     required this.from,
     required this.to,
     required this.weight,
     this.edgeType = NavEdgeType.hallway,
+    this.rawType,
   });
 }
 
@@ -79,7 +82,7 @@ class NavGraph {
     dist[fromId] = 0;
 
     final pq = SplayTreeSet<_Pq>(
-      (a, b) => a.d != b.d ? a.d.compareTo(b.d) : a.id.compareTo(b.id),
+          (a, b) => a.d != b.d ? a.d.compareTo(b.d) : a.id.compareTo(b.id),
     );
     pq.add(_Pq(fromId, 0));
 
@@ -113,7 +116,10 @@ class NavGraph {
   ///
   /// [pixelScale] must match the `imageWidth`/`imageHeight` used by the
   /// explicit JSON edges so all weights are in the same unit.
-  NavGraph withAutoConnections({double pixelScale = 2000.0}) {
+  NavGraph withAutoConnections({
+    double pixelScale = 2000.0,
+    Set<String> excludeFromAutoConnect = const {},
+  }) {
     final waypoints = nodes.where((n) => n.isWaypoint).toList();
     if (waypoints.isEmpty) return this;
 
@@ -127,7 +133,11 @@ class NavGraph {
 
     // Connect each room to its nearest waypoint.
     for (final room in nodes.where((n) => n.isRoom)) {
-      final nearest = _nearest(room, waypoints);
+      final candidates = waypoints
+          .where((w) => !(excludeFromAutoConnect.contains(room.id) &&
+          excludeFromAutoConnect.contains(w.id)))
+          .toList();
+      final nearest = _nearest(room, candidates);
       if (nearest != null) {
         extra.add(NavEdge(
           from: room.id,
@@ -138,11 +148,15 @@ class NavGraph {
       }
     }
 
-    // Connect orphaned waypoints (no JSON edges) to the nearest connected waypoint.
+    // Connect orphaned waypoints to the nearest connected waypoint. Safety net if we forgot to link something.
     final connectedWps =
-        waypoints.where((n) => connectedIds.contains(n.id)).toList();
+    waypoints.where((n) => connectedIds.contains(n.id)).toList();
     for (final orphan in waypoints.where((n) => !connectedIds.contains(n.id))) {
-      final nearest = _nearest(orphan, connectedWps);
+      final candidates = connectedWps
+          .where((w) => !(excludeFromAutoConnect.contains(orphan.id) &&
+          excludeFromAutoConnect.contains(w.id)))
+          .toList();
+      final nearest = _nearest(orphan, candidates);
       if (nearest != null) {
         extra.add(NavEdge(
           from: orphan.id,

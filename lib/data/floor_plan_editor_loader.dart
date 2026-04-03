@@ -5,27 +5,14 @@ import '../models/floor.dart';
 import '../models/nav_graph.dart';
 import '../models/room.dart';
 
-/// Converts floor-plan-editor export JSON into [Floor] + [NavGraph].
-///
-/// Expected JSON shape (from https://github.com/gabrielshufelt/floor-plan-editor):
-/// ```json
-/// {
-///   "imageWidth": 2000,
-///   "imageHeight": 2000,
-///   "nodes": [
-///     { "id": "...", "type": "room", "floor": 8, "x": 100, "y": 200, "label": "H-801" }
-///   ],
-///   "edges": [ { "source": "...", "target": "...", "type": "hallway", "weight": 10 } ]
-/// }
-/// ```
 class FloorPlanEditorLoader {
   /// Parses one floor. [level] overrides the floor field on nodes when set.
   static Floor parseFloor(
-    Map<String, dynamic> json, {
-    int? level,
-    String floorLabelPrefix = 'Floor ',
-    String? imagePath,
-  }) {
+      Map<String, dynamic> json, {
+        int? level,
+        String floorLabelPrefix = 'Floor ',
+        String? imagePath,
+      }) {
     final nodes = json['nodes'];
     final nodeList = nodes is List
         ? nodes
@@ -53,7 +40,6 @@ class FloorPlanEditorLoader {
       final x = _readDouble(n, 'x', 0.0) / imgW;
       final y = _readDouble(n, 'y', 0.0) / imgH;
       final raw = (n['label'] as String? ?? '').trim();
-      // Fall back to the node ID so room numbers like "801" display correctly.
       final labelStr = raw.isNotEmpty ? raw : id;
       navNodes.add(NavNode(id: id, type: type, x: x, y: y, name: labelStr));
     }
@@ -78,7 +64,7 @@ class FloorPlanEditorLoader {
       if (!n.isRoom) continue;
       final nx = n.x;
       final ny = n.y;
-      const h = 0.025; // touch half-size (larger than drawn indicator)
+      const h = 0.025;
       rooms.add(Room(
         id: n.id,
         name: n.name,
@@ -104,13 +90,98 @@ class FloorPlanEditorLoader {
   /// Parses a multi-floor file.
   /// [imageAssetPrefix] produces per-floor images, e.g. `assets/indoor/H` → `assets/indoor/H_8.png`.
   static List<Floor> parseMultiFloor(
-    Map<String, dynamic> json, {
-    String floorLabelPrefix = 'Floor ',
-    String? imageAssetPrefix,
-  }) {
+      Map<String, dynamic> json, {
+        String floorLabelPrefix = 'Floor ',
+        String? imageAssetPrefix,
+        String imageAssetSeparator = '_',
+      }) {
     final floorsList = json['floors'];
+
     if (floorsList is! List || floorsList.isEmpty) {
-      return [parseFloor(json, floorLabelPrefix: floorLabelPrefix)];
+      final nodes = json['nodes'];
+      final nodeList = nodes is List
+          ? nodes
+          : (nodes is Map ? nodes.values.toList() : <dynamic>[]);
+      final edges = json['edges'];
+      final rawEdges = edges is List ? edges : <dynamic>[];
+      final nodeFloorById = <String, int>{};
+
+      for (final n in nodeList) {
+        if (n is! Map) continue;
+        final id = n['id'] as String?;
+        if (id == null) continue;
+        final flInt = _readInt(n, 'floor', 0) ?? 0;
+        if (flInt == 0) continue;
+        nodeFloorById[id] = flInt;
+      }
+
+      if (nodeFloorById.isNotEmpty) {
+        final floorsSorted = nodeFloorById.values.toSet().toList()..sort();
+        final floors = <Floor>[];
+        for (var i = 0; i < floorsSorted.length; i++) {
+          final fl = floorsSorted[i];
+
+          final nodesForFloor = <dynamic>[];
+          for (final n in nodeList) {
+            if (n is! Map) continue;
+            final id = n['id'] as String?;
+            if (id == null) continue;
+            final nodeFloor = _readInt(n, 'floor', null);
+            if (nodeFloor == null || nodeFloor == fl) {
+              nodesForFloor.add(n);
+            }
+          }
+
+          final edgesForFloor = <dynamic>[];
+          for (final e in rawEdges) {
+            if (e is! Map) continue;
+            final from = e['source'] as String?;
+            final to = e['target'] as String?;
+            if (from == null || to == null) continue;
+
+            final fromFloor = nodeFloorById[from];
+            final toFloor = nodeFloorById[to];
+
+            final fromIncluded = fromFloor == null || fromFloor == fl;
+            final toIncluded = toFloor == null || toFloor == fl;
+            if (!fromIncluded || !toIncluded) continue;
+
+            edgesForFloor.add(e);
+          }
+
+          final imgPath = imageAssetPrefix != null
+              ? '$imageAssetPrefix$imageAssetSeparator$fl.png'
+              : null;
+
+          final floorJson = Map<String, dynamic>.from(json);
+          floorJson['nodes'] = nodesForFloor;
+          floorJson['edges'] = edgesForFloor;
+
+          floors.add(
+            parseFloor(
+              floorJson,
+              level: fl,
+              floorLabelPrefix: floorLabelPrefix,
+              imagePath: imgPath,
+            ),
+          );
+        }
+
+        return floors;
+      }
+
+      final floorLevel =
+          _readInt(nodeList.isNotEmpty ? nodeList.first : null, 'floor', 1) ?? 1;
+      final imgPath = imageAssetPrefix != null
+          ? '$imageAssetPrefix$imageAssetSeparator$floorLevel.png'
+          : null;
+      return [
+        parseFloor(
+          json,
+          floorLabelPrefix: floorLabelPrefix,
+          imagePath: imgPath,
+        ),
+      ];
     }
 
     return [
@@ -121,7 +192,7 @@ class FloorPlanEditorLoader {
             level: _readInt(f, 'level', null),
             floorLabelPrefix: floorLabelPrefix,
             imagePath: imageAssetPrefix != null
-                ? '${imageAssetPrefix}_${_readInt(f, 'level', 1)}.png'
+                ? '$imageAssetPrefix$imageAssetSeparator${_readInt(f, 'level', 1)}.png'
                 : null,
           ),
     ];
