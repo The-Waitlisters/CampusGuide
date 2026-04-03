@@ -14,6 +14,7 @@ class CampusMap extends StatelessWidget {
     required this.myLocationButtonEnabled,
     this.groundOverlays = const {},
     this.onCameraMove,
+    this.onCameraIdle,
   });
 
   final CameraPosition initialCamera;
@@ -26,6 +27,7 @@ class CampusMap extends StatelessWidget {
   final bool myLocationButtonEnabled;
   final Set<GroundOverlay> groundOverlays;
   final void Function(CameraPosition)? onCameraMove;
+  final VoidCallback? onCameraIdle;
 
   static const String hidePoiStyle = '''
   [
@@ -58,6 +60,7 @@ class CampusMap extends StatelessWidget {
       groundOverlays: groundOverlays,
       onTap: onTap,
       onCameraMove: onCameraMove,
+      onCameraIdle: onCameraIdle,
       style: hidePoiStyle,
     );
   }
