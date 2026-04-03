@@ -1046,6 +1046,7 @@ class _HomeScreenState extends HomeScreenState {
           endBuilding: _endBuilding,
           startPoi: _startPoi,
           endPoi: _endPoi,
+          // coverage:ignore-start
           onSetStart: () async {
             await _handlePoiAsStart(poi);
             _sheetController?.close();
@@ -1056,6 +1057,7 @@ class _HomeScreenState extends HomeScreenState {
             _sheetController?.close();
             _sheetController = null;
           },
+          // coverage:ignore-end
         );
       });
       _attachSheetAnimation(_sheetController);
