@@ -1752,6 +1752,14 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
+  void simulateCameraMove(CameraPosition position) {
+    setState(() {
+      _mapMoved = true;
+      _lastKnownPosition ??= position.target;
+    });
+  }
+
+  @visibleForTesting
   void simulateGpsLocation(LatLng point) {
     final result = _buildingLocator.update(
       userPoint: point,
