@@ -42,22 +42,6 @@ class _FloorNodeRef {
   final VerticalLinkKind? connectorKind;
 }
 
-class _VerticalLink {
-  const _VerticalLink({
-    required this.fromFloor,
-    required this.fromNodeId,
-    required this.toFloor,
-    required this.toNodeId,
-    required this.kind,
-  });
-
-  final int fromFloor;
-  final String fromNodeId;
-  final int toFloor;
-  final String toNodeId;
-  final VerticalLinkKind kind;
-}
-
 class IndoorMultifloorRoutePlanner {
   static const double _verticalTransitionWeight = 25.0;
 
@@ -124,6 +108,7 @@ class IndoorMultifloorRoutePlanner {
         from: _globalNodeId(l.fromFloor, l.fromNodeId),
         to: _globalNodeId(l.toFloor, l.toNodeId),
         weight: _verticalTransitionWeight,
+        oneWay: l.oneWay,
       ));
     }
 
@@ -185,22 +170,26 @@ class IndoorMultifloorRoutePlanner {
 
     return IndoorRoute(segments: segments, directions: directions);
   }
-  static List<_VerticalLink> _inferVerticalLinks(IndoorMap map) {
+  static List<VerticalLink> _inferVerticalLinks(IndoorMap map) {
     // Use explicit verticalLinks from JSON if provided
     if (map.verticalLinks.isNotEmpty) {
-      final result = <_VerticalLink>[];
+      final result = <VerticalLink>[];
       for (final l in map.verticalLinks) {
         // Both directions — Dijkstra needs edges both ways
-        result.add(_VerticalLink(
+        result.add(VerticalLink(
           fromFloor: l.fromFloor, fromNodeId: l.fromNodeId,
           toFloor: l.toFloor,   toNodeId: l.toNodeId,
           kind: l.kind,
         ));
-        result.add(_VerticalLink(
-          fromFloor: l.toFloor, fromNodeId: l.toNodeId,
-          toFloor: l.fromFloor, toNodeId: l.fromNodeId,
-          kind: l.kind,
-        ));
+        if(!l.oneWay) {
+          result.add(VerticalLink(
+            fromFloor: l.toFloor,
+            fromNodeId: l.toNodeId,
+            toFloor: l.fromFloor,
+            toNodeId: l.fromNodeId,
+            kind: l.kind,
+          ));
+        }
       }
       return result;
     }
@@ -208,7 +197,7 @@ class IndoorMultifloorRoutePlanner {
     return _inferVerticalLinksByName(map);
   }
 
-  static List<_VerticalLink> _inferVerticalLinksByName(IndoorMap map) {
+  static List<VerticalLink> _inferVerticalLinksByName(IndoorMap map) {
     final byKey = <String, List<_FloorNodeRef>>{};
     for (final floor in map.floors) {
       final graph = floor.navGraph;
@@ -225,7 +214,7 @@ class IndoorMultifloorRoutePlanner {
       }
     }
 
-    final links = <_VerticalLink>[];
+    final links = <VerticalLink>[];
     for (final entry in byKey.entries) {
       final key  = entry.key;
       final refs = entry.value
@@ -240,12 +229,12 @@ class IndoorMultifloorRoutePlanner {
         for (var j = i + 1; j < refs.length; j++) {
           final a = refs[i];
           final b = refs[j];
-          links.add(_VerticalLink(
+          links.add(VerticalLink(
             fromFloor: a.floorLevel, fromNodeId: a.localNodeId,
             toFloor:   b.floorLevel, toNodeId:   b.localNodeId,
             kind:      kind,
           ));
-          links.add(_VerticalLink(
+          links.add(VerticalLink(
             fromFloor: b.floorLevel, fromNodeId: b.localNodeId,
             toFloor:   a.floorLevel, toNodeId:   a.localNodeId,
             kind:      kind,

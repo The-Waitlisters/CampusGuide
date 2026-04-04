@@ -36,9 +36,8 @@ class NavEdge {
   final String to;
   final double weight;
   final NavEdgeType edgeType;
-
-//for vertical preference
   final String? rawType;
+  final bool oneWay;
 
   const NavEdge({
     required this.from,
@@ -46,6 +45,7 @@ class NavEdge {
     required this.weight,
     this.edgeType = NavEdgeType.hallway,
     this.rawType,
+    this.oneWay = false,
   });
 }
 
@@ -61,7 +61,9 @@ class NavGraph {
     final adj = <String, List<_Nb>>{for (final n in nodes) n.id: []};
     for (final e in edges) {
       adj.putIfAbsent(e.from, () => []).add(_Nb(e.to, e.weight));
-      adj.putIfAbsent(e.to, () => []).add(_Nb(e.from, e.weight));
+      if(!e.oneWay){
+        adj.putIfAbsent(e.to, () => []).add(_Nb(e.from, e.weight));
+      }
     }
     _adj = adj;
   }

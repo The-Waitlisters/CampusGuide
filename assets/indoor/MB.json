@@ -7,19 +7,19 @@
       "imageHeight": 2000,
       "nodes": [
         {
-          "id": "Fire exit 1",
+          "id": "Entrance/Exit",
           "type": "room",
           "x": 882,
           "y": 244,
-          "label": "Fire exit 1",
+          "label": "Entrance/Exit",
           "accessible": true
         },
         {
-          "id": "Stairs",
+          "id": "F1_stair_landing_1",
           "type": "room",
           "x": 811,
           "y": 368,
-          "label": "Stairs",
+          "label": "F1_stair_landing_1",
           "accessible": true
         },
         {
@@ -63,19 +63,19 @@
           "accessible": true
         },
         {
-          "id": "Elevator 1",
+          "id": "F1_Elevator_1",
           "type": "room",
           "x": 1354,
           "y": 1166,
-          "label": "Elevator 1",
+          "label": "F1_Elevator_1",
           "accessible": true
         },
         {
-          "id": "Elevator 2",
+          "id": "F1_Elevator_2",
           "type": "room",
           "x": 1347,
           "y": 1244,
-          "label": "Elevator 2",
+          "label": "F1_Elevator_2",
           "accessible": true
         },
         {
@@ -127,11 +127,11 @@
           "accessible": true
         },
         {
-          "id": "Escalator",
+          "id": "1st floor Escalator Down",
           "type": "room",
           "x": 995,
           "y": 1598,
-          "label": "Escalator",
+          "label": "1st floor Escalator Down",
           "accessible": true
         },
         {
@@ -538,7 +538,7 @@
       "edges": [
         {
           "source": "bldg-1_F1_hallway_waypoint_44",
-          "target": "Fire exit 1",
+          "target": "Entrance/Exit",
           "type": "door_to_hallway",
           "weight": 85
         },
@@ -556,7 +556,7 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_46",
-          "target": "Stairs",
+          "target": "F1_stair_landing_1",
           "type": "door_to_hallway",
           "weight": 62
         },
@@ -772,13 +772,13 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_69",
-          "target": "Elevator 1",
+          "target": "F1_Elevator_1",
           "type": "door_to_hallway",
           "weight": 67
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_69",
-          "target": "Elevator 2",
+          "target": "F1_Elevator_2",
           "type": "door_to_hallway",
           "weight": 56
         },
@@ -861,7 +861,7 @@
           "weight": 118
         },
         {
-          "source": "Escalator",
+          "source": "1st floor Escalator Down",
           "target": "bldg-1_F1_hallway_waypoint_79",
           "type": "door_to_hallway",
           "weight": 82
@@ -1501,11 +1501,11 @@
           "accessible": true
         },
         {
-          "id": "Stairs",
+          "id": "F2_stair_landing_2",
           "type": "room",
           "x": 835,
           "y": 876,
-          "label": "Stairs",
+          "label": "F1_stair_landing_2",
           "accessible": true
         },
         {
@@ -1517,19 +1517,19 @@
           "accessible": true
         },
         {
-          "id": "Elevator",
+          "id": "F2_Elevator_1",
           "type": "room",
           "x": 1364,
           "y": 1132,
-          "label": "Elevator",
+          "label": "F2_Elevator_1",
           "accessible": true
         },
         {
-          "id": "Elevator2",
+          "id": "F2_Elevator_2",
           "type": "room",
           "x": 1332,
           "y": 1260,
-          "label": "Elevator2",
+          "label": "F2_Elevator_2",
           "accessible": true
         },
         {
@@ -1701,11 +1701,11 @@
           "accessible": true
         },
         {
-          "id": "Escalator",
+          "id": "2nd floor Escalator Down",
           "type": "room",
           "x": 972,
           "y": 1038,
-          "label": "Escalator",
+          "label": "2nd floor Escalator Down",
           "accessible": true
         },
         {
@@ -1905,7 +1905,7 @@
           "weight": 114
         },
         {
-          "source": "Stairs",
+          "source": "F1_stair_landing_2",
           "target": "bldg-1_F1_hallway_waypoint_106",
           "type": "door_to_hallway",
           "weight": 100
@@ -1918,7 +1918,7 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_107",
-          "target": "Stairs",
+          "target": "F1_stair_landing_2",
           "type": "door_to_hallway",
           "weight": 162
         },
@@ -1960,7 +1960,7 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_105",
-          "target": "Escalator",
+          "target": "2nd floor Escalator Down",
           "type": "door_to_hallway",
           "weight": 131
         },
@@ -2056,25 +2056,25 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_121",
-          "target": "Elevator",
+          "target": "F2_Elevator_1",
           "type": "door_to_hallway",
           "weight": 104
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_121",
-          "target": "Elevator2",
+          "target": "F2_Elevator_2",
           "type": "door_to_hallway",
           "weight": 73
         },
         {
-          "source": "Elevator2",
+          "source": "F2_Elevator_2",
           "target": "bldg-1_F1_hallway_waypoint_122",
           "type": "door_to_hallway",
           "weight": 83
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_122",
-          "target": "Elevator",
+          "target": "F2_Elevator_1",
           "type": "door_to_hallway",
           "weight": 82
         },
@@ -2091,14 +2091,14 @@
           "weight": 61
         },
         {
-          "source": "Elevator2",
+          "source": "F2_Elevator_2",
           "target": "bldg-1_F1_hallway_waypoint_146",
           "type": "door_to_hallway",
           "weight": 59
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_146",
-          "target": "Elevator",
+          "target": "F2_Elevator_1",
           "type": "door_to_hallway",
           "weight": 75
         },
@@ -2404,5 +2404,12 @@
         }
       ]
     }
+  ],
+  "verticalLinks": [
+    { "from": { "floor": 1, "nodeId": "F1_stair_landing_1" }, "to": { "floor": 2, "nodeId": "F2_stair_landing_1" }, "kind": "stairs" },
+    { "from": { "floor": 1, "nodeId": "Fire exit - 1.108" }, "to": { "floor": 2, "nodeId": "s2.115 - Fire exit" }, "kind": "stairs" },
+    { "from": { "floor": 1, "nodeId": "1st floor Escalator Down" }, "to": { "floor": 2, "nodeId": "2nd floor Escalator Down" }, "kind": "stairs", "oneWay": true },
+    { "from": { "floor": 1, "nodeId": "F1_Elevator_1" }, "to": { "floor": 2, "nodeId": "F2_Elevator_1" }, "kind": "elevator" },
+    { "from": { "floor": 1, "nodeId": "F1_Elevator_2" }, "to": { "floor": 2, "nodeId": "F2_Elevator_2" }, "kind": "elevator" }
   ]
 }

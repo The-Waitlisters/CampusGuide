@@ -32,7 +32,7 @@ class VerticalLink {
       toFloor: to['floor'] as int,
       toNodeId: to['nodeId'] as String,
       kind: kind,
-      oneWay: json['oneWay'] as bool ? ?? false,
+      oneWay: json['oneWay'] as bool? ?? false,
     );
   }
 }
