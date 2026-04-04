@@ -73,14 +73,16 @@ void main() {
 
     testWidgets('clear button only appears when text is non-empty',
         (tester) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(_wrap(controller: controller));
+      // Empty controller → no clear button
+      final empty = TextEditingController();
+      addTearDown(empty.dispose);
+      await tester.pumpWidget(_wrap(controller: empty));
       expect(find.byIcon(Icons.clear), findsNothing);
 
-      controller.text = 'something';
-      await tester.pump();
+      // Pre-filled controller → clear button shown
+      final filled = TextEditingController(text: 'something');
+      addTearDown(filled.dispose);
+      await tester.pumpWidget(_wrap(controller: filled));
       expect(find.byIcon(Icons.clear), findsOneWidget);
     });
 
