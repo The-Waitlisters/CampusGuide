@@ -209,6 +209,7 @@ void main() {
                 results: const <CampusBuilding>[],
                 onChanged: (_) {},
                 onClear: () {},
+                onSearch: () {},
                 onMenuSelected: (String value) {
                   selectedValue = value;
                 },
