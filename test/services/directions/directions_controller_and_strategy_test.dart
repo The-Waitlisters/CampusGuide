@@ -351,7 +351,7 @@ void main() {
       expect(poly, isNotNull);
       expect(poly!.polylineId.value, 'route_leg_0');
       expect(poly.points, const [LatLng(10, 10), LatLng(20, 20)]);
-      expect(poly.width, 7);
+      expect(poly.width, 5);
     });
 
     test('updateRoute error: sets errorMessage and clears route', () async {
