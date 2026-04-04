@@ -1,11 +1,12 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import './campus.dart';
+import './location.dart';
 
-class CampusBuilding {
+class CampusBuilding implements MapLocation {
   final String id;
-  final String name;
-  final String? fullName; // Optional full name
-  final String? description; // Optional description
+  @override final String name;
+  final String? fullName;
+  @override final String? description;
   final Campus campus;
   final List<LatLng> boundary;
   final List<String> openingHours;

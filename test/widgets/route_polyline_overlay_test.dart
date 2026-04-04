@@ -6,8 +6,13 @@ import 'package:proj/widgets/home/route_polyline_overlay.dart';
 
 const _camera = CameraPosition(target: LatLng(45.5, -73.5), zoom: 14);
 
-Widget _wrap(Widget child) =>
-    MaterialApp(home: Scaffold(body: SizedBox(width: 400, height: 800, child: child)));
+Widget _wrap(Widget child) => MediaQuery(
+      data: const MediaQueryData(),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: SizedBox(width: 400, height: 800, child: child),
+      ),
+    );
 
 void main() {
   group('RoutePolylineOverlay', () {

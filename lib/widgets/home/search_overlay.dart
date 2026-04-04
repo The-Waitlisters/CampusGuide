@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/location.dart';
+import 'package:proj/models/poi.dart';
 
 class SearchOverlay extends StatelessWidget {
   final TextEditingController controller;
@@ -63,7 +65,11 @@ class SearchOverlay extends StatelessWidget {
               ),
             ),
           ),
-          if (showResults) SearchResultsCard(results: results, onSelect: onSelectResult),
+          if (showResults)
+            SearchResultsCard(
+              results: results.cast<MapLocation>().toList(),
+              onSelect: (loc) => onSelectResult(loc as CampusBuilding),
+            ),
         ],
       ),
     );
@@ -71,8 +77,8 @@ class SearchOverlay extends StatelessWidget {
 }
 
 class SearchResultsCard extends StatelessWidget {
-  final List<CampusBuilding> results;
-  final ValueChanged<CampusBuilding> onSelect;
+  final List<MapLocation> results;
+  final ValueChanged<MapLocation> onSelect;
 
   const SearchResultsCard({
     super.key,
@@ -89,15 +95,22 @@ class SearchResultsCard extends StatelessWidget {
         itemCount: results.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) {
-          final b = results[i];
+          final loc = results[i];
+
+          String? subtitle;
+          if (loc is CampusBuilding) {
+            final fn = loc.fullName;
+            if (fn != null && fn.trim().isNotEmpty) subtitle = fn;
+          } else if (loc is Poi) {
+            final desc = loc.description;
+            if (desc != null && desc.isNotEmpty) subtitle = desc;
+          }
 
           return ListTile(
             dense: true,
-            title: Text(b.name),
-            subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
-                ? Text(b.fullName!)
-                : null,
-            onTap: () => onSelect(b),
+            title: Text(loc.name),
+            subtitle: subtitle != null ? Text(subtitle) : null,
+            onTap: () => onSelect(loc),
           );
         },
       ),
