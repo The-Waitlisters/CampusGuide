@@ -1091,6 +1091,7 @@ class _HomeScreenState extends HomeScreenState {
       showResults: _showSearchResults,
       results: _searchResults,
       onChanged: _onSearchChanged,
+      onSearch: () => _onSearchChanged(_searchController.text),
       onTapField: () {
         if (_searchResults.isNotEmpty) {
           setState(() {
