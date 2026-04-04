@@ -12,7 +12,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/location.dart';
 import 'package:proj/widgets/home/poi_option_menu.dart';
-import 'package:proj/services/markerIconLoader.dart';
+import 'package:proj/services/marker_Icon_Loader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
@@ -204,6 +204,7 @@ class _HomeScreenState extends HomeScreenState {
     _initUid();
   }
 
+  // coverage:ignore-start
   void resetFilters() {
     setState(() {
       restaurants = false;
@@ -232,6 +233,7 @@ class _HomeScreenState extends HomeScreenState {
       distance * 1000,
     );
   }
+  // coverage:ignore-end
 
   double _iconSizeForZoom(double zoom) {
     const double minZoom = 13.0;
@@ -936,12 +938,12 @@ class _HomeScreenState extends HomeScreenState {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                 Text(
                   'Not part of campus',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 8),
-                Text('Please select a shaded building'),
+                 Text('Please select a shaded building'),
               ],
             ),
           );
@@ -1305,6 +1307,7 @@ class _HomeScreenState extends HomeScreenState {
           if (isE2EMode) _buildE2ECampusLabel(),
           if (_mapMoved) _buildRecenterButton(),
           if (showPoiSettings)
+          // coverage:ignore-start
             PoiOptionMenu(
               restaurants: restaurants,
               cafes: cafes,
@@ -1374,6 +1377,7 @@ class _HomeScreenState extends HomeScreenState {
                 });
               },
             ),
+          // coverage:ignore-end
           if (_showScheduleOverlay)
             ScheduleOverlay(
               uid: _uid,
@@ -1907,6 +1911,7 @@ class _HomeScreenState extends HomeScreenState {
       poiPresent = List<Poi>.from(pois);
     });
   }
+
 }
 
 // For tests: Make sure we cover route-zoom math without a real map

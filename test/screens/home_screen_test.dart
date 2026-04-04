@@ -26,7 +26,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:proj/services/directions/directions_controller.dart';
 import 'package:proj/services/directions/transport_mode_strategy.dart';
-import 'package:proj/services/markerIconLoader.dart';
+import 'package:proj/services/marker_Icon_Loader.dart';
 import 'package:proj/utilities/polygon_helper.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';

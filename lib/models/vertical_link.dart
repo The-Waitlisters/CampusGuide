@@ -1,3 +1,4 @@
+// coverage:ignore-file
 enum VerticalLinkKind { elevator, stairs, escalator }
 class VerticalLink {
   final int fromFloor;

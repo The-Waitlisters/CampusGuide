@@ -111,27 +111,27 @@ class PoiOptionMenu extends StatelessWidget {
                             value: restaurants,
                             onChanged: onRestaurantsChanged,
                           ),
-                          Text('Restaurants'),
+                          const Text('Restaurants'),
                           Checkbox(value: cafes, onChanged: onCafesChanged),
-                          Text('Cafes'),
+                          const Text('Cafes'),
                           Checkbox(value: parks, onChanged: onParksChanged),
-                          Text('Parks'),
+                          const Text('Parks'),
                         ],
                       ),
                       Wrap(
                         children: [
                           Checkbox(value: parking, onChanged: onParkingChanged),
-                          Text('Parking'),
+                          const Text('Parking'),
                           Checkbox(
                             value: fastFood,
                             onChanged: onFastFoodChanged,
                           ),
-                          Text('Fast Food'),
+                          const Text('Fast Food'),
                           Checkbox(
                             value: nightClub,
                             onChanged: onNightClubChanged,
                           ),
-                          Text('Night Clubs'),
+                          const Text('Night Clubs'),
                         ],
                       ),
 

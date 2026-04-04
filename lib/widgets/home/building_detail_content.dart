@@ -209,10 +209,10 @@ Widget _buildPhotoGallery() {
           const SizedBox(height: 12),
           _buildPhotoGallery(),
           const SizedBox(height: 18),
-          Text('Opening Hours', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
+          const Text('Opening Hours', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
           const SizedBox(height: 12),
           for(final hour in poi!.openingHours) Text(hour),
-          if(poi!.openingHours.isEmpty) Text('Location is closed for the forseeable future')
+          if(poi!.openingHours.isEmpty) const Text('Location is closed for the foreseeable future')
           ],
           
           
