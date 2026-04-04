@@ -261,7 +261,7 @@ void main() {
       final c = DirectionsController(
         client: FakeDirectionsClient.success(
           const RouteResult(
-            polylinePoints: [LatLng(1, 1), LatLng(2, 2)],
+            legs: [RouteLeg(polylinePoints: [LatLng(1, 1), LatLng(2, 2)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'x', distanceText: 'y')],
             durationText: 'x',
             distanceText: 'y',
           ),
@@ -280,7 +280,7 @@ void main() {
       final c = DirectionsController(
         client: FakeDirectionsClient.success(
           const RouteResult(
-            polylinePoints: [LatLng(1, 1), LatLng(2, 2)],
+            legs: [RouteLeg(polylinePoints: [LatLng(1, 1), LatLng(2, 2)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'x', distanceText: 'y')],
             durationText: 'x',
             distanceText: 'y',
           ),
@@ -299,7 +299,7 @@ void main() {
     test('updateRoute resets if start or end is null and does not call client', () async {
       final fake = FakeDirectionsClient.success(
         const RouteResult(
-          polylinePoints: [LatLng(1, 1), LatLng(2, 2)],
+          legs: [RouteLeg(polylinePoints: [LatLng(1, 1), LatLng(2, 2)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'x', distanceText: 'y')],
           durationText: 'x',
           distanceText: 'y',
         ),
@@ -319,7 +319,7 @@ void main() {
     test('updateRoute success: sets loading then polyline/duration/distance', () async {
       final fake = FakeDirectionsClient.success(
         const RouteResult(
-          polylinePoints: [LatLng(10, 10), LatLng(20, 20)],
+          legs: [RouteLeg(polylinePoints: [LatLng(10, 10), LatLng(20, 20)], legMode: LegMode.walking, durationSeconds: 0, durationText: '5 mins', distanceText: '1.2 km')],
           durationText: '5 mins',
           distanceText: '1.2 km',
         ),
@@ -378,7 +378,7 @@ void main() {
       final c = DirectionsController(
         client: FakeDirectionsClient.success(
           const RouteResult(
-            polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+            legs: [RouteLeg(polylinePoints: [LatLng(0, 0), LatLng(1, 1)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'A', distanceText: 'A')],
             durationText: 'A',
             distanceText: 'A',
           ),
@@ -424,7 +424,7 @@ void main() {
       expect(loading.polyline, seededOld); // the line we wanted to cover
 
       completer.complete(const RouteResult(
-        polylinePoints: [LatLng(9, 9), LatLng(8, 8)],
+        legs: [RouteLeg(polylinePoints: [LatLng(9, 9), LatLng(8, 8)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'B', distanceText: 'B')],
         durationText: 'B',
         distanceText: 'B',
       ));
@@ -436,7 +436,7 @@ void main() {
     test('Shuttle mode shows placeholder and does not call API', () async {
       final fake = FakeDirectionsClient.success(
         const RouteResult(
-          polylinePoints: [LatLng(1,1)],
+          legs: [RouteLeg(polylinePoints: [LatLng(1,1)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'x', distanceText: 'y')],
           durationText: 'x',
           distanceText: 'y',
         ),
@@ -458,7 +458,7 @@ void main() {
     test('Shuttle mode shows same-campus message', () async {
       final fake = FakeDirectionsClient.success(
         const RouteResult(
-          polylinePoints: [LatLng(1,1)],
+          legs: [RouteLeg(polylinePoints: [LatLng(1,1)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'x', distanceText: 'y')],
           durationText: 'x',
           distanceText: 'y',
         ),
@@ -483,7 +483,7 @@ void main() {
     test('Shuttle mode shows cross-campus placeholder message', () async {
       final fake = FakeDirectionsClient.success(
         const RouteResult(
-          polylinePoints: [LatLng(1,1)],
+          legs: [RouteLeg(polylinePoints: [LatLng(1,1)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'x', distanceText: 'y')],
           durationText: 'x',
           distanceText: 'y',
         ),
@@ -528,7 +528,7 @@ class _CompleterDirectionsClient implements DirectionsClient {
     if (!_seeded) {
       _seeded = true;
       return const RouteResult(
-        polylinePoints: [LatLng(5, 5), LatLng(6, 6)],
+        legs: [RouteLeg(polylinePoints: [LatLng(5, 5), LatLng(6, 6)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'seed', distanceText: 'seed')],
         durationText: 'seed',
         distanceText: 'seed',
       );

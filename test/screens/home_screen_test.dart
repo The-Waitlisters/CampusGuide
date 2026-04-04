@@ -1864,7 +1864,7 @@ Future<void> main() async {
       final fakeDirections = DirectionsController(
         client: FakeDirectionsClient.success(
           const RouteResult(
-            polylinePoints: [LatLng(45, -73), LatLng(46, -74)],
+            legs: [RouteLeg(polylinePoints: [LatLng(45, -73), LatLng(46, -74)], legMode: LegMode.walking, durationSeconds: 0, durationText: '5 mins', distanceText: '1 km')],
             durationText: '5 mins',
             distanceText: '1 km',
           ),
