@@ -32,6 +32,7 @@ import 'package:proj/widgets/campus_toggle.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart';
 import 'package:proj/widgets/home/building_detail_content.dart';
 import 'package:proj/widgets/home/building_detail_sheet.dart';
+import 'package:proj/widgets/home/poi_option_menu.dart';
 import 'package:proj/widgets/home/search_overlay.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 import 'package:proj/widgets/use_as_start.dart';
@@ -544,6 +545,10 @@ Future<void> main() async {
     );
 
     expect(bytes, isNotEmpty);
+  });
+
+  test('StringExtension.capitalize capitalizes each word', () {
+    expect('night_club'.replaceAll('_', ' ').capitalize(), 'Night Club ');
   });
 
   // -------------------------------------------------------------------------
@@ -3149,6 +3154,55 @@ Future<void> main() async {
       await tester.pump();
 
       verify(mockBuildingLocator.reset()).called(1);
+    });
+
+    testWidgets('authenticated user can open schedule overlay from menu', (
+        WidgetTester tester,
+        ) async {
+      await tester.pumpWidget(
+        wrap(
+          home_screen.HomeScreen(
+            role: UserRole.user,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Schedule'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+    });
+
+    testWidgets('guest user gets snackbar when opening schedule', (
+        WidgetTester tester,
+        ) async {
+      await tester.pumpWidget(
+        wrap(
+          home_screen.HomeScreen(
+            role: UserRole.guest,
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.menu));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Schedule'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Schedule is available for user-authenticated accounts only.'),
+        findsOneWidget,
+      );
     });
 
   });

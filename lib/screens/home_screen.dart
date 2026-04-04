@@ -1922,6 +1922,13 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  @visibleForTesting
+  void simulatePoiSelection(Poi poi) {
+    _showPoiDetailSheet(poi);
+  }
+
+
+
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
