@@ -91,7 +91,7 @@ class IndoorMultifloorRoutePlanner {
       }
     }
 
-    final allVerticalLinks = _inferVerticalLinks(map);
+    final allVerticalLinks = _inferVerticalLinks(map) ?? [];
     final allowedLinks = allVerticalLinks.where((l) {
       if (preference == VerticalPreference.elevatorOnly) {
         return l.kind == VerticalLinkKind.elevator;
@@ -100,7 +100,7 @@ class IndoorMultifloorRoutePlanner {
         return l.kind == VerticalLinkKind.stairs ||
             l.kind == VerticalLinkKind.escalator;
       }
-      return true; // VerticalPreference.either
+      return true;
     });
 
     for (final l in allowedLinks) {
@@ -167,19 +167,19 @@ class IndoorMultifloorRoutePlanner {
         directions.add('Arrive at destination.');
       }
     }
-
     return IndoorRoute(segments: segments, directions: directions);
   }
-  static List<VerticalLink> _inferVerticalLinks(IndoorMap map) {
+  static List<VerticalLink>? _inferVerticalLinks(IndoorMap map) {
     // Use explicit verticalLinks from JSON if provided
     if (map.verticalLinks.isNotEmpty) {
       final result = <VerticalLink>[];
       for (final l in map.verticalLinks) {
-        // Both directions — Dijkstra needs edges both ways
+        // Both directions — unless stated
         result.add(VerticalLink(
           fromFloor: l.fromFloor, fromNodeId: l.fromNodeId,
           toFloor: l.toFloor,   toNodeId: l.toNodeId,
           kind: l.kind,
+          oneWay: l.oneWay,
         ));
         if(!l.oneWay) {
           result.add(VerticalLink(
@@ -188,62 +188,63 @@ class IndoorMultifloorRoutePlanner {
             toFloor: l.fromFloor,
             toNodeId: l.fromNodeId,
             kind: l.kind,
+            oneWay: l.oneWay,
           ));
         }
       }
       return result;
     }
-    // Fallback: name-based inference for buildings without explicit links
-    return _inferVerticalLinksByName(map);
+    return null;
+    //return _inferVerticalLinksByName(map);
   }
 
-  static List<VerticalLink> _inferVerticalLinksByName(IndoorMap map) {
-    final byKey = <String, List<_FloorNodeRef>>{};
-    for (final floor in map.floors) {
-      final graph = floor.navGraph;
-      if (graph == null) continue;
-      for (final n in graph.nodes) {
-        final label = n.name.isNotEmpty ? n.name : n.id;
-        final key = _canonicalConnectorKey(label);
-        if (key == null) continue;
-        byKey.putIfAbsent(key, () => []).add(_FloorNodeRef(
-          floorLevel: floor.level,
-          localNodeId: n.id,
-          displayName: label,
-        ));
-      }
-    }
-
-    final links = <VerticalLink>[];
-    for (final entry in byKey.entries) {
-      final key  = entry.key;
-      final refs = entry.value
-        ..sort((a, b) => a.floorLevel.compareTo(b.floorLevel));
-
-      final kind = key.contains('elevator')
-              ? VerticalLinkKind.elevator
-              : key.contains('escalator')
-                ? VerticalLinkKind.escalator
-                : VerticalLinkKind.stairs;
-      for (var i = 0; i < refs.length; i++) {
-        for (var j = i + 1; j < refs.length; j++) {
-          final a = refs[i];
-          final b = refs[j];
-          links.add(VerticalLink(
-            fromFloor: a.floorLevel, fromNodeId: a.localNodeId,
-            toFloor:   b.floorLevel, toNodeId:   b.localNodeId,
-            kind:      kind,
-          ));
-          links.add(VerticalLink(
-            fromFloor: b.floorLevel, fromNodeId: b.localNodeId,
-            toFloor:   a.floorLevel, toNodeId:   a.localNodeId,
-            kind:      kind,
-          ));
-        }
-      }
-    }
-    return links;
-  }
+  // static List<VerticalLink> _inferVerticalLinksByName(IndoorMap map) {
+  //   final byKey = <String, List<_FloorNodeRef>>{};
+  //   for (final floor in map.floors) {
+  //     final graph = floor.navGraph;
+  //     if (graph == null) continue;
+  //     for (final n in graph.nodes) {
+  //       final label = n.name.isNotEmpty ? n.name : n.id;
+  //       final key = _canonicalConnectorKey(label);
+  //       if (key == null) continue;
+  //       byKey.putIfAbsent(key, () => []).add(_FloorNodeRef(
+  //         floorLevel: floor.level,
+  //         localNodeId: n.id,
+  //         displayName: label,
+  //       ));
+  //     }
+  //   }
+  //
+  //   final links = <VerticalLink>[];
+  //   for (final entry in byKey.entries) {
+  //     final key  = entry.key;
+  //     final refs = entry.value
+  //       ..sort((a, b) => a.floorLevel.compareTo(b.floorLevel));
+  //
+  //     final kind = key.contains('elevator')
+  //             ? VerticalLinkKind.elevator
+  //             : key.contains('escalator')
+  //               ? VerticalLinkKind.escalator
+  //               : VerticalLinkKind.stairs;
+  //     for (var i = 0; i < refs.length; i++) {
+  //       for (var j = i + 1; j < refs.length; j++) {
+  //         final a = refs[i];
+  //         final b = refs[j];
+  //         links.add(VerticalLink(
+  //           fromFloor: a.floorLevel, fromNodeId: a.localNodeId,
+  //           toFloor:   b.floorLevel, toNodeId:   b.localNodeId,
+  //           kind:      kind,
+  //         ));
+  //         links.add(VerticalLink(
+  //           fromFloor: b.floorLevel, fromNodeId: b.localNodeId,
+  //           toFloor:   a.floorLevel, toNodeId:   a.localNodeId,
+  //           kind:      kind,
+  //         ));
+  //       }
+  //     }
+  //   }
+  //   return links;
+  // }
 
   static String _transitionInstruction(_FloorNodeRef from, _FloorNodeRef to) {
     final kind = from.connectorKind ?? to.connectorKind;
@@ -258,23 +259,23 @@ class IndoorMultifloorRoutePlanner {
 
   static String _globalNodeId(int floorLevel, String localId) => 'f$floorLevel::$localId';
 
-  static String? _canonicalConnectorKey(String raw) {
-    final s = raw.toLowerCase();
-    if (!s.contains('elevator') &&
-        !s.contains('stair') &&
-        !s.contains('escalator')) return null;
-
-    var key = s.replaceAll(RegExp(r'\d+'), ' ');
-    for (final word in const ['floor', 'th', 'st', 'nd', 'rd', 'up', 'down']) {
-      key = key.replaceAll(word, ' ');
-    }
-    key = key.replaceAll(RegExp(r'[^a-z]+'), ' ').trim();
-
-    if (key.contains('elevator'))  return 'elevator';
-    if (key.contains('escalator')) return 'escalator';
-    if (key.contains('stair'))     return 'stairs';
-    return null;
-  }
+  // static String? _canonicalConnectorKey(String raw) {
+  //   final s = raw.toLowerCase();
+  //   if (!s.contains('elevator') &&
+  //       !s.contains('stair') &&
+  //       !s.contains('escalator')) return null;
+  //
+  //   var key = s.replaceAll(RegExp(r'\d+'), ' ');
+  //   for (final word in const ['floor', 'th', 'st', 'nd', 'rd', 'up', 'down']) {
+  //     key = key.replaceAll(word, ' ');
+  //   }
+  //   key = key.replaceAll(RegExp(r'[^a-z]+'), ' ').trim();
+  //
+  //   if (key.contains('elevator'))  return 'elevator';
+  //   if (key.contains('escalator')) return 'escalator';
+  //   if (key.contains('stair'))     return 'stairs';
+  //   return null;
+  // }
 
   static VerticalLinkKind? _detectConnectorKind(String raw) {
     final s = raw.toLowerCase();

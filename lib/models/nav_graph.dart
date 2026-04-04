@@ -84,7 +84,7 @@ class NavGraph {
     dist[fromId] = 0;
 
     final pq = SplayTreeSet<_Pq>(
-          (a, b) => a.d != b.d ? a.d.compareTo(b.d) : a.id.compareTo(b.id),
+      (a, b) => a.d != b.d ? a.d.compareTo(b.d) : a.id.compareTo(b.id),
     );
     pq.add(_Pq(fromId, 0));
 
