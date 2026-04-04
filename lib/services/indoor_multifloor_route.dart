@@ -1,9 +1,8 @@
 // coverage:ignore-file
+import '../models/floor.dart';
 import '../models/indoor_map.dart';
 import '../models/nav_graph.dart';
 import '../models/vertical_link.dart';
-
-
 
 enum VerticalPreference { either, elevatorOnly, stairsOnly }
 
@@ -20,10 +19,7 @@ class RouteSegment {
 }
 
 class IndoorRoute {
-  const IndoorRoute({
-    required this.segments,
-    required this.directions,
-  });
+  const IndoorRoute({required this.segments, required this.directions});
 
   final List<RouteSegment> segments;
   final List<String> directions;
@@ -83,28 +79,28 @@ class IndoorMultifloorRoutePlanner {
 
       for (final n in graph.nodes) {
         final gid = _globalNodeId(floor.level, n.id);
-        globalNodes.add(NavNode(
-          id: gid,
-          type: n.type,
-          x: n.x,
-          y: n.y,
-          name: n.name,
-        ));
+        globalNodes.add(
+          NavNode(id: gid, type: n.type, x: n.x, y: n.y, name: n.name),
+        );
         globalToLocal[gid] = _FloorNodeRef(
           floorLevel: floor.level,
           localNodeId: n.id,
           displayName: n.name.isNotEmpty ? n.name : n.id,
-          connectorKind: _detectConnectorKind(n.name.isNotEmpty ? n.name : n.id),
+          connectorKind: _detectConnectorKind(
+            n.name.isNotEmpty ? n.name : n.id,
+          ),
         );
       }
 
       for (final e in graph.edges) {
-        globalEdges.add(NavEdge(
-          from: _globalNodeId(floor.level, e.from),
-          to: _globalNodeId(floor.level, e.to),
-          weight: e.weight,
-          edgeType: e.edgeType,
-        ));
+        globalEdges.add(
+          NavEdge(
+            from: _globalNodeId(floor.level, e.from),
+            to: _globalNodeId(floor.level, e.to),
+            weight: e.weight,
+            edgeType: e.edgeType,
+          ),
+        );
       }
     }
 
@@ -112,8 +108,7 @@ class IndoorMultifloorRoutePlanner {
     final allowedLinks = allVerticalLinks.where((l) {
       if (preference == VerticalPreference.elevatorOnly) {
         return l.kind == VerticalLinkKind.elevator;
-      }
-      else if (preference == VerticalPreference.stairsOnly) {
+      } else if (preference == VerticalPreference.stairsOnly) {
         return l.kind == VerticalLinkKind.stairs ||
             l.kind == VerticalLinkKind.escalator;
       }
@@ -121,11 +116,13 @@ class IndoorMultifloorRoutePlanner {
     });
 
     for (final l in allowedLinks) {
-      globalEdges.add(NavEdge(
-        from: _globalNodeId(l.fromFloor, l.fromNodeId),
-        to: _globalNodeId(l.toFloor, l.toNodeId),
-        weight: _verticalTransitionWeight,
-      ));
+      globalEdges.add(
+        NavEdge(
+          from: _globalNodeId(l.fromFloor, l.fromNodeId),
+          to: _globalNodeId(l.toFloor, l.toNodeId),
+          weight: _verticalTransitionWeight,
+        ),
+      );
     }
 
     final globalGraph = NavGraph(nodes: globalNodes, edges: globalEdges);
@@ -134,7 +131,10 @@ class IndoorMultifloorRoutePlanner {
       return null;
     }
 
-    final refs = globalPath.map((id) => globalToLocal[id]).whereType<_FloorNodeRef>().toList();
+    final refs = globalPath
+        .map((id) => globalToLocal[id])
+        .whereType<_FloorNodeRef>()
+        .toList();
     if (refs.isEmpty) return null;
 
     final segments = <RouteSegment>[];
@@ -150,33 +150,40 @@ class IndoorMultifloorRoutePlanner {
       }
 
       final transitionText = _transitionInstruction(prev, cur);
-      segments.add(RouteSegment(
-        floorLevel: currentFloor,
-        nodeIds: List<String>.from(currentNodes),
-        transitionInstruction: transitionText,
-      ));
+      segments.add(
+        RouteSegment(
+          floorLevel: currentFloor,
+          nodeIds: List<String>.from(currentNodes),
+          transitionInstruction: transitionText,
+        ),
+      );
 
       currentFloor = cur.floorLevel;
       currentNodes = <String>[cur.localNodeId];
     }
 
-    segments.add(RouteSegment(
-      floorLevel: currentFloor,
-      nodeIds: List<String>.from(currentNodes),
-    ));
+    segments.add(
+      RouteSegment(
+        floorLevel: currentFloor,
+        nodeIds: List<String>.from(currentNodes),
+      ),
+    );
 
     final directions = <String>[];
     for (var i = 0; i < segments.length; i++) {
       final seg = segments[i];
       final endRef = refs.firstWhere(
-            (r) => r.floorLevel == seg.floorLevel && r.localNodeId == seg.nodeIds.last,
+        (r) =>
+            r.floorLevel == seg.floorLevel && r.localNodeId == seg.nodeIds.last,
         orElse: () => _FloorNodeRef(
           floorLevel: seg.floorLevel,
           localNodeId: seg.nodeIds.last,
           displayName: seg.nodeIds.last,
         ),
       );
-      directions.add('Floor ${seg.floorLevel}: follow the highlighted path to ${endRef.displayName}.');
+      directions.add(
+        'Floor ${seg.floorLevel}: follow the highlighted path to ${endRef.displayName}.',
+      );
       if (seg.transitionInstruction != null) {
         directions.add(seg.transitionInstruction!);
       } else if (i == segments.length - 1) {
@@ -186,22 +193,31 @@ class IndoorMultifloorRoutePlanner {
 
     return IndoorRoute(segments: segments, directions: directions);
   }
+
   static List<_VerticalLink> _inferVerticalLinks(IndoorMap map) {
     // Use explicit verticalLinks from JSON if provided
     if (map.verticalLinks.isNotEmpty) {
       final result = <_VerticalLink>[];
       for (final l in map.verticalLinks) {
         // Both directions — Dijkstra needs edges both ways
-        result.add(_VerticalLink(
-          fromFloor: l.fromFloor, fromNodeId: l.fromNodeId,
-          toFloor: l.toFloor,   toNodeId: l.toNodeId,
-          kind: l.kind,
-        ));
-        result.add(_VerticalLink(
-          fromFloor: l.toFloor, fromNodeId: l.toNodeId,
-          toFloor: l.fromFloor, toNodeId: l.fromNodeId,
-          kind: l.kind,
-        ));
+        result.add(
+          _VerticalLink(
+            fromFloor: l.fromFloor,
+            fromNodeId: l.fromNodeId,
+            toFloor: l.toFloor,
+            toNodeId: l.toNodeId,
+            kind: l.kind,
+          ),
+        );
+        result.add(
+          _VerticalLink(
+            fromFloor: l.toFloor,
+            fromNodeId: l.toNodeId,
+            toFloor: l.fromFloor,
+            toNodeId: l.fromNodeId,
+            kind: l.kind,
+          ),
+        );
       }
       return result;
     }
@@ -210,51 +226,96 @@ class IndoorMultifloorRoutePlanner {
   }
 
   static List<_VerticalLink> _inferVerticalLinksByName(IndoorMap map) {
-    final byKey = <String, List<_FloorNodeRef>>{};
-    for (final floor in map.floors) {
-      final graph = floor.navGraph;
-      if (graph == null) continue;
-      for (final n in graph.nodes) {
-        final label = n.name.isNotEmpty ? n.name : n.id;
-        final key = _canonicalConnectorKey(label);
-        if (key == null) continue;
-        byKey.putIfAbsent(key, () => []).add(_FloorNodeRef(
-          floorLevel: floor.level,
-          localNodeId: n.id,
-          displayName: label,
-        ));
-      }
-    }
+    final Map<String, List<_FloorNodeRef>> byKey = _groupConnectorRefs(map);
+    final List<_VerticalLink> links = <_VerticalLink>[];
 
-    final links = <_VerticalLink>[];
-    for (final entry in byKey.entries) {
-      final key  = entry.key;
-      final refs = entry.value
+    for (final MapEntry<String, List<_FloorNodeRef>> entry in byKey.entries) {
+      final String key = entry.key;
+      final List<_FloorNodeRef> refs = entry.value
         ..sort((a, b) => a.floorLevel.compareTo(b.floorLevel));
 
-      final kind = key.contains('elevator')
-              ? VerticalLinkKind.elevator
-              : key.contains('escalator')
-                ? VerticalLinkKind.escalator
-                : VerticalLinkKind.stairs;
-      for (var i = 0; i < refs.length; i++) {
-        for (var j = i + 1; j < refs.length; j++) {
-          final a = refs[i];
-          final b = refs[j];
-          links.add(_VerticalLink(
-            fromFloor: a.floorLevel, fromNodeId: a.localNodeId,
-            toFloor:   b.floorLevel, toNodeId:   b.localNodeId,
-            kind:      kind,
-          ));
-          links.add(_VerticalLink(
-            fromFloor: b.floorLevel, fromNodeId: b.localNodeId,
-            toFloor:   a.floorLevel, toNodeId:   a.localNodeId,
-            kind:      kind,
-          ));
+      final VerticalLinkKind kind = _verticalLinkKindFromKey(key);
+      links.addAll(_buildVerticalLinksForRefs(refs, kind));
+    }
+
+    return links;
+  }
+
+  static Map<String, List<_FloorNodeRef>> _groupConnectorRefs(IndoorMap map) {
+    final Map<String, List<_FloorNodeRef>> byKey =
+        <String, List<_FloorNodeRef>>{};
+
+    for (final Floor floor in map.floors) {
+      final NavGraph? graph = floor.navGraph;
+      if (graph == null) {
+        continue;
+      }
+
+      for (final NavNode n in graph.nodes) {
+        final String label = n.name.isNotEmpty ? n.name : n.id;
+        final String? key = _canonicalConnectorKey(label);
+        if (key == null) {
+          continue;
         }
+
+        byKey
+            .putIfAbsent(key, () => <_FloorNodeRef>[])
+            .add(
+              _FloorNodeRef(
+                floorLevel: floor.level,
+                localNodeId: n.id,
+                displayName: label,
+              ),
+            );
       }
     }
+
+    return byKey;
+  }
+
+  static VerticalLinkKind _verticalLinkKindFromKey(String key) {
+    if (key.contains('elevator')) {
+      return VerticalLinkKind.elevator;
+    }
+
+    if (key.contains('escalator')) {
+      return VerticalLinkKind.escalator;
+    }
+
+    return VerticalLinkKind.stairs;
+  }
+
+  static List<_VerticalLink> _buildVerticalLinksForRefs(
+    List<_FloorNodeRef> refs,
+    VerticalLinkKind kind,
+  ) {
+    final List<_VerticalLink> links = <_VerticalLink>[];
+
+    for (var i = 0; i < refs.length; i++) {
+      for (var j = i + 1; j < refs.length; j++) {
+        final _FloorNodeRef a = refs[i];
+        final _FloorNodeRef b = refs[j];
+
+        links.add(_makeVerticalLink(a, b, kind));
+        links.add(_makeVerticalLink(b, a, kind));
+      }
+    }
+
     return links;
+  }
+
+  static _VerticalLink _makeVerticalLink(
+    _FloorNodeRef from,
+    _FloorNodeRef to,
+    VerticalLinkKind kind,
+  ) {
+    return _VerticalLink(
+      fromFloor: from.floorLevel,
+      fromNodeId: from.localNodeId,
+      toFloor: to.floorLevel,
+      toNodeId: to.localNodeId,
+      kind: kind,
+    );
   }
 
   static String _transitionInstruction(_FloorNodeRef from, _FloorNodeRef to) {
@@ -268,13 +329,16 @@ class IndoorMultifloorRoutePlanner {
     return 'Take the $mode from floor ${from.floorLevel} to floor ${to.floorLevel}.';
   }
 
-  static String _globalNodeId(int floorLevel, String localId) => 'f$floorLevel::$localId';
+  static String _globalNodeId(int floorLevel, String localId) =>
+      'f$floorLevel::$localId';
 
   static String? _canonicalConnectorKey(String raw) {
     final s = raw.toLowerCase();
     if (!s.contains('elevator') &&
         !s.contains('stair') &&
-        !s.contains('escalator')) return null;
+        !s.contains('escalator')) {
+      return null;
+    }
 
     var key = s.replaceAll(RegExp(r'\d+'), ' ');
     for (final word in const ['floor', 'th', 'st', 'nd', 'rd', 'up', 'down']) {
@@ -282,9 +346,9 @@ class IndoorMultifloorRoutePlanner {
     }
     key = key.replaceAll(RegExp(r'[^a-z]+'), ' ').trim();
 
-    if (key.contains('elevator'))  return 'elevator';
+    if (key.contains('elevator')) return 'elevator';
     if (key.contains('escalator')) return 'escalator';
-    if (key.contains('stair'))     return 'stairs';
+    if (key.contains('stair')) return 'stairs';
     return null;
   }
 

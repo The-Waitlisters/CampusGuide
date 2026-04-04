@@ -94,6 +94,8 @@ class FloorPlanEditorLoader {
 
   /// Parses a multi-floor file.
   /// [imageAssetPrefix] produces per-floor images, e.g. `assets/indoor/H` → `assets/indoor/H_8.png`.
+  /// Parses a multi-floor file.
+  /// [imageAssetPrefix] produces per-floor images, e.g. `assets/indoor/H` → `assets/indoor/H_8.png`.
   static List<Floor> parseMultiFloor(
     Map<String, dynamic> json, {
     String floorLabelPrefix = 'Floor ',

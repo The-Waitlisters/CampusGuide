@@ -1538,11 +1538,21 @@ class _HomeScreenState extends HomeScreenState {
 
     final bool sheetOpen = _sheetController != null;
 
+    double bottomOffset;
+
+    if (!sheetOpen) {
+      bottomOffset = 25;
+    } else if (notCampus) {
+      bottomOffset = 90;
+    } else {
+      bottomOffset = _sheetLiftMax;
+    }
+
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       left: 0,
-      bottom: sheetOpen ? (notCampus ? 90 : _sheetLiftMax) : 25,
+      bottom: bottomOffset,
       child: UseAsStart(
         selected: _currentBuildingFromGPS!,
         onSetStart: () {
