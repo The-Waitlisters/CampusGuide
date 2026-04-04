@@ -349,7 +349,7 @@ void main() {
 
       final poly = c.state.polyline;
       expect(poly, isNotNull);
-      expect(poly!.polylineId.value, 'route');
+      expect(poly!.polylineId.value, 'route_leg_0');
       expect(poly.points, const [LatLng(10, 10), LatLng(20, 20)]);
       expect(poly.width, 7);
     });
@@ -477,10 +477,10 @@ void main() {
 
       expect(
         c.state.placeholderMessage,
-        'Shuttle is only available for cross-campus travel',
+        'Shuttle is only available for cross-campus travel (SGW ↔ Loyola)',
       );
     });
-    test('Shuttle mode shows cross-campus placeholder message', () async {
+    test('Shuttle mode builds real route for cross-campus travel', () async {
       final fake = FakeDirectionsClient.success(
         const RouteResult(
           legs: [RouteLeg(polylinePoints: [LatLng(1,1)], legMode: LegMode.walking, durationSeconds: 0, durationText: 'x', distanceText: 'y')],
@@ -503,10 +503,9 @@ void main() {
         endCampus: campusB,
       );
 
-      expect(
-        c.state.placeholderMessage,
-        'Shuttle service is coming soon for SGW ↔ Loyola travel',
-      );
+      expect(c.state.placeholderMessage, isNull);
+      expect(c.state.polylines, isNotEmpty);
+      expect(c.state.errorMessage, isNull);
     });
   });
 }
