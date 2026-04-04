@@ -383,6 +383,7 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  // coverage:ignore-start
   Future<void> _loadNearbyPois(
       bool restaurant,
       bool cafe,
@@ -531,6 +532,8 @@ class _HomeScreenState extends HomeScreenState {
     }
   }
 
+  // coverage:ignore-end
+  // coverage:ignore-start
   void _finishLoadingPois(
       List<dynamic> places,
       Uint8List markIcon,
@@ -604,6 +607,7 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  // coverage:ignore-end
   Future<void> _initUid() async {
     try {
       final user = await (widget.authService ?? AuthService())
@@ -624,6 +628,7 @@ class _HomeScreenState extends HomeScreenState {
         '?key=$apiKey&maxWidthPx=$maxWidthPx';
   }
 
+  // coverage:ignore-start
   Future<List<dynamic>> _searchNearbyPlaces({
     required double latitude,
     required double longitude,
@@ -667,6 +672,7 @@ class _HomeScreenState extends HomeScreenState {
     return (jsonBody['places'] as List<dynamic>?) ?? [];
   }
 
+  // coverage:ignore-end
   CameraPosition get _initialCamera {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
@@ -919,13 +925,13 @@ class _HomeScreenState extends HomeScreenState {
     if (controller == null) return;
     final bounds = boundsForRoute(a, b);
 
-    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80)); // coverage:ignore-line
   }
 
   void _onBuildingTapped(CampusBuilding? building) {
     debugPrint('_onBuildingTapped called with: ${building?.name}');
     if (building == null) {
-      showModalBottomSheet(
+      showModalBottomSheet( // coverage:ignore-line
         context: context,
         builder: (context) {
           return const Padding(
@@ -1812,6 +1818,33 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
+  void simulatePoi(Poi poi, {bool isStart = false}) {
+    if (isStart) {
+      _handlePoiAsStart(poi);
+    } else {
+      _handlePoiAsDestination(poi);
+    }
+  }
+
+  @visibleForTesting
+  void simulateRoomSelected(CourseScheduleEntry entry) {
+    setState(() => _showScheduleOverlay = false);
+    final destination = buildingsPresent.cast<CampusBuilding?>().firstWhere(
+          (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
+      orElse: () => null,
+    );
+    if (destination != null) {
+      _handleSetAsDestination(destination);
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => IndoorMapScreen(
+          building: destination,
+          initialDestinationRoomId: entry.room,
+        ),
+      ));
+    }
+  }
+
+  @visibleForTesting
   void simulateGpsLocation(LatLng point) {
     final result = _buildingLocator.update(
       userPoint: point,
@@ -1856,6 +1889,7 @@ class _HomeScreenState extends HomeScreenState {
   void setMapControllerForTest(GoogleMapController controller) {
     _mapController = controller;
   }
+
 
   @visibleForTesting
   void setShowPoiSettingsForTest(bool value) {

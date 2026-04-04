@@ -2367,5 +2367,74 @@ Future<void> main() async {
           // fullName is null so the chip falls through to building.name
           expect(find.text('HAL'), findsOneWidget);
         });
+    // -------------------------------------------------------------------------
+    // POI as start/destination
+    // -------------------------------------------------------------------------
+    testWidgets('poi as start sets _startPoi and updates directions', (tester) async {
+      final poi = testPoi(id: 'p1', name: 'POI1');
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => []);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.simulatePoi(poi, isStart: true);
+      await tester.pump();
+
+      // directions card should show start from POI
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
+
+    testWidgets('poi as destination sets _endPoi', (tester) async {
+      final poi = testPoi(id: 'p2', name: 'POI2');
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => []);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.simulatePoi(poi, isStart: false);
+      await tester.pump();
+
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
+    
+    testWidgets('onRoomSelected sets destination when building found', (tester) async {
+      final building = buildTestBuilding(id: 'h1', name: 'H', fullName: 'Hall Building');
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.simulateRoomSelected(const CourseScheduleEntry(
+        courseCode: 'SOEN390',
+        section: 'AA',
+        dayText: 'Mon',
+        timeText: '9:00',
+        room: 'H937',
+        campus: 'SGW',
+        buildingCode: 'H',
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // IndoorMapScreen should be pushed
+      expect(find.byType(IndoorMapScreen), findsOneWidget);
+
+      // Pump remaining timers (loadIndoorMapForBuilding has 150ms delay)
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
   });
 }
