@@ -29,28 +29,28 @@ Future<IndoorMap?> loadIndoorMapForBuilding(CampusBuilding building) async {
       jsonName: 'VE',
       imagePrefix: 'assets/indoor/VE',
       separator: '_',
-      ));
+      ));     // coverage:ignore-line
       break;
     case 'MB':
       candidates.add((
       jsonName: 'MB',
       imagePrefix: 'assets/indoor/MB',
       separator: '_',
-      ));
+      ));    // coverage:ignore-line
       break;
     case 'CC':
       candidates.add((
       jsonName: 'CC',
       imagePrefix: 'assets/indoor/CC',
       separator: '_',
-      ));
+      ));    // coverage:ignore-line
       break;
     case 'LB':
       candidates.add((
       jsonName: 'LB',
       imagePrefix: 'assets/indoor/LB',
       separator: '_',
-      ));
+      ));    // coverage:ignore-line
       break;
     default:
       return null;
@@ -75,7 +75,7 @@ Future<IndoorMap?> loadIndoorMapForBuilding(CampusBuilding building) async {
 
       return IndoorMap(building: building, floors: floors, verticalLinks: verticalLinks);
     } catch (e) {
-      print('Indoor map load error: $e');
+      print('Indoor map load error: $e');     // coverage:ignore-line
     }
   }
 

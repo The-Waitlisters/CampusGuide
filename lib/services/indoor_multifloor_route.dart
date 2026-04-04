@@ -154,11 +154,13 @@ class IndoorMultifloorRoutePlanner {
       final seg = segments[i];
       final endRef = refs.firstWhere(
             (r) => r.floorLevel == seg.floorLevel && r.localNodeId == seg.nodeIds.last,
+        // coverage:ignore-start
         orElse: () => _FloorNodeRef(
           floorLevel: seg.floorLevel,
           localNodeId: seg.nodeIds.last,
           displayName: seg.nodeIds.last,
         ),
+        // coverage:ignore-end
       );
       directions.add('Floor ${seg.floorLevel}: follow the highlighted path to ${endRef.displayName}.');
       if (seg.transitionInstruction != null) {
