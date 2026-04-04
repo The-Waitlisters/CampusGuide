@@ -51,40 +51,44 @@ const _multiFloorJson = '''
 ]}
 ''';
 
-IndoorMap _parseMap(CampusBuilding b, String rawJson,
-    {String? imageAssetPrefix}) {
+IndoorMap _parseMap(
+  CampusBuilding b,
+  String rawJson, {
+  String? imageAssetPrefix,
+}) {
   final j = jsonDecode(rawJson) as Map<String, dynamic>;
-  final floors = FloorPlanEditorLoader.parseMultiFloor(j,
-      imageAssetPrefix: imageAssetPrefix);
+  final floors = FloorPlanEditorLoader.parseMultiFloor(
+    j,
+    imageAssetPrefix: imageAssetPrefix,
+  );
   return IndoorMap(building: b, floors: floors);
 }
 
-Widget _wrap(CampusBuilding b,
-        {Future<IndoorMap?> Function(CampusBuilding)? mapLoader}) =>
-    MaterialApp(
-      home: IndoorMapScreen(
-        building: b,
-        mapLoader: mapLoader ?? (_) async => null,
-      ),
-    );
+Widget _wrap(
+  CampusBuilding b, {
+  Future<IndoorMap?> Function(CampusBuilding)? mapLoader,
+}) => MaterialApp(
+  home: IndoorMapScreen(building: b, mapLoader: mapLoader ?? (_) async => null),
+);
 
-Widget _wrapNavigable(CampusBuilding b,
-        {Future<IndoorMap?> Function(CampusBuilding)? mapLoader}) =>
-    MaterialApp(
-      home: Builder(
-        builder: (ctx) => TextButton(
-          onPressed: () => Navigator.of(ctx).push(
-            MaterialPageRoute<void>(
-              builder: (_) => IndoorMapScreen(
-                building: b,
-                mapLoader: mapLoader ?? (_) async => null,
-              ),
-            ),
+Widget _wrapNavigable(
+  CampusBuilding b, {
+  Future<IndoorMap?> Function(CampusBuilding)? mapLoader,
+}) => MaterialApp(
+  home: Builder(
+    builder: (ctx) => TextButton(
+      onPressed: () => Navigator.of(ctx).push(
+        MaterialPageRoute<void>(
+          builder: (_) => IndoorMapScreen(
+            building: b,
+            mapLoader: mapLoader ?? (_) async => null,
           ),
-          child: const Text('Go'),
         ),
       ),
-    );
+      child: const Text('Go'),
+    ),
+  ),
+);
 
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
@@ -102,10 +106,12 @@ void main() {
     });
 
     testWidgets('loader exception shows error and Back', (tester) async {
-      await tester.pumpWidget(_wrap(
-        _building(),
-        mapLoader: (_) async => throw Exception('load failed'),
-      ));
+      await tester.pumpWidget(
+        _wrap(
+          _building(),
+          mapLoader: (_) async => throw Exception('load failed'),
+        ),
+      );
       await _settle(tester);
       expect(find.text('Back'), findsOneWidget);
     });
@@ -122,8 +128,9 @@ void main() {
       expect(find.text('Go'), findsOneWidget);
     });
 
-    testWidgets('shows map, dropdown, search, room list when loaded',
-        (tester) async {
+    testWidgets('shows map, dropdown, search, room list when loaded', (
+      tester,
+    ) async {
       final b = _building(name: 'H');
       final map = _parseMap(b, _singleFloorJson);
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
@@ -190,8 +197,9 @@ void main() {
       expect(find.byIcon(Icons.close), findsNothing);
     });
 
-    testWidgets('long press opens bottom sheet; Set as Start sets start',
-        (tester) async {
+    testWidgets('long press opens bottom sheet; Set as Start sets start', (
+      tester,
+    ) async {
       final b = _building(name: 'H');
       final map = _parseMap(b, _singleFloorJson);
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
@@ -207,8 +215,9 @@ void main() {
       expect(find.byIcon(Icons.play_circle), findsWidgets);
     });
 
-    testWidgets('long press then Set as Destination sets destination',
-        (tester) async {
+    testWidgets('long press then Set as Destination sets destination', (
+      tester,
+    ) async {
       final b = _building(name: 'H');
       final map = _parseMap(b, _singleFloorJson);
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
@@ -253,7 +262,9 @@ void main() {
       expect(find.text('H-901'), findsWidgets);
     });
 
-    testWidgets('switching floor updates navGraph and room list', (tester) async {
+    testWidgets('switching floor updates navGraph and room list', (
+      tester,
+    ) async {
       final b = _building(name: 'H');
       final map = _parseMap(b, _multiFloorJson);
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
@@ -271,8 +282,9 @@ void main() {
       expect(find.text('H-901'), findsWidgets);
     });
 
-    testWidgets('tap room from list clears search (fromSearch path)',
-        (tester) async {
+    testWidgets('tap room from list clears search (fromSearch path)', (
+      tester,
+    ) async {
       final b = _building(name: 'H');
       final map = _parseMap(b, _singleFloorJson);
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
@@ -285,11 +297,15 @@ void main() {
       expect(tf.controller?.text, isEmpty);
     });
 
-    testWidgets('map with imagePath builds image (errorBuilder in test)',
-        (tester) async {
+    testWidgets('map with imagePath builds image (errorBuilder in test)', (
+      tester,
+    ) async {
       final b = _building(name: 'H');
-      final map = _parseMap(b, _multiFloorJson,
-          imageAssetPrefix: 'assets/indoor/H');
+      final map = _parseMap(
+        b,
+        _multiFloorJson,
+        imageAssetPrefix: 'assets/indoor/H',
+      );
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
       await _settle(tester);
       expect(find.byType(DropdownButton<int>), findsOneWidget);
@@ -301,10 +317,12 @@ void main() {
       final map = _parseMap(b, _singleFloorJson);
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
       await _settle(tester);
-      final mapGesture = find.descendant(
-        of: find.byType(InteractiveViewer),
-        matching: find.byType(GestureDetector),
-      ).first;
+      final mapGesture = find
+          .descendant(
+            of: find.byType(InteractiveViewer),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
       await tester.ensureVisible(mapGesture);
       final box = tester.getRect(mapGesture);
       final r1NormX = 50 / 200.0;
@@ -315,5 +333,28 @@ void main() {
       await tester.pump();
       expect(find.text('Set Start'), findsOneWidget);
     });
+
+    testWidgets(
+      'initialDestinationRoomId selects destination room by full id',
+      (WidgetTester tester) async {
+        final CampusBuilding b = _building(name: 'H');
+        final IndoorMap map = _parseMap(b, _multiFloorJson);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: IndoorMapScreen(
+              building: b,
+              mapLoader: (_) async => map,
+              initialDestinationRoomId: 'H-901',
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.text('H-901'), findsWidgets);
+      },
+    );
+
   });
 }

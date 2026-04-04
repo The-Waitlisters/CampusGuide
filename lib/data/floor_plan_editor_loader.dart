@@ -8,11 +8,11 @@ import '../models/room.dart';
 class FloorPlanEditorLoader {
   /// Parses one floor. [level] overrides the floor field on nodes when set.
   static Floor parseFloor(
-      Map<String, dynamic> json, {
-        int? level,
-        String floorLabelPrefix = 'Floor ',
-        String? imagePath,
-      }) {
+    Map<String, dynamic> json, {
+    int? level,
+    String floorLabelPrefix = 'Floor ',
+    String? imagePath,
+  }) {
     final nodes = json['nodes'];
     final nodeList = nodes is List
         ? nodes
@@ -25,7 +25,9 @@ class FloorPlanEditorLoader {
     final imgH = (json['imageHeight'] as num?)?.toDouble() ?? 1024.0;
 
     final floorLevel =
-        level ?? _readInt(nodeList.isNotEmpty ? nodeList.first : null, 'floor', 1) ?? 1;
+        level ??
+        _readInt(nodeList.isNotEmpty ? nodeList.first : null, 'floor', 1) ??
+        1;
     final customLabel = (json['label'] as String?)?.trim();
     final label = (customLabel != null && customLabel.isNotEmpty)
         ? customLabel
@@ -50,7 +52,8 @@ class FloorPlanEditorLoader {
       final from = e['source'] as String?;
       final to = e['target'] as String?;
       if (from == null || to == null) continue;
-      final w = (e['weight'] as num?)?.toDouble() ??
+      final w =
+          (e['weight'] as num?)?.toDouble() ??
           _euclidean(navNodes, from, to, imgW, imgH);
       navEdges.add(NavEdge(from: from, to: to, weight: w));
     }
@@ -65,16 +68,18 @@ class FloorPlanEditorLoader {
       final nx = n.x;
       final ny = n.y;
       const h = 0.025;
-      rooms.add(Room(
-        id: n.id,
-        name: n.name,
-        boundary: [
-          Offset(nx - h, ny - h),
-          Offset(nx + h, ny - h),
-          Offset(nx + h, ny + h),
-          Offset(nx - h, ny + h),
-        ],
-      ));
+      rooms.add(
+        Room(
+          id: n.id,
+          name: n.name,
+          boundary: [
+            Offset(nx - h, ny - h),
+            Offset(nx + h, ny - h),
+            Offset(nx + h, ny + h),
+            Offset(nx - h, ny + h),
+          ],
+        ),
+      );
     }
 
     return Floor(
@@ -90,18 +95,23 @@ class FloorPlanEditorLoader {
   /// Parses a multi-floor file.
   /// [imageAssetPrefix] produces per-floor images, e.g. `assets/indoor/H` → `assets/indoor/H_8.png`.
   static List<Floor> parseMultiFloor(
-      Map<String, dynamic> json, {
-        String floorLabelPrefix = 'Floor ',
-        String? imageAssetPrefix,
-        String imageAssetSeparator = '_',
-      }) {
+    Map<String, dynamic> json, {
+    String floorLabelPrefix = 'Floor ',
+    String? imageAssetPrefix,
+    String imageAssetSeparator = '_',
+  }) {
     final floorsList = json['floors'];
 
     if (floorsList is! List || floorsList.isEmpty) {
       final nodes = json['nodes'];
-      final nodeList = nodes is List
-          ? nodes
-          : (nodes is Map ? nodes.values.toList() : <dynamic>[]);
+      late final List<dynamic> nodeList;
+      if (nodes is List) {
+        nodeList = nodes;
+      } else if (nodes is Map) {
+        nodeList = nodes.values.toList();
+      } else {
+        nodeList = <dynamic>[];
+      }
       final edges = json['edges'];
       final rawEdges = edges is List ? edges : <dynamic>[];
       final nodeFloorById = <String, int>{};
@@ -171,7 +181,8 @@ class FloorPlanEditorLoader {
       }
 
       final floorLevel =
-          _readInt(nodeList.isNotEmpty ? nodeList.first : null, 'floor', 1) ?? 1;
+          _readInt(nodeList.isNotEmpty ? nodeList.first : null, 'floor', 1) ??
+          1;
       final imgPath = imageAssetPrefix != null
           ? '$imageAssetPrefix$imageAssetSeparator$floorLevel.png'
           : null;
@@ -199,7 +210,12 @@ class FloorPlanEditorLoader {
   }
 
   static double _euclidean(
-      List<NavNode> nodes, String fromId, String toId, double w, double h) {
+    List<NavNode> nodes,
+    String fromId,
+    String toId,
+    double w,
+    double h,
+  ) {
     final a = nodes.where((n) => n.id == fromId).firstOrNull;
     final b = nodes.where((n) => n.id == toId).firstOrNull;
     if (a == null || b == null) return 1.0;

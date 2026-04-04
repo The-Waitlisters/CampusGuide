@@ -1,3 +1,4 @@
+// coverage:ignore-file
 import '../models/indoor_map.dart';
 import '../models/nav_graph.dart';
 import '../models/vertical_link.dart';

@@ -1,5 +1,6 @@
 // coverage:ignore-file
 enum VerticalLinkKind { elevator, stairs, escalator }
+
 class VerticalLink {
   final int fromFloor;
   final String fromNodeId;
@@ -21,11 +22,14 @@ class VerticalLink {
     final from = json['from'] as Map<String, dynamic>;
     final to = json['to'] as Map<String, dynamic>;
     final kindStr = (json['kind'] as String? ?? '').toLowerCase();
-    final kind = kindStr == 'elevator'
-        ? VerticalLinkKind.elevator
-        : kindStr == 'escalator'
-        ? VerticalLinkKind.escalator
-        : VerticalLinkKind.stairs;
+    late final VerticalLinkKind kind;
+    if (kindStr == 'elevator') {
+      kind = VerticalLinkKind.elevator;
+    } else if (kindStr == 'escalator') {
+      kind = VerticalLinkKind.escalator;
+    } else {
+      kind = VerticalLinkKind.stairs;
+    }
 
     return VerticalLink(
       fromFloor: from['floor'] as int,
@@ -33,7 +37,7 @@ class VerticalLink {
       toFloor: to['floor'] as int,
       toNodeId: to['nodeId'] as String,
       kind: kind,
-      oneWay: json['oneWay'] as bool ? ?? false,
+      oneWay: json['oneWay'] as bool? ?? false,
     );
   }
 }

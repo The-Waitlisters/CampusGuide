@@ -12,7 +12,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/location.dart';
 import 'package:proj/widgets/home/poi_option_menu.dart';
-import 'package:proj/services/marker_Icon_Loader.dart';
+import 'package:proj/services/marker_icon_loader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
@@ -169,7 +169,7 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
-  LatLng locationPoint = LatLng(0, 0);
+  LatLng locationPoint = const LatLng(0, 0);
 
   bool firstRun = false;
 

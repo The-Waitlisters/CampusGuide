@@ -3,8 +3,13 @@ import 'package:proj/models/course_schedule_entry.dart';
 
 /// Maps abbreviated day names to weekday numbers (DateTime.monday = 1 .. DateTime.sunday = 7).
 const _kDayMap = {
-  'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4,
-  'Fri': 5, 'Sat': 6, 'Sun': 7,
+  'Mon': 1,
+  'Tue': 2,
+  'Wed': 3,
+  'Thu': 4,
+  'Fri': 5,
+  'Sat': 6,
+  'Sun': 7,
 };
 
 /// Returns all weekday numbers covered by [dayText].
@@ -36,35 +41,26 @@ Duration? _parseTime(String t) {
 /// Finds the next upcoming class from [entries] relative to [now].
 /// Returns null if nothing is upcoming today.
 CourseScheduleEntry? findNextClass(
-    List<CourseScheduleEntry> entries, {
-      DateTime? now,
-    }) {
+  List<CourseScheduleEntry> entries, {
+  DateTime? now,
+}) {
   final current = now ?? DateTime.now();
-  final todayWeekday = current.weekday; // 1=Mon .. 7=Sun
-  final currentMinutes = Duration(
-    hours: current.hour,
-    minutes: current.minute,
-  );
+  final todayWeekday = current.weekday;
+  final currentMinutes = Duration(hours: current.hour, minutes: current.minute);
 
   CourseScheduleEntry? best;
   Duration? bestStart;
 
   for (final entry in entries) {
-    if (!entry.hasRoom) continue;
-    final days = _parseDays(entry.dayText);
-    if (!days.contains(todayWeekday)) continue;
+    final start = _getUpcomingStartForToday(
+      entry,
+      todayWeekday: todayWeekday,
+      currentMinutes: currentMinutes,
+    );
 
-    // timeText is "HH:mm - HH:mm"
-    final timeParts = entry.timeText.split('-');
-    if (timeParts.isEmpty) continue;
-    final start = _parseTime(timeParts[0]);
-    if (start == null) continue;
-
-    // Class must not have ended yet (use end time if available)
-    Duration? end;
-    if (timeParts.length >= 2) end = _parseTime(timeParts[1]);
-    final cutoff = end ?? start;
-    if (currentMinutes >= cutoff) continue;
+    if (start == null) {
+      continue;
+    }
 
     if (bestStart == null || start < bestStart) {
       best = entry;
@@ -73,6 +69,47 @@ CourseScheduleEntry? findNextClass(
   }
 
   return best;
+}
+
+Duration? _getUpcomingStartForToday(
+  CourseScheduleEntry entry, {
+  required int todayWeekday,
+  required Duration currentMinutes,
+}) {
+  if (!entry.hasRoom) {
+    return null;
+  }
+
+  final days = _parseDays(entry.dayText);
+  if (!days.contains(todayWeekday)) {
+    return null;
+  }
+
+  final timeParts = entry.timeText.split('-');
+  if (timeParts.isEmpty) {
+    return null;
+  }
+
+  final start = _parseTime(timeParts[0]);
+  if (start == null) {
+    return null;
+  }
+
+  final cutoff = _getCutoffTime(timeParts, start);
+  if (currentMinutes >= cutoff) {
+    return null;
+  }
+
+  return start;
+}
+
+Duration _getCutoffTime(List<String> timeParts, Duration start) {
+  if (timeParts.length < 2) {
+    return start;
+  }
+
+  final end = _parseTime(timeParts[1]);
+  return end ?? start;
 }
 
 class ScheduleDisplay extends StatelessWidget {
@@ -87,10 +124,11 @@ class ScheduleDisplay extends StatelessWidget {
     required this.onRoomTap,
   });
 
-  static BoxDecoration _containerDecoration(BuildContext context) => BoxDecoration(
-    border: Border.all(color: Colors.grey.shade300),
-    color: Colors.white,
-  );
+  static BoxDecoration _containerDecoration(BuildContext context) =>
+      BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        color: Colors.white,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -117,36 +155,36 @@ class ScheduleDisplay extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
           child: nextClass != null
               ? SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFC0392B),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              icon: const Icon(Icons.directions),
-              label: Text(
-                'Next class: ${nextClass.courseCode}  •  ${nextClass.room}  ${nextClass.timeText}',
-                overflow: TextOverflow.ellipsis,
-              ),
-              onPressed: () => onRoomTap(nextClass),
-            ),
-          )
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFC0392B),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(Icons.directions),
+                    label: Text(
+                      'Next class: ${nextClass.courseCode}  •  ${nextClass.room}  ${nextClass.timeText}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onPressed: () => onRoomTap(nextClass),
+                  ),
+                )
               : Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              vertical: 10,
-              horizontal: 12,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text(
-              'No upcoming classes today',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-          ),
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'No upcoming classes today',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
         ),
         // Table
         Expanded(
@@ -197,7 +235,8 @@ class ScheduleDisplay extends StatelessWidget {
                     itemCount: entries.length,
                     itemBuilder: (BuildContext context, int index) {
                       final CourseScheduleEntry entry = entries[index];
-                      final bool isNext = nextClass != null &&
+                      final bool isNext =
+                          nextClass != null &&
                           entry.room == nextClass.room &&
                           entry.dayAndTime == nextClass.dayAndTime;
 
@@ -206,8 +245,7 @@ class ScheduleDisplay extends StatelessWidget {
                             ? const Color(0xFFFFF3F3)
                             : Colors.transparent,
                         child: InkWell(
-                          onTap:
-                          entry.hasRoom ? () => onRoomTap(entry) : null,
+                          onTap: entry.hasRoom ? () => onRoomTap(entry) : null,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -215,9 +253,7 @@ class ScheduleDisplay extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.grey.shade300,
-                                ),
+                                bottom: BorderSide(color: Colors.grey.shade300),
                               ),
                             ),
                             child: Row(
@@ -226,7 +262,8 @@ class ScheduleDisplay extends StatelessWidget {
                                 Expanded(
                                   flex: 3,
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         entry.displayTitle,
@@ -262,9 +299,7 @@ class ScheduleDisplay extends StatelessWidget {
                                 ),
                                 IconButton(
                                   onPressed: () => onRemove(entry),
-                                  icon: const Icon(
-                                    Icons.remove_circle_outline,
-                                  ),
+                                  icon: const Icon(Icons.remove_circle_outline),
                                   color: Colors.grey,
                                   tooltip: 'Remove from schedule',
                                   visualDensity: VisualDensity.compact,

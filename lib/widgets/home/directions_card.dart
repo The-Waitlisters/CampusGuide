@@ -22,6 +22,7 @@ class DirectionsCard extends StatelessWidget {
 
   /// True when route start is user's current location (destination-first flow).
   final bool useCurrentLocationAsStart;
+
   /// Shown when destination-first but location permission unavailable.
   final String? locationRequiredMessage;
 
@@ -30,6 +31,7 @@ class DirectionsCard extends StatelessWidget {
 
   /// Current transport mode param (e.g. 'walking'). Used to show selected mode.
   final String selectedModeParam;
+
   /// Called when user picks a mode; [modeParam] is e.g. 'walking', 'bicycling', 'driving', 'transit'.
   final void Function(String modeParam) onModeChanged;
 
@@ -51,31 +53,39 @@ class DirectionsCard extends StatelessWidget {
     this.placeholderMessage,
     required this.selectedModeParam,
     required this.onModeChanged,
-  }) ;
+  });
 
   static String _campusLabel(Campus c) => c == Campus.sgw ? 'SGW' : 'Loyola';
 
   @override
   Widget build(BuildContext context) {
-    if ((startBuilding == null && endBuilding == null) ) {
-        if(startPoi == null && endPoi == null) {
-          return const SizedBox.shrink();
-        }
+    if ((startBuilding == null && endBuilding == null)) {
+      if (startPoi == null && endPoi == null) {
+        return const SizedBox.shrink();
+      }
     }
 
-    
+    String startLabel;
+    if (startBuilding != null) {
+      startLabel =
+          '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}';
+    } else if (startPoi != null) {
+      startLabel = '${_campusLabel(startPoi!.campus)} - ${startPoi!.name}';
+    } else if (useCurrentLocationAsStart) {
+      startLabel = 'Current location';
+    } else {
+      startLabel = 'Not set';
+    }
 
-
-    final startLabel = startBuilding != null
-        ? '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}' 
-        : (startPoi != null 
-          ? '${_campusLabel(startPoi!.campus)} - ${startPoi!.name}' 
-          :(useCurrentLocationAsStart ? 'Current location' : 'Not set'));
-    final endLabel = endBuilding != null
-        ? '${_campusLabel(endBuilding!.campus)} - ${endBuilding!.fullName ?? endBuilding!.name}'
-        : (endPoi != null 
-          ? endPoi!.name 
-          :'Not set');
+    String endLabel;
+    if (endBuilding != null) {
+      endLabel =
+          '${_campusLabel(endBuilding!.campus)} - ${endBuilding!.fullName ?? endBuilding!.name}';
+    } else if (endPoi != null) {
+      endLabel = endPoi!.name;
+    } else {
+      endLabel = 'Not set';
+    }
 
     return Positioned(
       left: 12,
@@ -149,32 +159,29 @@ class DirectionsCard extends StatelessWidget {
                   ],
                 )
               else if (errorMessage != null)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.error_outline, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          errorMessage!,
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        errorMessage!,
+                        style: const TextStyle(fontSize: 12),
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      TextButton(
-                        onPressed: onRetry,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  )
-                else if (polyline != null)
-                    Text(
-                      '${durationText ?? ''}'
-                          '${durationText != null && distanceText != null ? ' • ' : ''}'
-                          '${distanceText ?? ''}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
+                    TextButton(onPressed: onRetry, child: const Text('Retry')),
+                  ],
+                )
+              else if (polyline != null)
+                Text(
+                  '${durationText ?? ''}'
+                  '${durationText != null && distanceText != null ? ' • ' : ''}'
+                  '${distanceText ?? ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
             ],
           ),
         ),

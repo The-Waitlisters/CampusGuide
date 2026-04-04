@@ -27,78 +27,92 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    // Guest path (no Firebase auth)
     if (_authService.isGuestMode) {
-      return const HomeScreen(role: UserRole.guest); // coverage:ignore-line
+      return const HomeScreen(role: UserRole.guest);
     }
 
-    // Authenticated path (Firebase user stream)
     return StreamBuilder<User?>(
       stream: _authService.authStateChanges,
-      builder: (context, authSnapshot) {
-        if (authSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+      builder: _buildAuthState,
+    );
+  }
 
-        final user = authSnapshot.data;
+  Widget _buildAuthState(
+    BuildContext context,
+    AsyncSnapshot<User?> authSnapshot,
+  ) {
+    if (authSnapshot.connectionState == ConnectionState.waiting) {
+      return _buildLoadingScaffold();
+    }
 
-        // Not logged in -> show login
-        if (user == null) {
-          return LoginScreen(
-            authService: _authService,
-            onGuestContinue: () => setState(() {}),
-          );
-        }
+    final user = authSnapshot.data;
+    if (user == null) {
+      return _buildLoginScreen();
+    }
 
-        // Logged in -> resolve role from Firestore profile
-        return FutureBuilder<AppUser?>(
-          future: _authService.getCurrentAppUser(),
-          builder: (context, appUserSnapshot) {
-            if (appUserSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
+    return FutureBuilder<AppUser?>(
+      future: _authService.getCurrentAppUser(),
+      builder: _buildAppUserState,
+    );
+  }
 
-            if (appUserSnapshot.hasError) {
-              return Scaffold(
-                body: Center(
-                  child: Text(
-                    'Failed to load user profile.\n${appUserSnapshot.error}',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              );
-            }
+  Widget _buildAppUserState(
+    BuildContext context,
+    AsyncSnapshot<AppUser?> appUserSnapshot,
+  ) {
+    if (appUserSnapshot.connectionState == ConnectionState.waiting) {
+      return _buildLoadingScaffold();
+    }
 
-            final appUser = appUserSnapshot.data;
+    if (appUserSnapshot.hasError) {
+      return _buildProfileError(appUserSnapshot.error);
+    }
 
-            if (appUser == null) {
-              return LoginScreen(
-                authService: _authService,
-                onGuestContinue: () => setState(() {}),
-              );
-            }
+    final appUser = appUserSnapshot.data;
+    if (appUser == null) {
+      return _buildLoginScreen();
+    }
 
-            final role = appUser.role;
-            if (role == UserRole.guest && !appUser.isGuest) {
-              return HomeScreen(
-                role: UserRole.guest,
-                authService: _authService,
-                displayName: appUser.firstName,
-              ); // coverage:ignore-line
-            }
+    return _buildHomeForAppUser(appUser);
+  }
 
-            return HomeScreen(
-              role: role,
-              displayName: appUser.firstName,
-              authService: _authService,
-            ); // coverage:ignore-line
-          },
-        );
-      },
+  Widget _buildLoadingScaffold() {
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
+
+  Widget _buildLoginScreen() {
+    return LoginScreen(
+      authService: _authService,
+      onGuestContinue: () => setState(() {}),
+    );
+  }
+
+  Widget _buildProfileError(Object? error) {
+    return Scaffold(
+      body: Center(
+        child: Text(
+          'Failed to load user profile.\n$error',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeForAppUser(AppUser appUser) {
+    final role = appUser.role;
+
+    if (role == UserRole.guest && !appUser.isGuest) {
+      return HomeScreen(
+        role: UserRole.guest,
+        authService: _authService,
+        displayName: appUser.firstName,
+      );
+    }
+
+    return HomeScreen(
+      role: role,
+      displayName: appUser.firstName,
+      authService: _authService,
     );
   }
 }
