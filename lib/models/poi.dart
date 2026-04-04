@@ -1,24 +1,22 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:proj/models/campus.dart';
+import 'package:proj/models/location.dart';
 
-class Poi {
-  final String id;
-  final String name;
-  final String? fullName; // Optional full name
-  final String? description; // Optional description
+class Poi extends MapLocation{
   final LatLng boundary;
-  final Campus campus;
+  final bool? openNow;
+  final List<String?> photoName;
   final List<String> openingHours;
-  final String poiType;
+  final double rating;
+  final String address;
 
   Poi({
-    required this.id,
-    required this.name,
+    required super.id,
+    required super.name,
+    required super.campus,
+    required super.description,
     required this.boundary,
-    required this.fullName,
-    required this.description,
-    required this.campus,
-    this.openingHours = const [],
-    required this.poiType
+    this.openNow,
+    required this.openingHours, required this.photoName, required this.rating, required this.address
+    
   });
 }

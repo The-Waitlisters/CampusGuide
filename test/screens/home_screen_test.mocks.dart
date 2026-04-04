@@ -87,22 +87,6 @@ class MockDataParser extends _i1.Mock implements _i3.DataParser {
             returnValue: <_i4.CampusBuilding>[],
           )
           as List<_i4.CampusBuilding>);
-
-  @override
-  _i6.Future<List<_i5.Poi>> getMarkersFromJSON() =>
-      (super.noSuchMethod(
-            Invocation.method(#getMarkersFromJSON, []),
-            returnValue: _i6.Future<List<_i5.Poi>>.value(<_i5.Poi>[]),
-          )
-          as _i6.Future<List<_i5.Poi>>);
-
-  @override
-  List<_i5.Poi> parsePoi(Map<String, dynamic>? jsonFile) =>
-      (super.noSuchMethod(
-            Invocation.method(#parsePoi, [jsonFile]),
-            returnValue: <_i5.Poi>[],
-          )
-          as List<_i5.Poi>);
 }
 
 /// A class which mocks [BuildingLocator].

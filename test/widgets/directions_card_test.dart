@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/poi.dart';
 import 'package:proj/widgets/home/directions_card.dart';
 
 void main(){
@@ -165,4 +166,101 @@ void main(){
     expect(find.text('5 min • 1 km'), findsOneWidget);
   });
 
+  testWidgets('uses startPoi name in start label when startBuilding is null',
+      (tester) async {
+    final startPoi = Poi(
+      id: 'sp1',
+      name: 'Nearby Cafe',
+      campus: Campus.sgw,
+      description: null,
+      boundary: const LatLng(45.497, -73.578),
+      openNow: true,
+      openingHours: const [],
+      photoName: const [],
+      rating: 4.0,
+      address: '1 Test St',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            DirectionsCard(
+              startBuilding: null,
+              endBuilding: CampusBuilding(
+                name: 'H',
+                fullName: 'Hall',
+                campus: Campus.sgw,
+                id: '',
+                boundary: [],
+                description: '',
+              ),
+              startPoi: startPoi,
+              isLoading: false,
+              errorMessage: null,
+              polyline: null,
+              durationText: null,
+              distanceText: null,
+              onCancel: () {},
+              onRetry: () {},
+              selectedModeParam: 'walking',
+              onModeChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // startPoi label: 'SGW - Nearby Cafe'
+    expect(find.textContaining('Nearby Cafe'), findsOneWidget);
+  });
+
+  testWidgets('uses endPoi name in end label when endBuilding is null',
+      (tester) async {
+    final endPoi = Poi(
+      id: 'ep1',
+      name: 'Central Park',
+      campus: Campus.sgw,
+      description: null,
+      boundary: const LatLng(45.497, -73.578),
+      openNow: true,
+      openingHours: const [],
+      photoName: const [],
+      rating: 3.8,
+      address: '2 Test St',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            DirectionsCard(
+              startBuilding: CampusBuilding(
+                name: 'H',
+                fullName: 'Hall',
+                campus: Campus.sgw,
+                id: '',
+                boundary: [],
+                description: '',
+              ),
+              endBuilding: null,
+              endPoi: endPoi,
+              isLoading: false,
+              errorMessage: null,
+              polyline: null,
+              durationText: null,
+              distanceText: null,
+              onCancel: () {},
+              onRetry: () {},
+              selectedModeParam: 'walking',
+              onModeChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // endPoi label: 'Central Park'
+    expect(find.textContaining('Central Park'), findsOneWidget);
+  });
 }
