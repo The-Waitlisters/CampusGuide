@@ -127,14 +127,31 @@ class ShuttleRouteBuilder {
         ? '(Realtime)'
         : '(Estimated)';
 
+    // Sum distances from all legs so the shuttle ride is included.
+    final totalMeters = allLegs.fold<int>(
+      0,
+      (sum, leg) => sum + _parseDistanceMeters(leg.distanceText),
+    );
+    final totalKm = totalMeters / 1000.0;
+    final totalDistanceText = '${totalKm.toStringAsFixed(1)} km';
+
     return ShuttleRouteResult(
       routeResult: RouteResult(
         legs:         allLegs,
         durationText: '$totalMin min $etaSuffix',
-        distanceText: walkIn.distanceText,
+        distanceText: totalDistanceText,
       ),
       etaType:     etaType,
       waitMinutes: waitMinutes,
     );
+  }
+
+  /// Parses a distance string such as "1.2 km", "500 m", or "≈ 7 km"
+  /// into an integer number of metres.  Returns 0 for unrecognised formats.
+  static int _parseDistanceMeters(String text) {
+    final match = RegExp(r'([\d.]+)\s*(km|m)\b').firstMatch(text);
+    if (match == null) return 0;
+    final value = double.tryParse(match.group(1)!) ?? 0.0;
+    return match.group(2) == 'km' ? (value * 1000).round() : value.round();
   }
 }

@@ -182,8 +182,8 @@ class DirectionsController extends ChangeNotifier {
         final result = await _shuttleBuilder.buildRoute(
           origin:      start,
           destination: end,
-          fromCampus:  startCampus!,
-          toCampus:    endCampus!,
+          fromCampus:  startCampus,
+          toCampus:    endCampus,
         );
 
         final routeLegs = result.routeResult.legs;

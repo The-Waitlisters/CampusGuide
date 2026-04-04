@@ -1,8 +1,4 @@
-// ignore_for_file: deprecated_member_use
-// dart:js is deprecated in favour of dart:js_interop but dart:js_interop
-// requires extra ceremony for allowInterop-style callbacks.  dart:js still
-// works on Dart 3.x and is the simplest way to pass a Dart closure to JS.
-import 'dart:js' as js;
+import 'dart:js_interop';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
@@ -11,6 +7,17 @@ import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'transport_mode_strategy.dart';
+
+/// Calls the `window.getRoute` JavaScript helper defined in `web/index.html`.
+@JS('getRoute')
+external void _jsGetRoute(
+  JSNumber lat1,
+  JSNumber lng1,
+  JSNumber lat2,
+  JSNumber lng2,
+  JSString travelMode,
+  JSFunction callback,
+);
 
 /// Directions client for Flutter Web.
 ///
@@ -33,15 +40,15 @@ class WebDirectionsClient implements DirectionsClient {
 
     final completer = Completer<RouteResult>();
 
-    js.context.callMethod('getRoute', [
-      origin.latitude,
-      origin.longitude,
-      destination.latitude,
-      destination.longitude,
-      _jsTravelMode(mode.modeParam),
-      js.allowInterop((String jsonStr) {
+    _jsGetRoute(
+      origin.latitude.toJS,
+      origin.longitude.toJS,
+      destination.latitude.toJS,
+      destination.longitude.toJS,
+      _jsTravelMode(mode.modeParam).toJS,
+      ((JSString jsonStr) {
         try {
-          final data = json.decode(jsonStr) as Map<String, dynamic>;
+          final data = json.decode(jsonStr.toDart) as Map<String, dynamic>;
           final polylineRaw = data['overview_polyline'];
           debugPrint('[WebDirectionsClient] overview_polyline '
               'type=${polylineRaw?.runtimeType} '
@@ -56,8 +63,8 @@ class WebDirectionsClient implements DirectionsClient {
         } catch (e, st) {
           completer.completeError(e, st);
         }
-      }),
-    ]);
+      }).toJS,
+    );
 
     return completer.future;
   }

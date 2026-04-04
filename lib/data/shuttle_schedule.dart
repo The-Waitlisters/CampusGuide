@@ -28,11 +28,10 @@ class ShuttleStop {
 // SGW    — Bishop St entrance, Hall Building area
 // Loyola — near Loyola Jesuit Hall & Conference Centre
 //
-// Timetable (academic year, weekdays)
-// ────────────────────────────────────
-// Departures from SGW    : :00 and :30 every hour  (07:00 – 23:00)
-// Departures from Loyola : :15 and :45 every hour  (07:15 – 23:15)
-// One-way ride time      : ~30 minutes
+// Timetable (academic year, weekdays only)
+// ─────────────────────────────────────────
+// All times below are encoded as minutes since midnight (h*60 + m).
+// Departures run Monday–Friday only; no weekend service.
 // ---------------------------------------------------------------------------
 
 abstract final class ShuttleScheduleData {
@@ -52,20 +51,173 @@ abstract final class ShuttleScheduleData {
 
   // ---- Timetable ----------------------------------------------------------
 
-  /// Minutes past the hour at which the shuttle departs from SGW.
-  static const List<int> sgwDepartureMinutes = [0, 30];
+  /// SGW departures, Monday–Thursday (minutes since midnight).
+  static const List<int> _sgwMonThu = [
+    570,  // 09:30
+    585,  // 09:45
+    600,  // 10:00
+    615,  // 10:15
+    630,  // 10:30
+    645,  // 10:45
+    660,  // 11:00
+    675,  // 11:15
+    690,  // 11:30
+    // 11:45 skipped
+    // 12:00 skipped
+    735,  // 12:15
+    750,  // 12:30
+    765,  // 12:45
+    780,  // 13:00
+    795,  // 13:15
+    810,  // 13:30
+    825,  // 13:45
+    840,  // 14:00
+    855,  // 14:15
+    870,  // 14:30
+    885,  // 14:45
+    900,  // 15:00
+    915,  // 15:15
+    930,  // 15:30
+    // 15:45 skipped
+    960,  // 16:00
+    975,  // 16:15
+    // 16:30 skipped
+    1005, // 16:45
+    1020, // 17:00
+    1035, // 17:15
+    1050, // 17:30
+    1065, // 17:45
+    1080, // 18:00
+    1095, // 18:15
+    1110, // 18:30
+  ];
 
-  /// Minutes past the hour at which the shuttle departs from Loyola.
-  static const List<int> loyolaDepartureMinutes = [15, 45];
+  /// SGW departures, Friday (minutes since midnight).
+  static const List<int> _sgwFriday = [
+    585,  // 09:45
+    600,  // 10:00
+    615,  // 10:15
+    // 10:30 skipped
+    645,  // 10:45
+    // 11:00 skipped
+    675,  // 11:15
+    690,  // 11:30
+    // 11:45 skipped
+    // 12:00 skipped
+    735,  // 12:15
+    750,  // 12:30
+    765,  // 12:45
+    // 13:00 skipped
+    795,  // 13:15
+    // 13:30 skipped
+    825,  // 13:45
+    840,  // 14:00
+    855,  // 14:15
+    // 14:30 skipped
+    885,  // 14:45
+    900,  // 15:00
+    915,  // 15:15
+    // 15:30 skipped
+    945,  // 15:45
+    960,  // 16:00
+    // 16:15 skipped
+    // 16:30 skipped
+    1005, // 16:45
+    // 17:00 skipped
+    1035, // 17:15
+    // 17:30 skipped
+    1065, // 17:45
+    // 18:00 skipped
+    1095, // 18:15
+  ];
+
+  /// Loyola departures, Monday–Thursday (minutes since midnight).
+  static const List<int> _loyMonThu = [
+    555,  // 09:15
+    570,  // 09:30
+    585,  // 09:45
+    600,  // 10:00
+    615,  // 10:15
+    630,  // 10:30
+    645,  // 10:45
+    660,  // 11:00
+    675,  // 11:15
+    690,  // 11:30
+    705,  // 11:45
+    // 12:00 skipped
+    // 12:15 skipped
+    750,  // 12:30
+    765,  // 12:45
+    780,  // 13:00
+    795,  // 13:15
+    810,  // 13:30
+    825,  // 13:45
+    840,  // 14:00
+    855,  // 14:15
+    870,  // 14:30
+    885,  // 14:45
+    900,  // 15:00
+    915,  // 15:15
+    930,  // 15:30
+    945,  // 15:45
+    // 16:00 skipped
+    // 16:15 skipped
+    990,  // 16:30
+    1005, // 16:45
+    1020, // 17:00
+    1035, // 17:15
+    1050, // 17:30
+    1065, // 17:45
+    1080, // 18:00
+    1095, // 18:15
+    1110, // 18:30
+  ];
+
+  /// Loyola departures, Friday (minutes since midnight).
+  static const List<int> _loyFriday = [
+    555,  // 09:15
+    570,  // 09:30
+    585,  // 09:45
+    // 10:00 skipped
+    615,  // 10:15
+    // 10:30 skipped
+    645,  // 10:45
+    660,  // 11:00
+    675,  // 11:15
+    // 11:30 skipped
+    // 11:45 skipped
+    720,  // 12:00
+    735,  // 12:15
+    // 12:30 skipped
+    765,  // 12:45
+    780,  // 13:00
+    795,  // 13:15
+    // 13:30 skipped
+    825,  // 13:45
+    // 14:00 skipped
+    855,  // 14:15
+    870,  // 14:30
+    885,  // 14:45
+    // 15:00 skipped
+    915,  // 15:15
+    930,  // 15:30
+    945,  // 15:45
+    // 16:00 skipped
+    // 16:15 skipped
+    // 16:30 skipped
+    1005, // 16:45
+    // 17:00 skipped
+    1035, // 17:15
+    // 17:30 skipped
+    1065, // 17:45
+    // 18:00 skipped
+    1095, // 18:15
+  ];
+
+  // ---- Ride duration ------------------------------------------------------
 
   /// Approximate one-way ride duration (minutes).
   static const int rideDurationMinutes = 30;
-
-  /// First hour of service (inclusive). Shuttle starts at 07:00.
-  static const int serviceStartHour = 7;
-
-  /// Last hour of service (exclusive). Last departure ~23:00.
-  static const int serviceEndHour = 23;
 
   // ---- Convenience --------------------------------------------------------
 
@@ -73,27 +225,52 @@ abstract final class ShuttleScheduleData {
   static ShuttleStop stopForCampus(Campus campus) =>
       campus == Campus.sgw ? sgwStop : loyolaStop;
 
-  /// Returns departure minutes for the given [campus].
-  static List<int> departureMinutesForCampus(Campus campus) =>
-      campus == Campus.sgw ? sgwDepartureMinutes : loyolaDepartureMinutes;
+  /// Returns the departure list for [campus] on the given [weekday]
+  /// (1 = Monday … 7 = Sunday, matching [DateTime.weekday]).
+  static List<int> departuresFor(Campus campus, int weekday) {
+    if (weekday == DateTime.friday) {
+      return campus == Campus.sgw ? _sgwFriday : _loyFriday;
+    }
+    return campus == Campus.sgw ? _sgwMonThu : _loyMonThu;
+  }
 
-  /// Whether the shuttle is currently in service at the given [time].
-  static bool isInService(DateTime time) =>
-      time.hour >= serviceStartHour && time.hour < serviceEndHour;
+  /// Whether the shuttle is currently in service at [time].
+  /// Service runs Monday–Friday only.
+  static bool isInService(DateTime time) {
+    if (time.weekday == DateTime.saturday || time.weekday == DateTime.sunday) {
+      return false;
+    }
+    final nowMinutes = time.hour * 60 + time.minute;
+    final schedule = departuresFor(
+      Campus.sgw, // use either campus just to check service bounds
+      time.weekday,
+    );
+    return schedule.isNotEmpty &&
+        nowMinutes <= schedule.last;
+  }
 
-  /// Minutes until the next departure from [campus] at [now].
-  /// Returns 60 when outside service hours (conservative upper bound).
+  /// Minutes until the next scheduled departure from [campus] at [now].
+  ///
+  /// Returns 60 when outside service hours or on weekends as a conservative
+  /// upper bound so callers always receive a usable estimate.
   static int minutesUntilNextDeparture({
     required Campus campus,
     required DateTime now,
   }) {
-    if (!isInService(now)) return 60;
-
-    for (final dep in departureMinutesForCampus(campus)) {
-      if (now.minute < dep) return dep - now.minute;
+    if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
+      return 60;
     }
 
-    // All departures this hour passed — next is the first one next hour.
-    return (60 - now.minute) + departureMinutesForCampus(campus).first;
+    final departures = departuresFor(campus, now.weekday);
+    final nowMinutes = now.hour * 60 + now.minute;
+
+    for (final depMinutes in departures) {
+      if (depMinutes > nowMinutes) {
+        return depMinutes - nowMinutes;
+      }
+    }
+
+    // Past the last departure for today.
+    return 60;
   }
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -63,7 +62,7 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
-  get markers => [];
+  List<dynamic> get markers => [];
 
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
@@ -131,6 +130,7 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
+  @override
   @visibleForTesting
   List<Marker> get markers => _markers;
 
