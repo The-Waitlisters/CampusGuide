@@ -107,7 +107,6 @@ class _HomeScreenState extends HomeScreenState {
   late DataParser data;
   GoogleMapController? _mapController;
   Campus _campus = Campus.sgw;
-  Floor? _indoorFloor;
   // ignore: unused_field
   LatLng? _cursorPoint;
   LatLng? lastTap;
@@ -135,12 +134,6 @@ class _HomeScreenState extends HomeScreenState {
   /// Shown when destination-first but location is unavailable.
   String? _locationRequiredMessage;
 
-  GroundOverlay? _groundOverlay;
-  _FloorOverlayTransform? _floorOverlayTransform;
-  LatLng? _overlaySwCorner;
-  LatLng? _overlayNeCorner;
-  FloorOverlayConfig? _overlayConfig;
-  int _overlayRecomputeId = 0;
 
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
@@ -255,9 +248,6 @@ class _HomeScreenState extends HomeScreenState {
     _markerRebuildDebounce?.cancel();
     if (!_programmaticCameraMove && !_mapMoved) {
       _mapMoved = true;
-    }
-    if (_overlaySwCorner != null && _overlayNeCorner != null) {
-      _recomputeFloorOverlay();
     }
   }
 
@@ -893,84 +883,8 @@ class _HomeScreenState extends HomeScreenState {
     await _updateDirectionsIfReady();
   }
 
-  Future<void> _buildGroundOverlay(CampusBuilding building, Floor floor) async {
-    if (floor.imagePath == null) return;
 
-    final config = getFloorOverlayConfig(building.name);
 
-    // Always derive bounds from the real building polygon
-    final boundary = building.boundary;
-    if (boundary.isEmpty) return;
-    double minLat = boundary[0].latitude, maxLat = boundary[0].latitude;
-    double minLng = boundary[0].longitude, maxLng = boundary[0].longitude;
-    for (final p in boundary) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-
-    setState(() {
-      _overlaySwCorner = LatLng(minLat, minLng);
-      _overlayNeCorner = LatLng(maxLat, maxLng);
-      _overlayConfig = config;
-    });
-
-    _recomputeFloorOverlay();
-  }
-
-  Future<void> _recomputeFloorOverlay() async {
-    final controller = _mapController;
-    final sw = _overlaySwCorner;
-    final ne = _overlayNeCorner;
-    final floor = _indoorFloor;
-    if (controller == null || sw == null || ne == null || floor == null) return;
-
-    final myId = ++_overlayRecomputeId;
-
-    try {
-      final ratio = MediaQuery.of(context).devicePixelRatio;
-
-      final results = await Future.wait([
-        controller.getScreenCoordinate(sw),
-        controller.getScreenCoordinate(ne),
-        controller.getScreenCoordinate(LatLng(ne.latitude, sw.longitude)),
-        controller.getScreenCoordinate(LatLng(sw.latitude, ne.longitude)),
-      ]);
-
-      if (myId != _overlayRecomputeId || !mounted) return;
-
-      final pSW = results[0];
-      final pNE = results[1];
-      final pNW = results[2];
-      final pSE = results[3];
-
-      final cx = (pSW.x + pNE.x + pNW.x + pSE.x) / 4.0 / ratio;
-      final cy = (pSW.y + pNE.y + pNW.y + pSE.y) / 4.0 / ratio;
-      final topW = _dist(pNW.x, pNW.y, pNE.x, pNE.y) / ratio;
-      final botW = _dist(pSW.x, pSW.y, pSE.x, pSE.y) / ratio;
-      final width = (topW + botW) / 2.0;
-      final leftH = _dist(pNW.x, pNW.y, pSW.x, pSW.y) / ratio;
-      final rightH = _dist(pNE.x, pNE.y, pSE.x, pSE.y) / ratio;
-      final height = (leftH + rightH) / 2.0;
-      final angle = math.atan2(
-        (pNE.y - pNW.y).toDouble(),
-        (pNE.x - pNW.x).toDouble(),
-      );
-
-      setState(() {
-        _floorOverlayTransform = _FloorOverlayTransform(
-          cx: cx, cy: cy, width: width, height: height, angle: angle,
-        );
-      });
-    } catch (_) {}
-  }
-
-  static double _dist(int x1, int y1, int x2, int y2) {
-    final dx = (x2 - x1).toDouble();
-    final dy = (y2 - y1).toDouble();
-    return math.sqrt(dx * dx + dy * dy);
-  }
 
   Future<void> _handlePoiAsStart(Poi poi) async {
     debugPrint('Set as Start: ${poi.name}');
@@ -1376,8 +1290,6 @@ class _HomeScreenState extends HomeScreenState {
         children: [
           if (!isE2EMode) _buildMapLayer(),
 
-          if (_floorOverlayTransform != null && _indoorFloor?.imagePath != null)
-            _buildFloorPlanWidget(),
 
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
@@ -1472,47 +1384,23 @@ class _HomeScreenState extends HomeScreenState {
                   _showScheduleOverlay = false;
                 });
 
-                // Find the building matching the schedule entry's building code
                 final destination = buildingsPresent
                     .cast<CampusBuilding?>()
                     .firstWhere(
-                      (b) =>
-                  b!.name.toUpperCase() ==
-                      entry.buildingCode.toUpperCase(),
+                      (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
                   orElse: () => null,
                 );
 
                 if (destination != null) {
-                  // Set as outdoor destination for directions
                   _handleSetAsDestination(destination);
-
-                  // Find which floor the room is on
-                  loadIndoorMapForBuilding(destination).then((indoorMap) {
-                    if (indoorMap == null || !mounted) return;
-                    final stripped = entry.room.replaceAll(
-                      RegExp(r'^[A-Za-z]+-?'),
-                      '',
-                    );
-                    for (final floor in indoorMap.floors) {
-                      final match = floor.rooms.cast<Room?>().firstWhere(
-                            (r) =>
-                        r!.id == entry.room ||
-                            r.name == entry.room ||
-                            r.id == stripped ||
-                            r.name == stripped,
-                        orElse: () => null,
-                      );
-                      if (match != null) {
-                        setState(() => _indoorFloor = floor);
-
-                        debugPrint('_groundOverlay: $_groundOverlay');
-                        debugPrint('floor imagePath: ${floor.imagePath}');
-
-                        _buildGroundOverlay(destination, floor);
-                        break;
-                      }
-                    }
-                  });
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => IndoorMapScreen(
+                        building: destination,
+                        initialDestinationRoomId: entry.room,
+                      ),
+                    ),
+                  );
                 }
               },
               lookupService: ScheduleLookupService(
@@ -1553,31 +1441,6 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildFloorPlanWidget() {
-    final t = _floorOverlayTransform!;
-    final imagePath = _indoorFloor!.imagePath!;
-    final cfg = _overlayConfig;
-    final scaleX = cfg?.scaleX ?? 1.0;
-    final scaleY = cfg?.scaleY ?? 1.0;
-    final extraRad = (cfg?.rotationDeg ?? 0.0) * math.pi / 180.0;
-    final offsetX = cfg?.offsetX ?? 0.0;
-    final offsetY = cfg?.offsetY ?? 0.0;
-    return Positioned(
-      left: t.cx - (t.width * scaleX) / 2 + offsetX,
-      top: t.cy - (t.height * scaleY) / 2 + offsetY,
-      width: t.width * scaleX,
-      height: t.height * scaleY,
-      child: IgnorePointer(
-        child: Transform.rotate(
-          angle: t.angle + extraRad,
-          child: Opacity(
-            opacity: 0.7,
-            child: Image.asset(imagePath, fit: BoxFit.fill),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildMapLayer() {
     return MapLayer<CampusBuilding>(
@@ -2001,19 +1864,4 @@ LatLngBounds boundsForRoute(LatLng a, LatLng b) {
   );
 
   return LatLngBounds(southwest: sw, northeast: ne);
-}
-
-class _FloorOverlayTransform {
-  const _FloorOverlayTransform({
-    required this.cx,
-    required this.cy,
-    required this.width,
-    required this.height,
-    required this.angle,
-  });
-  final double cx;
-  final double cy;
-  final double width;
-  final double height;
-  final double angle;
 }

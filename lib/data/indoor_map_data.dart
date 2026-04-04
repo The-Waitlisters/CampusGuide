@@ -7,45 +7,6 @@ import '../models/vertical_link.dart';
 import '../models/indoor_map.dart';
 import 'floor_plan_editor_loader.dart';
 
-class FloorOverlayConfig {
-  const FloorOverlayConfig({
-    this.scaleX = 1.0,
-    this.scaleY = 1.0,
-    this.rotationDeg = 0.0,
-    this.offsetX = 0.0,
-    this.offsetY = 0.0,
-  });
-
-  final double scaleX;
-  final double scaleY;
-  final double rotationDeg;
-  final double offsetX;
-  final double offsetY;
-}
-
-FloorOverlayConfig? getFloorOverlayConfig(String buildingName) {
-  switch (buildingName) {
-    case 'H':
-      return const FloorOverlayConfig(
-        scaleX: 0.75,
-        scaleY: 0.75,
-        rotationDeg: -57.0,
-        offsetX: 0.0,
-        offsetY: 0.0,
-      );
-    case 'MB':
-      return const FloorOverlayConfig(
-        scaleX: 1.0,
-        scaleY: 1.0,
-        rotationDeg: 0.0,
-        offsetX: 0.0,
-        offsetY: 0.0,
-      );
-    default:
-      return null;
-  }
-}
-
 /// Loads indoor map data for a building (TASK-5.1.1).
 /// Tries floor-plan-editor JSON from `assets/indoor/<building>.json` first (see docs/indoor-floor-plan-editor.md).
 Future<IndoorMap?> loadIndoorMapForBuilding(CampusBuilding building) async {
