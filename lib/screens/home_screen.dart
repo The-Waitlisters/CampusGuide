@@ -229,11 +229,17 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _initDirections() {
+    String apiKey = '';
+    try {
+      apiKey = Secrets.directionsApiKey;
+    } catch (_) {
+      // dotenv not loaded (e.g. integration tests) — directions disabled
+    }
     _directions = widget.testDirectionsController ?? DirectionsController(
-      client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
+      client: GoogleDirectionsClient(apiKey: apiKey),
     );
     assert(() {
-      if (Secrets.directionsApiKey.isEmpty) {
+      if (apiKey.isEmpty) {
         debugPrint( // coverage:ignore-line
             'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
@@ -884,7 +890,7 @@ class _HomeScreenState extends HomeScreenState {
 
       body: Stack(
         children: [
-          if (!isE2EMode) _buildMapLayer(),
+          _buildMapLayer(),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
           _buildDirectionsCard(),
@@ -951,6 +957,10 @@ class _HomeScreenState extends HomeScreenState {
         setState(() {
           _mapController = controller;
         });
+        if (widget.testMapControllerCompleter != null &&
+            !widget.testMapControllerCompleter!.isCompleted) {
+          widget.testMapControllerCompleter!.complete(controller);
+        }
       },
       onTap: (LatLng point) {
         handleMapTap(point);
@@ -1251,13 +1261,14 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
-  void simulateCampusChange(Campus campus) {
+  Future<void> simulateCampusChange(Campus campus) async {
     setState(() {
       _campus = campus;
       _buildingLocator.reset();
       _currentBuildingFromGPS = null;
       _polygons = _buildPolygons(buildingsPresent);
     });
+    await _goToCampus(campus);
   }
 
   @visibleForTesting
@@ -1270,8 +1281,18 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _currentBuildingFromGPS = result.building;
       _polygons = _buildPolygons(buildingsPresent);
+      _markers
+        ..removeWhere((m) => m.markerId == const MarkerId('_simulated_gps'))
+        ..add(Marker(
+          markerId: const MarkerId('_simulated_gps'),
+          position: point,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        ));
     });
   }
+
+  @visibleForTesting
+  Future<List<CampusBuilding>> get testBuildingsFuture => _buildingsFuture;
 
   @visibleForTesting
   Set<Polygon> get testPolygons => _polygons;
