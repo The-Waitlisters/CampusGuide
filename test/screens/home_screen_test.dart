@@ -65,6 +65,25 @@ class _FakeAuthService extends AuthService {
   bool get isGuestMode => false;
 }
 
+class _ThrowingAuthService extends AuthService {
+  _ThrowingAuthService()
+      : super(
+    auth: MockFirebaseAuth(),
+    profileService: _MockUserProfileSvc(),
+  );
+
+  @override
+  Future<AppUser?> getCurrentAppUser() async {
+    throw Exception('auth failed');
+  }
+
+  @override
+  Stream<User?> get authStateChanges => const Stream.empty();
+
+  @override
+  bool get isGuestMode => false;
+}
+
 
 class MockGeolocatorPlatform extends Mock
     with MockPlatformInterfaceMixin
@@ -2434,6 +2453,167 @@ Future<void> main() async {
 
       // Pump remaining timers (loadIndoorMapForBuilding has 150ms delay)
       await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('shows User chip label when authenticated user has no display name', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            role: UserRole.user,
+            displayName: '   ',
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('User'), findsOneWidget);
+    });
+
+    testWidgets('onRoomSelected hides overlay and does not navigate when building is not found', (tester) async {
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => []);
+      when(mockDataParser.buildingsPresent).thenReturn([]);
+
+      await tester.pumpWidget(
+        wrap(
+          home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.setShowScheduleOverlayForTest(true);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+
+      state.simulateRoomSelected(const CourseScheduleEntry(
+        courseCode: 'SOEN390',
+        section: 'AA',
+        dayText: 'Mon',
+        timeText: '09:00 - 10:15',
+        room: 'X-999',
+        campus: 'SGW',
+        buildingCode: 'X',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsNothing);
+      expect(find.byType(IndoorMapScreen), findsNothing);
+    });
+
+    testWidgets('recenter button animates camera when last known position and map controller exist', (tester) async {
+      final fakeMapController = FakeGoogleMapController();
+
+      await tester.pumpWidget(
+        wrap(
+          home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.setMapControllerForTest(fakeMapController);
+      state.setLastKnownPositionForTest(const LatLng(45.4972, -73.5788));
+      state.simulateCameraMove(
+        const CameraPosition(target: LatLng(45.5, -73.6), zoom: 15),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Recenter to my location'));
+      await tester.pumpAndSettle();
+
+      expect(fakeMapController.animateCameraCalled, isTrue);
+    });
+
+    testWidgets('selecting a POI opens the POI detail sheet', (tester) async {
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => []);
+      when(mockDataParser.buildingsPresent).thenReturn([]);
+
+      await tester.pumpWidget(
+        wrap(
+          home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.setPoisForTest([
+        testPoi(id: 'p1', name: 'Coffee Spot', description: 'cafe'),
+      ]);
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), 'coffee');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Coffee Spot'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BuildingDetailSheet), findsOneWidget);
+    });
+
+    testWidgets('_initUid catch path does not crash when auth service throws', (tester) async {
+      final throwingAuth = _ThrowingAuthService();
+
+      await tester.pumpWidget(
+        wrap(
+          HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+            authService: throwingAuth,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomeScreen), findsOneWidget);
+    });
+
+    testWidgets('onRoomSelected hides overlay and does not navigate when building is not found', (tester) async {
+      when(mockDataParser.getBuildingInfoFromJSON()).thenAnswer((_) async => []);
+      when(mockDataParser.buildingsPresent).thenReturn([]);
+
+      await tester.pumpWidget(
+        wrap(
+          home_screen.HomeScreen(
+            dataParser: mockDataParser,
+            buildingLocator: mockBuildingLocator,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dynamic state = tester.state(find.byType(home_screen.HomeScreen).first);
+      state.setShowScheduleOverlayForTest(true);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsOneWidget);
+
+      state.simulateRoomSelected(const CourseScheduleEntry(
+        courseCode: 'SOEN390',
+        section: 'AA',
+        dayText: 'Mon',
+        timeText: '09:00 - 10:15',
+        room: 'X-999',
+        campus: 'SGW',
+        buildingCode: 'X',
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ScheduleOverlay), findsNothing);
+      expect(find.byType(IndoorMapScreen), findsNothing);
     });
 
   });

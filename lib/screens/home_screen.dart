@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use, prefer_typing_uninitialized_variables
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,10 +20,7 @@ import 'package:proj/services/building_locator.dart';
 import 'package:proj/widgets/home/campus_map.dart';
 import 'package:proj/widgets/home/results.dart';
 import '../config/secrets.dart';
-import '../data/indoor_map_data.dart';
 import '../main.dart';
-import '../models/floor.dart';
-import '../models/room.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../services/route_logic.dart';
@@ -1895,6 +1891,20 @@ class _HomeScreenState extends HomeScreenState {
   void setShowPoiSettingsForTest(bool value) {
     setState(() {
       showPoiSettings = value;
+    });
+  }
+
+  @visibleForTesting
+  void setLastKnownPositionForTest(LatLng point) {
+    setState(() {
+      _lastKnownPosition = point;
+    });
+  }
+
+  @visibleForTesting
+  void setPoisForTest(List<Poi> pois) {
+    setState(() {
+      poiPresent = List<Poi>.from(pois);
     });
   }
 }
