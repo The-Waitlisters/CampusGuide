@@ -21,3 +21,13 @@ CampusBuilding firstBuildingWithFullName(
         (b) => b.campus == campus && (b.fullName ?? '').trim().isNotEmpty,
   );
 }
+
+// Set to true when you want to visually observe the tests on the emulator.
+// Set to false for fast CI runs.
+const bool kSlowMode = bool.fromEnvironment('SLOW_MODE', defaultValue: true);
+
+Future<void> pause([int seconds = 2]) async {
+  if (kSlowMode) {
+    await Future.delayed(Duration(seconds: seconds));
+  }
+}

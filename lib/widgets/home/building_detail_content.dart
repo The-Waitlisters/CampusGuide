@@ -33,7 +33,8 @@ class BuildingDetailContent extends StatelessWidget {
   Widget _buildAccessibilityIcons() {
     final bool show = building.isWheelchairAccessible ||
         building.hasBikeParking ||
-        building.hasCarParking;
+        building.hasCarParking ||
+        building.hasMetroAccess;
     if (!show) return const SizedBox.shrink();
 
     return Row(
@@ -42,6 +43,7 @@ class BuildingDetailContent extends StatelessWidget {
         if (building.isWheelchairAccessible) const Icon(Icons.accessible),
         if (building.hasBikeParking) const Icon(Icons.pedal_bike),
         if (building.hasCarParking) const Icon(Icons.local_parking),
+        if (building.hasMetroAccess) const Icon(Icons.train),
       ],
     );
   }
@@ -68,16 +70,20 @@ class BuildingDetailContent extends StatelessWidget {
         // Direction selection buttons — always show both
         Row(
           children: [
-            ElevatedButton(
-              onPressed: startBuilding?.id == building.id ? null : onSetStart,
-              child: const Text('Set as Start'),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: startBuilding?.id == building.id ? null : onSetStart,
+                child: const Text('Set as Start'),
+              ),
             ),
             const SizedBox(width: 12),
-            ElevatedButton(
-              onPressed: (endBuilding?.id == building.id || startBuilding?.id == building.id)
-                  ? null
-                  : onSetDestination,
-              child: const Text('Set as Destination'),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: (endBuilding?.id == building.id || startBuilding?.id == building.id)
+                    ? null
+                    : onSetDestination,
+                child: const Text('Set as Destination'),
+              ),
             ),
           ],
         ),

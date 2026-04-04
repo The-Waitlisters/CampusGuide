@@ -10,6 +10,11 @@
 !/sonar-project.properties
 !/test_coverage
 ios/Flutter/Generated.xcconfig
+ios/Flutter/LocalConfig.xcconfig
 ios/Flutter/flutter_export_environment.sh
 tool/
 web/env.js
+.env
+**/.env
+assets/.env
+assets/*.env

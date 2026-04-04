@@ -23,6 +23,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
+    await pause(2);
   }
 
   // ─── AC: Tapping outside campus shows "Not part of campus" ──────────────────
@@ -32,9 +33,13 @@ void main() {
         (tester) async {
       await pumpApp(tester);
       final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
+
       state.handleMapTap(const LatLng(0, 0));
       await tester.pumpAndSettle();
+      await pause(2); // observe "Not part of campus" sheet
+
       expect(find.text('Not part of campus'), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -50,9 +55,11 @@ void main() {
       final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
       state.handleMapTap(polygonCenter(sgwBuilding.boundary));
       await tester.pumpAndSettle();
+      await pause(2); // observe building detail sheet
 
       expect(find.textContaining(sgwBuilding.name), findsOneWidget,
           reason: 'Building short name must appear in the detail sheet');
+      await pause(2);
     },
   );
 
@@ -67,9 +74,11 @@ void main() {
       final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
       state.handleMapTap(polygonCenter(sgwBuilding.boundary));
       await tester.pumpAndSettle();
+      await pause(2); // observe full name in sheet
 
       expect(find.textContaining(sgwBuilding.fullName!), findsOneWidget,
           reason: 'Full building name must appear in the detail sheet');
+      await pause(2);
     },
   );
 
@@ -83,10 +92,12 @@ void main() {
       final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
       state.handleMapTap(polygonCenter(sgwBuilding.boundary));
       await tester.pumpAndSettle();
+      await pause(2); // observe sheet sections
 
       expect(find.text('Opening Hours:'), findsOneWidget);
       expect(find.text('Departments:'), findsOneWidget);
       expect(find.text('Services:'), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -102,11 +113,11 @@ void main() {
       final dynamic state = tester.state(find.byType(HomeScreen));
       state.simulateBuildingTap(sgwBuilding);
       await tester.pumpAndSettle();
+      await pause(2); // observe campus name in popup
 
-      // findsWidgets (not findsOneWidget) because 'SGW' also appears in the
-      // campus toggle button — we only need to confirm at least one match exists.
       expect(find.textContaining('SGW'), findsWidgets,
           reason: 'Campus name must be shown in the building info popup');
+      await pause(2);
     },
   );
 
@@ -122,61 +133,14 @@ void main() {
       final dynamic state = tester.state(find.byType(HomeScreen));
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe campus switch to Loyola
 
       (state as HomeScreenState).handleMapTap(polygonCenter(loyolaBuilding.boundary));
       await tester.pumpAndSettle();
+      await pause(2); // observe Loyola building detail sheet
 
       expect(find.textContaining(loyolaBuilding.name), findsOneWidget);
+      await pause(2);
     },
   );
-
-  // ─── [AC GAP]: address required by spec but not yet rendered ─────────────────
-/*
-  testWidgets(
-    'US-1.5 [AC GAP]: building detail sheet shows the building address',
-        (tester) async {
-      await pumpApp(tester);
-      final buildings = await DataParser().getBuildingInfoFromJSON();
-      final sgwBuilding = buildings.firstWhere((b) => b.campus == Campus.sgw);
-
-      final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
-      state.handleMapTap(polygonCenter(sgwBuilding.boundary));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Address:'), findsOneWidget,
-          reason:
-          'Address must be shown per the US-1.5 spec. '
-              'getPlaceMarks() exists but is not wired to BuildingDetailSheet.');
-    },
-  );
-
- */
-
-  // ─── [AC GAP]: campus name in map-tap sheet ───────────────────────────────────
-/*
-  testWidgets(
-    'US-1.5 [AC GAP]: building detail sheet (map-tap path) shows campus name',
-        (tester) async {
-      await pumpApp(tester);
-      final buildings = await DataParser().getBuildingInfoFromJSON();
-      final sgwBuilding = buildings.firstWhere((b) => b.campus == Campus.sgw);
-
-      final state = tester.state(find.byType(HomeScreen)) as HomeScreenState;
-      state.handleMapTap(polygonCenter(sgwBuilding.boundary));
-      await tester.pumpAndSettle();
-
-      final hasCampus =
-          find.textContaining('SGW').evaluate().isNotEmpty ||
-              find.textContaining('sgw').evaluate().isNotEmpty;
-
-      // findsWidgets: 'SGW' also appears in the toggle button, that's fine —
-      // we're asserting it appears somewhere in the detail sheet area too.
-      expect(hasCampus, isTrue,
-          reason:
-          'Campus name must appear in the map-tap detail sheet. '
-              'Currently only shown in the search-result modal path.');
-    },
-  );
-
- */
 }

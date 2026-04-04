@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/main.dart';
 import 'package:proj/screens/home_screen.dart';
 import 'package:proj/models/campus.dart';
+import 'helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
+    await pause(2); // let the emulator visually catch up
   }
 
   // ─── AC: App loads with a valid default campus ───────────────────────────────
@@ -30,6 +32,7 @@ void main() {
         (tester) async {
       await pumpApp(tester);
       expect(find.byKey(const Key('campus_label')), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -43,6 +46,7 @@ void main() {
           reason: 'A valid default campus must be shown on launch');
       expect(hasSgw && hasLoyola, isFalse,
           reason: 'Only one campus can be active at a time');
+      await pause(2);
     },
   );
 
@@ -55,6 +59,7 @@ void main() {
       expect(find.byKey(const Key('campus_toggle')), findsOneWidget);
       expect(find.text('SGW'), findsOneWidget);
       expect(find.text('Loyola'), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -64,10 +69,14 @@ void main() {
     'US-1.1: switching to Loyola updates campus_label to loyola',
         (tester) async {
       await pumpApp(tester);
+
       final dynamic state = tester.state(find.byType(HomeScreen));
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe the campus switch to Loyola
+
       expect(find.text('campus:loyola'), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -75,12 +84,19 @@ void main() {
     'US-1.1: switching back to SGW updates campus_label to sgw',
         (tester) async {
       await pumpApp(tester);
+
       final dynamic state = tester.state(find.byType(HomeScreen));
+
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe switch to Loyola
+
       state.simulateCampusChange(Campus.sgw);
       await tester.pumpAndSettle();
+      await pause(2); // observe switch back to SGW
+
       expect(find.text('campus:sgw'), findsOneWidget);
+      await pause(2);
     },
   );
 
@@ -90,12 +106,14 @@ void main() {
     'US-1.1: building polygons are rendered on the map after launch',
         (tester) async {
       await pumpApp(tester);
+
       final dynamic state = tester.state(find.byType(HomeScreen));
       expect(
         (state.testPolygons as Set).isNotEmpty,
         isTrue,
         reason: 'At least one campus building polygon must be rendered on the map',
       );
+      await pause(2);
     },
   );
 
@@ -103,16 +121,23 @@ void main() {
     'US-1.1: building polygons survive a round-trip campus switch',
         (tester) async {
       await pumpApp(tester);
+
       final dynamic state = tester.state(find.byType(HomeScreen));
+
       state.simulateCampusChange(Campus.loyola);
       await tester.pumpAndSettle();
+      await pause(2); // observe switch to Loyola
+
       state.simulateCampusChange(Campus.sgw);
       await tester.pumpAndSettle();
+      await pause(2); // observe switch back to SGW
+
       expect(
         (state.testPolygons as Set).isNotEmpty,
         isTrue,
         reason: 'Polygons must not be lost after switching campus back and forth',
       );
+      await pause(2);
     },
   );
 }

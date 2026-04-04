@@ -28,12 +28,16 @@ class CampusMap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GoogleMap(
+      key: const Key("google_map"),
+      mapType: MapType.normal,
       initialCameraPosition: initialCamera,
       onMapCreated: onMapCreated,
       zoomControlsEnabled: false,
       myLocationEnabled: myLocationEnabled,
       myLocationButtonEnabled: myLocationButtonEnabled,
       mapToolbarEnabled: false,
+      buildingsEnabled: true,
+      indoorViewEnabled: true,
       polygons: polygons,
       polylines: polylines,
       markers: markers,
