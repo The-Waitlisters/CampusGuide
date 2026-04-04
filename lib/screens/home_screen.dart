@@ -72,6 +72,7 @@ class HomeScreen extends StatefulWidget {
   final Completer<GoogleMapController>? testMapControllerCompleter;
 
   final DirectionsController? testDirectionsController;
+  final dynamic testHttpClient;
 
   const HomeScreen({
     super.key,
@@ -82,6 +83,7 @@ class HomeScreen extends StatefulWidget {
     this.buildingLocator,
     this.testMapControllerCompleter,
     this.testDirectionsController,
+    this.testHttpClient,
     MarkerImageLoader? markerImageLoader,
   }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
 
@@ -1299,6 +1301,7 @@ class _HomeScreenState extends HomeScreenState {
               (_startBuilding == null && _startPoi == null))
             _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
+          if (_mapMoved) _buildRecenterButton(),
           if (showPoiSettings)
             PoiOptionMenu(
               restaurants: restaurants,
@@ -1692,7 +1695,7 @@ class _HomeScreenState extends HomeScreenState {
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
-      right: 12,
+      left: 12,
       bottom: bottom,
       child: FloatingActionButton.small(
         heroTag: 'recenter',
@@ -1801,6 +1804,14 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
+  void simulateCameraMove(CameraPosition position) {
+    setState(() {
+      _mapMoved = true;
+      _lastKnownPosition ??= position.target;
+    });
+  }
+
+  @visibleForTesting
   void simulateGpsLocation(LatLng point) {
     final result = _buildingLocator.update(
       userPoint: point,
@@ -1847,8 +1858,10 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
-  void simulateCameraMove(CameraPosition position) {
-    _onCameraMove(position);
+  void setShowPoiSettingsForTest(bool value) {
+    setState(() {
+      showPoiSettings = value;
+    });
   }
 }
 

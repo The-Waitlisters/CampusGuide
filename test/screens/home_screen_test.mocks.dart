@@ -35,12 +35,12 @@ import 'package:proj/services/building_locator.dart' as _i2;
 class _FakeBuildingStatus_0 extends _i1.SmartFake
     implements _i2.BuildingStatus {
   _FakeBuildingStatus_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 class _FakeAppUser_1 extends _i1.SmartFake implements _i3.AppUser {
   _FakeAppUser_1(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
 }
 
 /// A class which mocks [DataParser].
@@ -54,18 +54,18 @@ class MockDataParser extends _i1.Mock implements _i4.DataParser {
   @override
   List<_i5.CampusBuilding> get buildingsPresent =>
       (super.noSuchMethod(
-            Invocation.getter(#buildingsPresent),
-            returnValue: <_i5.CampusBuilding>[],
-          )
-          as List<_i5.CampusBuilding>);
+        Invocation.getter(#buildingsPresent),
+        returnValue: <_i5.CampusBuilding>[],
+      )
+      as List<_i5.CampusBuilding>);
 
   @override
   List<_i6.Poi> get poiPresent =>
       (super.noSuchMethod(
-            Invocation.getter(#poiPresent),
-            returnValue: <_i6.Poi>[],
-          )
-          as List<_i6.Poi>);
+        Invocation.getter(#poiPresent),
+        returnValue: <_i6.Poi>[],
+      )
+      as List<_i6.Poi>);
 
   @override
   set buildingsPresent(List<_i5.CampusBuilding>? value) => super.noSuchMethod(
@@ -82,20 +82,20 @@ class MockDataParser extends _i1.Mock implements _i4.DataParser {
   @override
   _i7.Future<List<_i5.CampusBuilding>> getBuildingInfoFromJSON() =>
       (super.noSuchMethod(
-            Invocation.method(#getBuildingInfoFromJSON, []),
-            returnValue: _i7.Future<List<_i5.CampusBuilding>>.value(
-              <_i5.CampusBuilding>[],
-            ),
-          )
-          as _i7.Future<List<_i5.CampusBuilding>>);
+        Invocation.method(#getBuildingInfoFromJSON, []),
+        returnValue: _i7.Future<List<_i5.CampusBuilding>>.value(
+          <_i5.CampusBuilding>[],
+        ),
+      )
+      as _i7.Future<List<_i5.CampusBuilding>>);
 
   @override
   List<_i5.CampusBuilding> parseBuildings(Map<String, dynamic>? jsonFile) =>
       (super.noSuchMethod(
-            Invocation.method(#parseBuildings, [jsonFile]),
-            returnValue: <_i5.CampusBuilding>[],
-          )
-          as List<_i4.CampusBuilding>);
+        Invocation.method(#parseBuildings, [jsonFile]),
+        returnValue: <_i5.CampusBuilding>[],
+      )
+      as List<_i5.CampusBuilding>);
 }
 
 /// A class which mocks [BuildingLocator].
@@ -109,18 +109,18 @@ class MockBuildingLocator extends _i1.Mock implements _i2.BuildingLocator {
   @override
   double get enterThresholdMeters =>
       (super.noSuchMethod(
-            Invocation.getter(#enterThresholdMeters),
-            returnValue: 0.0,
-          )
-          as double);
+        Invocation.getter(#enterThresholdMeters),
+        returnValue: 0.0,
+      )
+      as double);
 
   @override
   double get exitThresholdMeters =>
       (super.noSuchMethod(
-            Invocation.getter(#exitThresholdMeters),
-            returnValue: 0.0,
-          )
-          as double);
+        Invocation.getter(#exitThresholdMeters),
+        returnValue: 0.0,
+      )
+      as double);
 
   @override
   void reset() => super.noSuchMethod(
@@ -135,21 +135,21 @@ class MockBuildingLocator extends _i1.Mock implements _i2.BuildingLocator {
     required List<_i5.CampusBuilding>? buildings,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [], {
-              #userPoint: userPoint,
-              #campus: campus,
-              #buildings: buildings,
-            }),
-            returnValue: _FakeBuildingStatus_0(
-              this,
-              Invocation.method(#update, [], {
-                #userPoint: userPoint,
-                #campus: campus,
-                #buildings: buildings,
-              }),
-            ),
-          )
-          as _i2.BuildingStatus);
+        Invocation.method(#update, [], {
+          #userPoint: userPoint,
+          #campus: campus,
+          #buildings: buildings,
+        }),
+        returnValue: _FakeBuildingStatus_0(
+          this,
+          Invocation.method(#update, [], {
+            #userPoint: userPoint,
+            #campus: campus,
+            #buildings: buildings,
+          }),
+        ),
+      )
+      as _i2.BuildingStatus);
 }
 
 /// A class which mocks [AuthService].
@@ -163,34 +163,34 @@ class MockAuthService extends _i1.Mock implements _i10.AuthService {
   @override
   _i7.Stream<_i11.User?> get authStateChanges =>
       (super.noSuchMethod(
-            Invocation.getter(#authStateChanges),
-            returnValue: _i7.Stream<_i11.User?>.empty(),
-          )
-          as _i7.Stream<_i11.User?>);
+        Invocation.getter(#authStateChanges),
+        returnValue: _i7.Stream<_i11.User?>.empty(),
+      )
+      as _i7.Stream<_i11.User?>);
 
   @override
   bool get isGuestMode =>
       (super.noSuchMethod(Invocation.getter(#isGuestMode), returnValue: false)
-          as bool);
+      as bool);
 
   @override
   _i7.Future<_i3.AppUser> continueAsGuest() =>
       (super.noSuchMethod(
-            Invocation.method(#continueAsGuest, []),
-            returnValue: _i7.Future<_i3.AppUser>.value(
-              _FakeAppUser_1(this, Invocation.method(#continueAsGuest, [])),
-            ),
-          )
-          as _i7.Future<_i3.AppUser>);
+        Invocation.method(#continueAsGuest, []),
+        returnValue: _i7.Future<_i3.AppUser>.value(
+          _FakeAppUser_1(this, Invocation.method(#continueAsGuest, [])),
+        ),
+      )
+      as _i7.Future<_i3.AppUser>);
 
   @override
   _i7.Future<void> signOut() =>
       (super.noSuchMethod(
-            Invocation.method(#signOut, []),
-            returnValue: _i7.Future<void>.value(),
-            returnValueForMissingStub: _i7.Future<void>.value(),
-          )
-          as _i7.Future<void>);
+        Invocation.method(#signOut, []),
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      )
+      as _i7.Future<void>);
 
   @override
   _i7.Future<_i3.AppUser> signUpStudentOrTeacher({
@@ -199,23 +199,23 @@ class MockAuthService extends _i1.Mock implements _i10.AuthService {
     required _i12.UserRole? role,
   }) =>
       (super.noSuchMethod(
+        Invocation.method(#signUpStudentOrTeacher, [], {
+          #email: email,
+          #password: password,
+          #role: role,
+        }),
+        returnValue: _i7.Future<_i3.AppUser>.value(
+          _FakeAppUser_1(
+            this,
             Invocation.method(#signUpStudentOrTeacher, [], {
               #email: email,
               #password: password,
               #role: role,
             }),
-            returnValue: _i7.Future<_i3.AppUser>.value(
-              _FakeAppUser_1(
-                this,
-                Invocation.method(#signUpStudentOrTeacher, [], {
-                  #email: email,
-                  #password: password,
-                  #role: role,
-                }),
-              ),
-            ),
-          )
-          as _i7.Future<_i3.AppUser>);
+          ),
+        ),
+      )
+      as _i7.Future<_i3.AppUser>);
 
   @override
   _i7.Future<_i3.AppUser> signInStudentOrTeacher({
@@ -223,27 +223,27 @@ class MockAuthService extends _i1.Mock implements _i10.AuthService {
     required String? password,
   }) =>
       (super.noSuchMethod(
+        Invocation.method(#signInStudentOrTeacher, [], {
+          #email: email,
+          #password: password,
+        }),
+        returnValue: _i7.Future<_i3.AppUser>.value(
+          _FakeAppUser_1(
+            this,
             Invocation.method(#signInStudentOrTeacher, [], {
               #email: email,
               #password: password,
             }),
-            returnValue: _i7.Future<_i3.AppUser>.value(
-              _FakeAppUser_1(
-                this,
-                Invocation.method(#signInStudentOrTeacher, [], {
-                  #email: email,
-                  #password: password,
-                }),
-              ),
-            ),
-          )
-          as _i7.Future<_i3.AppUser>);
+          ),
+        ),
+      )
+      as _i7.Future<_i3.AppUser>);
 
   @override
   _i7.Future<_i3.AppUser?> getCurrentAppUser() =>
       (super.noSuchMethod(
-            Invocation.method(#getCurrentAppUser, []),
-            returnValue: _i7.Future<_i3.AppUser?>.value(),
-          )
-          as _i7.Future<_i3.AppUser?>);
+        Invocation.method(#getCurrentAppUser, []),
+        returnValue: _i7.Future<_i3.AppUser?>.value(),
+      )
+      as _i7.Future<_i3.AppUser?>);
 }

@@ -53,9 +53,9 @@ class SearchOverlay extends StatelessWidget {
                   suffixIcon: controller.text.isEmpty
                       ? null
                       : IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: onClear,
-                        ),
+                    icon: const Icon(Icons.clear),
+                    onPressed: onClear,
+                  ),
                 ),
                 onChanged: onChanged,
                 onTap: onTapField,
@@ -91,12 +91,12 @@ class SearchResultsCard extends StatelessWidget {
         // ignore: body_might_complete_normally_nullable
         itemBuilder: (context, i) {
           final b = results[i];
-          if (b is MapLocation) {
+          if (b is CampusBuilding) {
             return ListTile(
               dense: true,
               title: Text(b.name),
-              subtitle: (b.name != null && b.name!.trim().isNotEmpty)
-                  ? Text(b.name!)
+              subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
+                  ? Text(b.fullName!)
                   : null,
               onTap: () => onSelect(b),
             );
@@ -105,7 +105,7 @@ class SearchResultsCard extends StatelessWidget {
               dense: true,
               title: Text(b.name),
               subtitle:
-                  (b.description != null && b.description!.trim().isNotEmpty)
+              (b.description != null && b.description!.trim().isNotEmpty)
                   ? Text(b.description!)
                   : null,
               onTap: () => onSelect(b),
