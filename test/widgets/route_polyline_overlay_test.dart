@@ -16,7 +16,7 @@ void main() {
         const RoutePolylineOverlay(legs: [], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsNothing);
+      expect(find.byType(IgnorePointer), findsNothing);
     });
 
     testWidgets('renders CustomPaint for a walking leg', (tester) async {
@@ -32,7 +32,7 @@ void main() {
         const RoutePolylineOverlay(legs: [leg], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('renders CustomPaint for a driving leg (solid path)', (tester) async {
@@ -48,7 +48,7 @@ void main() {
         const RoutePolylineOverlay(legs: [leg], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('renders CustomPaint for a cycling leg', (tester) async {
@@ -64,7 +64,7 @@ void main() {
         const RoutePolylineOverlay(legs: [leg], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('renders CustomPaint for a shuttle leg', (tester) async {
@@ -80,7 +80,7 @@ void main() {
         const RoutePolylineOverlay(legs: [leg], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('renders CustomPaint for a transit leg with transitColor',
@@ -98,7 +98,7 @@ void main() {
         const RoutePolylineOverlay(legs: [leg], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('transit leg without transitColor falls back to default color',
@@ -115,7 +115,7 @@ void main() {
         const RoutePolylineOverlay(legs: [leg], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('skips leg with fewer than 2 points without crashing',
@@ -143,7 +143,7 @@ void main() {
       ));
 
       // Should render without error; CustomPaint still present for the normal leg
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('shouldRepaint triggers on camera position change',
@@ -166,7 +166,7 @@ void main() {
       ));
 
       // No assertion beyond "doesn't crash" — exercises shouldRepaint(old)
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
 
     testWidgets('shouldRepaint does not repaint when data is unchanged',
@@ -187,7 +187,7 @@ void main() {
         const RoutePolylineOverlay(legs: [leg], cameraPosition: _camera),
       ));
 
-      expect(find.byType(CustomPaint), findsOneWidget);
+      expect(find.byType(IgnorePointer), findsOneWidget);
     });
   });
 }

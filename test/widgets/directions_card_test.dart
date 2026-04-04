@@ -201,13 +201,13 @@ void main() {
       ),
     );
 
-    // Per-leg mode labels (covers _labelForLegMode walk + transit)
-    expect(find.text('Walk'), findsOneWidget);
-    expect(find.text('Transit'), findsOneWidget);
-    // Per-leg durations
+    // "Walk" and "Transit" each appear in the mode chip row AND as a leg label
+    expect(find.text('Walk'), findsAtLeastNWidgets(2));
+    expect(find.text('Transit'), findsAtLeastNWidgets(2));
+    // Per-leg durations (unique strings — not chip labels)
     expect(find.text('5 min'), findsOneWidget);
     expect(find.text('10 min'), findsOneWidget);
-    // Per-leg distances (distanceText non-empty → visible)
+    // Per-leg distances
     expect(find.text('0.4 km'), findsOneWidget);
     expect(find.text('3 km'), findsOneWidget);
     // Total line
@@ -257,7 +257,9 @@ void main() {
     );
 
     expect(find.text('Green Line'), findsOneWidget);
-    expect(find.text('Transit'), findsNothing);
+    // "Transit" chip is always shown in the mode row, but the leg uses lineName
+    // instead — so "Transit" appears exactly once (chip only, not as leg label)
+    expect(find.text('Transit'), findsOneWidget);
   });
 
   testWidgets('hides distance separator when leg distanceText is empty',
@@ -300,9 +302,9 @@ void main() {
       ),
     );
 
-    // Shuttle leg labels (covers _labelForLegMode shuttle + _iconForLegMode shuttle)
-    expect(find.text('Shuttle'), findsOneWidget);
-    // Empty distanceText leg hides the distance (no ' · ' separator for that leg)
+    // "Shuttle" appears in the chip row AND as a leg label → at least 2
+    expect(find.text('Shuttle'), findsAtLeastNWidgets(2));
+    // Empty distanceText leg hides the distance — verified by absence of empty string
     expect(find.text(''), findsNothing);
   });
 
@@ -455,8 +457,8 @@ void main() {
       ),
     );
 
-    // Covers _labelForLegMode cycling + driving, _iconForLegMode cycling + driving
-    expect(find.text('Bike'), findsOneWidget);
-    expect(find.text('Drive'), findsOneWidget);
+    // "Bike" and "Drive" appear in the chip row AND as leg labels → at least 2 each
+    expect(find.text('Bike'), findsAtLeastNWidgets(2));
+    expect(find.text('Drive'), findsAtLeastNWidgets(2));
   });
 }
