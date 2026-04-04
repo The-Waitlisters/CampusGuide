@@ -162,7 +162,7 @@ void main(){
       ),
     );
 
-    expect(find.text('5 min • 1 km'), findsOneWidget);
+    expect(find.text('5 min · 1 km'), findsOneWidget);
   });
 
 }
