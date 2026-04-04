@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -253,6 +254,156 @@ void main() {
         ),
         throwsA(isA<Exception>()),
       );
+    });
+
+    test('transit mode parses steps into multiple legs', () async {
+      final fakeHttp = FakeHttpClient((req) async {
+        final body = jsonEncode({
+          "status": "OK",
+          "routes": [
+            {
+              "overview_polyline": {"points": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"},
+              "legs": [
+                {
+                  "duration": {"text": "30 min", "value": 1800},
+                  "distance": {"text": "5 km"},
+                  "steps": [
+                    {
+                      "travel_mode": "WALKING",
+                      "duration": {"text": "5 min", "value": 300},
+                      "distance": {"text": "0.3 km"},
+                      "polyline": {"points": "_p~iF~ps|U_ulLnnqC"},
+                    },
+                    {
+                      "travel_mode": "TRANSIT",
+                      "duration": {"text": "20 min", "value": 1200},
+                      "distance": {"text": "4 km"},
+                      "polyline": {"points": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"},
+                      "transit_details": {
+                        "line": {
+                          "color": "#1a73e8",
+                          "short_name": "14",
+                        }
+                      }
+                    },
+                    {
+                      "travel_mode": "WALKING",
+                      "duration": {"text": "5 min", "value": 300},
+                      "distance": {"text": "0.4 km"},
+                      "polyline": {"points": "_p~iF~ps|U"},
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        });
+        return http.Response(body, 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = GoogleDirectionsClient(apiKey: 'KEY', httpClient: fakeHttp);
+      final result = await client.getRoute(
+        origin: const LatLng(1, 1),
+        destination: const LatLng(2, 2),
+        mode: MetroStrategy(),
+      );
+
+      expect(result.legs.length, 3);
+      expect(result.legs[0].legMode, LegMode.walking);
+      expect(result.legs[1].legMode, LegMode.transit);
+      expect(result.legs[1].lineName, '14');
+      expect(result.legs[1].transitColor, isNotNull);
+      expect(result.legs[2].legMode, LegMode.walking);
+      expect(result.durationText, '30 min');
+      expect(result.distanceText, '5 km');
+    });
+
+    test('transit step with invalid hex color falls back to default', () async {
+      final fakeHttp = FakeHttpClient((req) async {
+        final body = jsonEncode({
+          "status": "OK",
+          "routes": [
+            {
+              "overview_polyline": {"points": "_p~iF~ps|U_ulLnnqC"},
+              "legs": [
+                {
+                  "duration": {"text": "10 min", "value": 600},
+                  "distance": {"text": "2 km"},
+                  "steps": [
+                    {
+                      "travel_mode": "TRANSIT",
+                      "duration": {"text": "10 min", "value": 600},
+                      "distance": {"text": "2 km"},
+                      "polyline": {"points": "_p~iF~ps|U_ulLnnqC"},
+                      "transit_details": {
+                        "line": {
+                          "color": "#abc", // 3 chars — hits the fallback branch
+                          "name": "Green Line",
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        });
+        return http.Response(body, 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = GoogleDirectionsClient(apiKey: 'KEY', httpClient: fakeHttp);
+      final result = await client.getRoute(
+        origin: const LatLng(1, 1),
+        destination: const LatLng(2, 2),
+        mode: MetroStrategy(),
+      );
+
+      expect(result.legs.length, 1);
+      expect(result.legs[0].legMode, LegMode.transit);
+      // Falls back to default blue
+      expect(result.legs[0].transitColor, const Color(0xFF1A73E8));
+      // Uses line.name when short_name is absent
+      expect(result.legs[0].lineName, 'Green Line');
+    });
+
+    test('transit step with no transit_details has null color and lineName',
+        () async {
+      final fakeHttp = FakeHttpClient((req) async {
+        final body = jsonEncode({
+          "status": "OK",
+          "routes": [
+            {
+              "overview_polyline": {"points": "_p~iF~ps|U_ulLnnqC"},
+              "legs": [
+                {
+                  "duration": {"text": "10 min", "value": 600},
+                  "distance": {"text": "2 km"},
+                  "steps": [
+                    {
+                      "travel_mode": "TRANSIT",
+                      "duration": {"text": "10 min", "value": 600},
+                      "distance": {"text": "2 km"},
+                      "polyline": {"points": "_p~iF~ps|U_ulLnnqC"},
+                      // no transit_details key
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        });
+        return http.Response(body, 200, headers: {'content-type': 'application/json'});
+      });
+
+      final client = GoogleDirectionsClient(apiKey: 'KEY', httpClient: fakeHttp);
+      final result = await client.getRoute(
+        origin: const LatLng(1, 1),
+        destination: const LatLng(2, 2),
+        mode: MetroStrategy(),
+      );
+
+      expect(result.legs[0].transitColor, isNull);
+      expect(result.legs[0].lineName, isNull);
     });
   });
 
