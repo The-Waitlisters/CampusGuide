@@ -2651,7 +2651,7 @@ Future<void> main() async {
       final fakeController = FakeGoogleMapController();
       final fakeDirections = DirectionsController(
         client: FakeDirectionsClient.success(const RouteResult(
-          polylinePoints: [],
+          legs: [],
           durationText: '0 min',
           distanceText: '0 km',
         )),
@@ -2860,7 +2860,7 @@ Future<void> main() async {
       final poi = testPoi(id: 'ps1', name: 'Start Poi');
       final fakeDirections = DirectionsController(
         client: FakeDirectionsClient.success(const RouteResult(
-          polylinePoints: [],
+          legs: [],
           durationText: '0',
           distanceText: '0 km',
         )),
@@ -2893,7 +2893,7 @@ Future<void> main() async {
           testPoi(id: 'pd2', name: 'End', boundary: const LatLng(45.5, -73.6));
       final fakeDirections = DirectionsController(
         client: FakeDirectionsClient.success(const RouteResult(
-          polylinePoints: [LatLng(45.4, -73.5), LatLng(45.5, -73.6)],
+          legs: [RouteLeg(polylinePoints: [LatLng(45.4, -73.5), LatLng(45.5, -73.6)], legMode: LegMode.walking, durationSeconds: 0, durationText: '5 min', distanceText: '1 km')],
           durationText: '5 min',
           distanceText: '1 km',
         )),

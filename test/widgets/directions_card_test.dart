@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
-import 'package:proj/models/poi.dart';
+import 'package:proj/services/directions/transport_mode_strategy.dart';
+import 'package:proj/services/shuttle_service.dart';
 import 'package:proj/widgets/home/directions_card.dart';
 
 CampusBuilding _hall() => CampusBuilding(
