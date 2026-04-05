@@ -12,7 +12,11 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/floor.dart';
+import 'package:proj/models/indoor_map.dart';
+import 'package:proj/models/nav_graph.dart';
 import 'package:proj/models/poi.dart';
+import 'package:proj/models/room.dart';
 import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/models/user_role.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
@@ -371,6 +375,69 @@ Poi testPoi({
   String poiType = 'assets/coffee.png'
 }) {
   return Poi(id: id, name: name, boundary: boundary, description: description, campus: campus, openingHours: openingHours, photoName: [], rating: 2, address: '', );
+}
+
+IndoorMap _rtTinyIndoorMap(CampusBuilding b, String roomId) {
+  final roomNode =
+      NavNode(id: roomId, type: 'room', x: 0.5, y: 0.5, name: roomId);
+  final g = NavGraph(nodes: [roomNode], edges: []);
+  final floor = Floor(
+    level: 1,
+    label: '1',
+    rooms: [
+      Room(
+        id: roomId,
+        name: roomId,
+        boundary: _rtFakeRoomBoundary(0.5, 0.5),
+      ),
+    ],
+    navGraph: g,
+  );
+  return IndoorMap(building: b, floors: [floor]);
+}
+
+IndoorMap _rtTwoFloorIndoorMap(CampusBuilding b, String roomId) {
+  final n1 =
+      NavNode(id: roomId, type: 'room', x: 0.5, y: 0.5, name: roomId);
+  final g1 = NavGraph(nodes: [n1], edges: []);
+  final f1 = Floor(
+    level: 1,
+    label: '1',
+    rooms: [
+      Room(
+        id: roomId,
+        name: roomId,
+        boundary: _rtFakeRoomBoundary(0.5, 0.5),
+      ),
+    ],
+    navGraph: g1,
+  );
+  final id2 = '${roomId}_L2';
+  final n2 = NavNode(id: id2, type: 'room', x: 0.5, y: 0.5, name: id2);
+  final g2 = NavGraph(nodes: [n2], edges: []);
+  final f2 = Floor(
+    level: 2,
+    label: '2',
+    rooms: [
+      Room(
+        id: id2,
+        name: id2,
+        boundary: _rtFakeRoomBoundary(0.5, 0.5),
+      ),
+    ],
+    navGraph: g2,
+  );
+  return IndoorMap(building: b, floors: [f1, f2]);
+}
+
+List<Offset> _rtFakeRoomBoundary(double cx, double cy) {
+  const h = 0.025;
+  return [
+    Offset(cx - h, cy - h),
+    Offset(cx + h, cy - h),
+    Offset(cx + h, cy + h),
+    Offset(cx - h, cy + h),
+  ];
 }
 
 Poi testPoi2({
@@ -1133,6 +1200,35 @@ Future<void> main() async {
           expect(find.text('AAA'), findsOneWidget);
         });
 
+    testWidgets('search matches POI by description', (WidgetTester tester) async {
+      final cafe = Poi(
+        id: 'c1',
+        name: 'Zebra Lounge',
+        description: 'matcha and coffee',
+        campus: Campus.sgw,
+        boundary: const LatLng(45.5, -73.5),
+        openingHours: const [],
+        photoName: const <String?>[],
+        rating: 4,
+        address: '1 St',
+      );
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state =
+          tester.state(find.byType(home_screen.HomeScreen).first);
+      state.poiPresent.add(cafe);
+
+      await tester.enterText(find.byType(TextField).first, 'matcha');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Zebra Lounge'), findsOneWidget);
+    });
+
     testWidgets(
         'simulateBuildingTap(null) shows Not part of campus modal sheet',
             (WidgetTester tester) async {
@@ -1198,6 +1294,314 @@ Future<void> main() async {
 
           expect(find.textContaining('Destination Building'), findsOneWidget);
         });
+
+    testWidgets(
+        'room-to-room toggle uses testIndoorMapLoader and shows room pickers',
+        (WidgetTester tester) async {
+      final startB = buildTestBuilding(
+          id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB = buildTestBuilding(
+          id: 'b2', name: 'DEST', fullName: 'Destination Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      const walkLeg = RouteLeg(
+        polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+        legMode: LegMode.walking,
+        durationSeconds: 60,
+        durationText: '1 min',
+        distanceText: '100 m',
+      );
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [walkLeg],
+          durationText: '1 min',
+          distanceText: '100 m',
+        )),
+      );
+
+      Future<IndoorMap?> testLoader(CampusBuilding b) async {
+        return _rtTinyIndoorMap(b, b.id == 'b1' ? 'ROOM_A' : 'ROOM_B');
+      }
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+        testIndoorMapLoader: testLoader,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'start');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('START'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+          find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Start room'), findsOneWidget);
+    });
+
+    testWidgets(
+        'room-to-room: failing testIndoorMapLoader clears loading state',
+        (WidgetTester tester) async {
+      final startB = buildTestBuilding(
+          id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB = buildTestBuilding(
+          id: 'b2', name: 'DEST', fullName: 'Destination Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      const walkLeg = RouteLeg(
+        polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+        legMode: LegMode.walking,
+        durationSeconds: 60,
+        durationText: '1 min',
+        distanceText: '100 m',
+      );
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [walkLeg],
+          durationText: '1 min',
+          distanceText: '100 m',
+        )),
+      );
+
+      Future<IndoorMap?> badLoader(CampusBuilding _) async {
+        throw Exception('loader failed');
+      }
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+        testIndoorMapLoader: badLoader,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'start');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('START'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+          find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
+
+    testWidgets('room-to-room toggle off clears indoor state',
+        (WidgetTester tester) async {
+      final startB = buildTestBuilding(
+          id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB = buildTestBuilding(
+          id: 'b2', name: 'DEST', fullName: 'Destination Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      const walkLeg = RouteLeg(
+        polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+        legMode: LegMode.walking,
+        durationSeconds: 60,
+        durationText: '1 min',
+        distanceText: '100 m',
+      );
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [walkLeg],
+          durationText: '1 min',
+          distanceText: '100 m',
+        )),
+      );
+
+      Future<IndoorMap?> testLoader(CampusBuilding b) async {
+        return _rtTinyIndoorMap(b, b.id == 'b1' ? 'ROOM_A' : 'ROOM_B');
+      }
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+        testIndoorMapLoader: testLoader,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'start');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('START'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+          find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Start room'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Start room'), findsNothing);
+    });
+
+    testWidgets(
+        'handleMapTap swallows one tap when suppress flag is set (web leak guard)',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state =
+          tester.state(find.byType(home_screen.HomeScreen).first);
+      state.setSuppressNextMapTapForTest(true);
+      state.handleMapTap(const LatLng(99, 99));
+      await tester.pump();
+
+      expect(find.text('Not part of campus'), findsNothing);
+    });
+
+    testWidgets('triggerPolygonOnTap with unknown PolygonId is a no-op',
+        (WidgetTester tester) async {
+      final building = buildTestBuilding(id: 'b1', name: 'B1');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [building]);
+      when(mockDataParser.buildingsPresent).thenReturn([building]);
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state =
+          tester.state(find.byType(home_screen.HomeScreen).first);
+      state.triggerPolygonOnTap(const PolygonId('__none__'));
+      await tester.pump();
+
+      expect(find.byType(BuildingDetailContent), findsNothing);
+    });
+
+    testWidgets(
+        'room-to-room floor and room dropdowns invoke DirectionsCard callbacks',
+        (WidgetTester tester) async {
+      final startB = buildTestBuilding(
+          id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB = buildTestBuilding(
+          id: 'b2', name: 'DEST', fullName: 'Destination Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      const walkLeg = RouteLeg(
+        polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+        legMode: LegMode.walking,
+        durationSeconds: 60,
+        durationText: '1 min',
+        distanceText: '100 m',
+      );
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [walkLeg],
+          durationText: '1 min',
+          distanceText: '100 m',
+        )),
+      );
+
+      Future<IndoorMap?> testLoader(CampusBuilding b) async {
+        return _rtTwoFloorIndoorMap(
+            b, b.id == 'b1' ? 'ROOM_A' : 'ROOM_B');
+      }
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+        testIndoorMapLoader: testLoader,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'start');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('START'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+          find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+
+      final roomDropdowns = find.byType(DropdownButton<String>);
+      await tester.tap(roomDropdowns.first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ROOM_A'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(roomDropdowns.at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ROOM_B'));
+      await tester.pumpAndSettle();
+
+      final floorDropdowns = find.byType(DropdownButton<int>);
+      await tester.tap(floorDropdowns.first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2').first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(floorDropdowns.at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('2').last);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
 
     testWidgets('triggerPolygonOnTap runs Polygon.onTap closure',
             (WidgetTester tester) async {
@@ -2914,6 +3318,45 @@ Future<void> main() async {
       expect(find.byType(home_screen.HomeScreen), findsOneWidget);
     });
 
+    testWidgets(
+        'simulatePoiAsDestination without start sets current-location start path',
+        (WidgetTester tester) async {
+      final endPoi = testPoi(
+          id: 'pd3',
+          name: 'Lone End',
+          boundary: const LatLng(45.5, -73.6));
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [
+            RouteLeg(
+                polylinePoints: [
+                  LatLng(45.4, -73.5),
+                  LatLng(45.5, -73.6)
+                ],
+                legMode: LegMode.walking,
+                durationSeconds: 0,
+                durationText: '5 min',
+                distanceText: '1 km')
+          ],
+          durationText: '5 min',
+          distanceText: '1 km',
+        )),
+      );
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state =
+          tester.state(find.byType(home_screen.HomeScreen).first);
+      await state.simulatePoiAsDestination(endPoi);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
+
     // -------------------------------------------------------------------------
     // _showPoiDetailSheet (lines 1028-1057)
     // -------------------------------------------------------------------------
@@ -3015,6 +3458,29 @@ Future<void> main() async {
       await tester.tap(find.text('Reset'));
       await tester.pump();
       expect(state.restaurants, isFalse);
+    });
+
+    testWidgets('PoiOptionMenu sort dropdown updates type', (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() async => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state =
+          tester.state(find.byType(home_screen.HomeScreen).first);
+      state.setShowPoiSettingsForTest(true);
+      await tester.pump();
+
+      await tester.tap(find.byType(DropdownMenu<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Distance').last);
+      await tester.pump();
+
+      expect(state.type, 'DISTANCE');
     });
 
     testWidgets('PoiOptionMenu onShow hides menu and shows Results',

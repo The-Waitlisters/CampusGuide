@@ -3,6 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/floor.dart';
+import 'package:proj/models/indoor_map.dart';
+import 'package:proj/models/nav_graph.dart';
+import 'package:proj/models/poi.dart';
+import 'package:proj/models/room.dart';
 import 'package:proj/services/directions/transport_mode_strategy.dart';
 import 'package:proj/services/shuttle_service.dart';
 import 'package:proj/widgets/home/directions_card.dart';
@@ -36,6 +41,11 @@ void main() {
               onRetry: () {},
               selectedModeParam: 'walking',
               onModeChanged: (m) => selected = m,
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -66,6 +76,11 @@ void main() {
               onRetry: () {},
               selectedModeParam: 'walking',
               onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -93,6 +108,11 @@ void main() {
               onRetry: () {},
               selectedModeParam: 'walking',
               onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -119,6 +139,11 @@ void main() {
               onRetry: () {},
               selectedModeParam: 'walking',
               onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -150,6 +175,11 @@ void main() {
               onRetry: () {},
               selectedModeParam: 'walking',
               onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -157,6 +187,98 @@ void main() {
     );
 
     expect(find.text('5 min · 1 km'), findsOneWidget);
+  });
+
+  testWidgets('uses startPoi name in start label when startBuilding is null',
+      (tester) async {
+    final startPoi = Poi(
+      id: 'sp1',
+      name: 'Nearby Cafe',
+      campus: Campus.sgw,
+      description: null,
+      boundary: const LatLng(45.497, -73.578),
+      openNow: true,
+      openingHours: const [],
+      photoName: const <String?>[],
+      rating: 4.0,
+      address: '1 Test St',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            DirectionsCard(
+              startBuilding: null,
+              endBuilding: _hall(),
+              startPoi: startPoi,
+              isLoading: false,
+              errorMessage: null,
+              polyline: null,
+              durationText: null,
+              distanceText: null,
+              onCancel: () {},
+              onRetry: () {},
+              selectedModeParam: 'walking',
+              onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Nearby Cafe'), findsOneWidget);
+  });
+
+  testWidgets('uses endPoi name in end label when endBuilding is null',
+      (tester) async {
+    final endPoi = Poi(
+      id: 'ep1',
+      name: 'Central Park',
+      campus: Campus.sgw,
+      description: null,
+      boundary: const LatLng(45.497, -73.578),
+      openNow: true,
+      openingHours: const [],
+      photoName: const <String?>[],
+      rating: 3.8,
+      address: '2 Test St',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            DirectionsCard(
+              startBuilding: _hall(),
+              endBuilding: null,
+              endPoi: endPoi,
+              isLoading: false,
+              errorMessage: null,
+              polyline: null,
+              durationText: null,
+              distanceText: null,
+              onCancel: () {},
+              onRetry: () {},
+              selectedModeParam: 'walking',
+              onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Central Park'), findsOneWidget);
   });
 
   // ── Multi-leg breakdown ──────────────────────────────────────────────────────
@@ -195,22 +317,23 @@ void main() {
               selectedModeParam: 'transit',
               onModeChanged: (_) {},
               legs: const [walkLeg, transitLeg],
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
       ),
     );
 
-    // "Walk" and "Transit" each appear in the mode chip row AND as a leg label
     expect(find.text('Walk'), findsAtLeastNWidgets(2));
     expect(find.text('Transit'), findsAtLeastNWidgets(2));
-    // Per-leg durations (unique strings — not chip labels)
     expect(find.text('5 min'), findsOneWidget);
     expect(find.text('10 min'), findsOneWidget);
-    // Per-leg distances
     expect(find.text('0.4 km'), findsOneWidget);
     expect(find.text('3 km'), findsOneWidget);
-    // Total line
     expect(find.text('Total'), findsOneWidget);
     expect(find.text('15 min · 3.4 km'), findsOneWidget);
   });
@@ -250,6 +373,11 @@ void main() {
               selectedModeParam: 'transit',
               onModeChanged: (_) {},
               legs: const [legA, legB],
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -257,8 +385,6 @@ void main() {
     );
 
     expect(find.text('Green Line'), findsOneWidget);
-    // "Transit" chip is always shown in the mode row, but the leg uses lineName
-    // instead — so "Transit" appears exactly once (chip only, not as leg label)
     expect(find.text('Transit'), findsOneWidget);
   });
 
@@ -296,16 +422,86 @@ void main() {
               selectedModeParam: 'shuttle',
               onModeChanged: (_) {},
               legs: const [legA, legB],
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
       ),
     );
 
-    // "Shuttle" appears in the chip row AND as a leg label → at least 2
     expect(find.text('Shuttle'), findsAtLeastNWidgets(2));
-    // Empty distanceText leg hides the distance — verified by absence of empty string
     expect(find.text(''), findsNothing);
+  });
+
+  testWidgets('retry button calls onRetry when route errors', (tester) async {
+    var retries = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            DirectionsCard(
+              startBuilding: null,
+              endBuilding: _hall(),
+              isLoading: false,
+              errorMessage: 'Directions failed',
+              polyline: null,
+              durationText: null,
+              distanceText: null,
+              onCancel: () {},
+              onRetry: () => retries++,
+              selectedModeParam: 'walking',
+              onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Retry'));
+    expect(retries, 1);
+  });
+
+  testWidgets('polyline shows duration only when distance null', (tester) async {
+    final polyline = Polyline(
+      polylineId: const PolylineId('r'),
+      points: const [LatLng(0, 0), LatLng(1, 1)],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            DirectionsCard(
+              startBuilding: null,
+              endBuilding: _hall(),
+              isLoading: false,
+              errorMessage: null,
+              polyline: polyline,
+              durationText: '2 min',
+              distanceText: null,
+              onCancel: () {},
+              onRetry: () {},
+              selectedModeParam: 'walking',
+              onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(find.text('2 min'), findsOneWidget);
   });
 
   // ── ETA badge ────────────────────────────────────────────────────────────────
@@ -333,6 +529,11 @@ void main() {
               selectedModeParam: 'shuttle',
               onModeChanged: (_) {},
               etaType: ShuttleEtaType.realtime,
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -365,6 +566,11 @@ void main() {
               selectedModeParam: 'shuttle',
               onModeChanged: (_) {},
               etaType: ShuttleEtaType.estimated,
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -408,6 +614,11 @@ void main() {
               onModeChanged: (_) {},
               legs: const [legA, legB],
               etaType: ShuttleEtaType.realtime,
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
@@ -451,14 +662,330 @@ void main() {
               selectedModeParam: 'bicycling',
               onModeChanged: (_) {},
               legs: const [legA, legB],
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
             ),
           ],
         ),
       ),
     );
 
-    // "Bike" and "Drive" appear in the chip row AND as leg labels → at least 2 each
     expect(find.text('Bike'), findsAtLeastNWidgets(2));
     expect(find.text('Drive'), findsAtLeastNWidgets(2));
+  });
+
+  testWidgets('Loyola appears in building start label', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            DirectionsCard(
+              startBuilding: CampusBuilding(
+                name: 'X',
+                fullName: 'X Hall',
+                campus: Campus.loyola,
+                id: 'x',
+                boundary: const [],
+                description: '',
+              ),
+              endBuilding: _hall(),
+              isLoading: false,
+              errorMessage: null,
+              polyline: null,
+              durationText: null,
+              distanceText: null,
+              onCancel: () {},
+              onRetry: () {},
+              selectedModeParam: 'walking',
+              onModeChanged: (_) {},
+              onRoomToRoomToggled: (_) {},
+              onStartFloorChanged: (_) {},
+              onEndFloorChanged: (_) {},
+              onStartRoomChanged: (_) {},
+              onEndRoomChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(find.textContaining('Loyola'), findsOneWidget);
+  });
+
+  group('room-to-room', () {
+    CampusBuilding startB() => CampusBuilding(
+          id: 's',
+          name: 'H',
+          fullName: 'Hall',
+          campus: Campus.sgw,
+          boundary: const [],
+          description: '',
+        );
+
+    CampusBuilding endB() => CampusBuilding(
+          id: 'e',
+          name: 'MB',
+          fullName: 'MB',
+          campus: Campus.sgw,
+          boundary: const [],
+          description: '',
+        );
+
+    IndoorMap tinyMap(CampusBuilding b) {
+      final room = NavNode(id: 'r1', type: 'room', x: 0.5, y: 0.5, name: '101');
+      final g = NavGraph(nodes: [room], edges: []);
+      final floor = Floor(
+        level: 8,
+        label: '8',
+        rooms: [
+          Room(id: 'r1', name: '101', boundary: const [
+            Offset(0.4, 0.4),
+            Offset(0.6, 0.4),
+            Offset(0.6, 0.6),
+            Offset(0.4, 0.6),
+          ]),
+        ],
+        navGraph: g,
+      );
+      return IndoorMap(building: b, floors: [floor]);
+    }
+
+    testWidgets('toggle calls onRoomToRoomToggled', (tester) async {
+      bool? last;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            children: [
+              DirectionsCard(
+                startBuilding: startB(),
+                endBuilding: endB(),
+                isLoading: false,
+                errorMessage: null,
+                polyline: Polyline(
+                  polylineId: const PolylineId('p'),
+                  points: const [LatLng(0, 0), LatLng(1, 1)],
+                ),
+                durationText: '1 min',
+                distanceText: '1 m',
+                onCancel: () {},
+                onRetry: () {},
+                selectedModeParam: 'walking',
+                onModeChanged: (_) {},
+                roomToRoomEnabled: false,
+                onRoomToRoomToggled: (v) => last = v,
+                onStartFloorChanged: (_) {},
+                onEndFloorChanged: (_) {},
+                onStartRoomChanged: (_) {},
+                onEndRoomChanged: (_) {},
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      expect(last, isTrue);
+    });
+
+    testWidgets('shows loading when indoorMapsLoading', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            children: [
+              DirectionsCard(
+                startBuilding: startB(),
+                endBuilding: endB(),
+                isLoading: false,
+                errorMessage: null,
+                polyline: Polyline(
+                  polylineId: const PolylineId('p'),
+                  points: const [LatLng(0, 0), LatLng(1, 1)],
+                ),
+                durationText: '1 min',
+                distanceText: '1 m',
+                onCancel: () {},
+                onRetry: () {},
+                selectedModeParam: 'walking',
+                onModeChanged: (_) {},
+                roomToRoomEnabled: true,
+                indoorMapsLoading: true,
+                onRoomToRoomToggled: (_) {},
+                onStartFloorChanged: (_) {},
+                onEndFloorChanged: (_) {},
+                onStartRoomChanged: (_) {},
+                onEndRoomChanged: (_) {},
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(find.textContaining('Loading indoor maps'), findsOneWidget);
+    });
+
+    testWidgets('shows unavailable when a map is null', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            children: [
+              DirectionsCard(
+                startBuilding: startB(),
+                endBuilding: endB(),
+                isLoading: false,
+                errorMessage: null,
+                polyline: Polyline(
+                  polylineId: const PolylineId('p'),
+                  points: const [LatLng(0, 0), LatLng(1, 1)],
+                ),
+                durationText: '1 min',
+                distanceText: '1 m',
+                onCancel: () {},
+                onRetry: () {},
+                selectedModeParam: 'walking',
+                onModeChanged: (_) {},
+                roomToRoomEnabled: true,
+                startIndoorMap: tinyMap(startB()),
+                endIndoorMap: null,
+                onRoomToRoomToggled: (_) {},
+                onStartFloorChanged: (_) {},
+                onEndFloorChanged: (_) {},
+                onStartRoomChanged: (_) {},
+                onEndRoomChanged: (_) {},
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(
+          find.textContaining('Indoor maps not available'), findsOneWidget);
+    });
+
+    testWidgets('Start Navigation invokes onStartNavigation', (tester) async {
+      var started = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            children: [
+              DirectionsCard(
+                startBuilding: startB(),
+                endBuilding: endB(),
+                isLoading: false,
+                errorMessage: null,
+                polyline: Polyline(
+                  polylineId: const PolylineId('p'),
+                  points: const [LatLng(0, 0), LatLng(1, 1)],
+                ),
+                durationText: '1 min',
+                distanceText: '1 m',
+                onCancel: () {},
+                onRetry: () {},
+                selectedModeParam: 'walking',
+                onModeChanged: (_) {},
+                roomToRoomEnabled: true,
+                startIndoorMap: tinyMap(startB()),
+                endIndoorMap: tinyMap(endB()),
+                startRoomId: 'r1',
+                endRoomId: 'r1',
+                onRoomToRoomToggled: (_) {},
+                onStartFloorChanged: (_) {},
+                onEndFloorChanged: (_) {},
+                onStartRoomChanged: (_) {},
+                onEndRoomChanged: (_) {},
+                onStartNavigation: () => started = true,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('start_navigation_button')));
+      expect(started, isTrue);
+    });
+
+    testWidgets('floor dropdown triggers onStartFloorChanged', (tester) async {
+      int? floorSeen;
+      final map = IndoorMap(
+        building: startB(),
+        floors: [
+          Floor(
+            level: 8,
+            label: 'Eight',
+            rooms: [
+              Room(id: 'r8', name: 'A', boundary: const [
+                Offset(0.4, 0.4),
+                Offset(0.6, 0.4),
+                Offset(0.6, 0.6),
+                Offset(0.4, 0.6),
+              ]),
+            ],
+            navGraph: NavGraph(
+              nodes: [
+                NavNode(id: 'r8', type: 'room', x: 0.5, y: 0.5, name: 'A'),
+              ],
+              edges: const [],
+            ),
+          ),
+          Floor(
+            level: 9,
+            label: 'Nine',
+            rooms: [
+              Room(id: 'r9', name: 'B', boundary: const [
+                Offset(0.4, 0.4),
+                Offset(0.6, 0.4),
+                Offset(0.6, 0.6),
+                Offset(0.4, 0.6),
+              ]),
+            ],
+            navGraph: NavGraph(
+              nodes: [
+                NavNode(id: 'r9', type: 'room', x: 0.5, y: 0.5, name: 'B'),
+              ],
+              edges: const [],
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            children: [
+              DirectionsCard(
+                startBuilding: startB(),
+                endBuilding: endB(),
+                isLoading: false,
+                errorMessage: null,
+                polyline: Polyline(
+                  polylineId: const PolylineId('p'),
+                  points: const [LatLng(0, 0), LatLng(1, 1)],
+                ),
+                durationText: '1 min',
+                distanceText: '1 m',
+                onCancel: () {},
+                onRetry: () {},
+                selectedModeParam: 'walking',
+                onModeChanged: (_) {},
+                roomToRoomEnabled: true,
+                startIndoorMap: map,
+                endIndoorMap: tinyMap(endB()),
+                startFloorFilter: 8,
+                onRoomToRoomToggled: (_) {},
+                onStartFloorChanged: (f) => floorSeen = f,
+                onEndFloorChanged: (_) {},
+                onStartRoomChanged: (_) {},
+                onEndRoomChanged: (_) {},
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Eight').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nine').last);
+      await tester.pumpAndSettle();
+      expect(floorSeen, 9);
+    });
   });
 }
