@@ -1,0 +1,160 @@
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../data/shuttle_schedule.dart';
+import '../models/campus.dart';
+import 'directions/transport_mode_strategy.dart';
+
+// Re-export so callers only need to import shuttle_service.dart.
+export '../data/shuttle_schedule.dart' show ShuttleStop, ShuttleScheduleData;
+
+// ---------------------------------------------------------------------------
+// ShuttleEtaType
+// ---------------------------------------------------------------------------
+
+enum ShuttleEtaType {
+  /// ETA sourced from a live shuttle API — show "Realtime" badge.
+  realtime,
+
+  /// ETA derived from the static schedule — show "Estimated" badge.
+  estimated,
+}
+
+// ---------------------------------------------------------------------------
+// ShuttleRouteResult
+// ---------------------------------------------------------------------------
+
+@immutable
+class ShuttleRouteResult {
+  const ShuttleRouteResult({
+    required this.routeResult,
+    required this.etaType,
+    required this.waitMinutes,
+  });
+
+  final RouteResult    routeResult;
+  final ShuttleEtaType etaType;
+  final int?           waitMinutes;
+}
+
+// ---------------------------------------------------------------------------
+// ShuttleRouteBuilder
+//
+// Builds a complete 3-leg shuttle route:
+//
+//   Leg 1 — Walk    : origin → pickup stop         (Google Directions API)
+//   Leg 2 — Shuttle : pickup → drop-off            (schedule-derived ETA)
+//   Leg 3 — Walk    : drop-off → destination       (Google Directions API)
+//
+// Stop coordinates and timetable come from lib/data/shuttle_schedule.dart.
+// The walking legs are fetched via the injected [DirectionsClient] so this
+// builder is fully testable with a mock client.
+// ---------------------------------------------------------------------------
+
+class ShuttleRouteBuilder {
+  const ShuttleRouteBuilder({required DirectionsClient client})
+      : _client = client;
+
+  final DirectionsClient _client;
+
+  Future<ShuttleRouteResult> buildRoute({
+    required LatLng origin,
+    required LatLng destination,
+    required Campus fromCampus,
+    required Campus toCampus,
+    DateTime? now, // injectable for testing
+  }) async {
+    if (fromCampus == toCampus) {
+      throw ArgumentError(
+          'Shuttle is only available for cross-campus travel (SGW ↔ Loyola).');
+    }
+
+    final pickupStop  = ShuttleScheduleData.stopForCampus(fromCampus);
+    final dropoffStop = ShuttleScheduleData.stopForCampus(toCampus);
+
+    final effectiveNow = now ?? DateTime.now();
+    final waitMinutes  = ShuttleScheduleData.minutesUntilNextDeparture(
+      campus: fromCampus,
+      now:    effectiveNow,
+    );
+
+    // Always Estimated until Concordia provides a live shuttle API.
+    // To add real-time: call the live endpoint here, compare against schedule,
+    // and return ShuttleEtaType.realtime when data is fresh.
+    const etaType = ShuttleEtaType.estimated;
+
+    // -- Leg 1: walk to pickup stop ----------------------------------------
+    final walkIn = await _client.getRoute(
+      origin:      origin,
+      destination: pickupStop.location,
+      mode:        WalkStrategy(),
+    );
+
+    // -- Leg 2: shuttle ride (schedule-derived) ----------------------------
+    final effectiveWait  = waitMinutes ?? 0;
+    final totalRideMin   = effectiveWait + ShuttleScheduleData.rideDurationMinutes;
+    final durationString = effectiveWait > 0
+        ? '~$totalRideMin min (~$effectiveWait min wait + '
+        '${ShuttleScheduleData.rideDurationMinutes} min ride)'
+        : '~${ShuttleScheduleData.rideDurationMinutes} min';
+
+    final shuttleLeg = RouteLeg(
+      polylinePoints:  [pickupStop.location, dropoffStop.location],
+      legMode:         LegMode.shuttle,
+      durationSeconds: totalRideMin * 60,
+      durationText:    durationString,
+      distanceText:    '≈ 7 km',
+      transitColor:    const Color(0xFF912338), // Concordia burgundy
+      lineName:        'Concordia Shuttle',
+    );
+
+    // -- Leg 3: walk from drop-off to destination -------------------------
+    final walkOut = await _client.getRoute(
+      origin:      dropoffStop.location,
+      destination: destination,
+      mode:        WalkStrategy(),
+    );
+
+    // -- Combine ----------------------------------------------------------
+    final allLegs = [
+      ...walkIn.legs,
+      shuttleLeg,
+      ...walkOut.legs,
+    ];
+
+    final totalSec  = allLegs.fold<int>(0, (s, l) => s + l.durationSeconds);
+    final totalMin  = totalSec ~/ 60;
+    final etaSuffix = etaType == ShuttleEtaType.realtime
+        ? '(Realtime)'
+        : '(Estimated)';
+
+    // Sum walking-leg distances and add the fixed shuttle leg constant
+    // directly — the '≈ 7 km' display string is not parseable by the regex.
+    const int _shuttleDistanceMeters = 7000;
+    final totalMeters =
+        walkIn.legs.fold<int>(0, (s, l) => s + _parseDistanceMeters(l.distanceText))
+        + _shuttleDistanceMeters
+        + walkOut.legs.fold<int>(0, (s, l) => s + _parseDistanceMeters(l.distanceText));
+    final totalKm = totalMeters / 1000.0;
+    final totalDistanceText = '${totalKm.toStringAsFixed(1)} km';
+
+    return ShuttleRouteResult(
+      routeResult: RouteResult(
+        legs:         allLegs,
+        durationText: '$totalMin min $etaSuffix',
+        distanceText: totalDistanceText,
+      ),
+      etaType:     etaType,
+      waitMinutes: waitMinutes,
+    );
+  }
+
+  /// Parses a distance string such as "1.2 km", "500 m", or "≈ 7 km"
+  /// into an integer number of metres.  Returns 0 for unrecognised formats.
+  static int _parseDistanceMeters(String text) {
+    final match = RegExp(r'([\d.]+)\s*(km|m)\b').firstMatch(text);
+    if (match == null) return 0;
+    final value = double.tryParse(match.group(1)!) ?? 0.0;
+    return match.group(2) == 'km' ? (value * 1000).round() : value.round();
+  }
+}
