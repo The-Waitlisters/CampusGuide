@@ -52,6 +52,13 @@ void main() {
       expect(ShuttleScheduleData.isInService(monday10am), isTrue);
     });
 
+    test('returns false before first departure on a weekday', () {
+      // Monday 08:00 = 480 min; first SGW Mon-Thu departure = 570 (09:30)
+      final monday8am = DateTime(2026, 3, 30, 8, 0);
+      expect(monday8am.weekday, DateTime.monday);
+      expect(ShuttleScheduleData.isInService(monday8am), isFalse);
+    });
+
     test('returns false after last departure on a weekday', () {
       // Monday 23:00 = 1380 min > 1110 (last departure)
       final mondayEvening = DateTime(2026, 3, 30, 23, 0);
@@ -60,22 +67,22 @@ void main() {
   });
 
   group('ShuttleScheduleData.minutesUntilNextDeparture', () {
-    test('returns 60 on Saturday', () {
+    test('returns null on Saturday', () {
       final saturday = DateTime(2026, 4, 4, 10, 0);
       final mins = ShuttleScheduleData.minutesUntilNextDeparture(
         campus: Campus.sgw,
         now: saturday,
       );
-      expect(mins, 60);
+      expect(mins, isNull);
     });
 
-    test('returns 60 on Sunday', () {
+    test('returns null on Sunday', () {
       final sunday = DateTime(2026, 4, 5, 10, 0);
       final mins = ShuttleScheduleData.minutesUntilNextDeparture(
         campus: Campus.loyola,
         now: sunday,
       );
-      expect(mins, 60);
+      expect(mins, isNull);
     });
 
     test('returns minutes until next departure when before first departure', () {
@@ -99,14 +106,14 @@ void main() {
       expect(mins, 14); // 645 - 631
     });
 
-    test('returns 60 when past the last departure', () {
+    test('returns null when past the last departure', () {
       // SGW Monday 19:00 = 1140 min; last SGW Mon-Thu departure = 1110 (18:30)
       final monday7pm = DateTime(2026, 3, 30, 19, 0);
       final mins = ShuttleScheduleData.minutesUntilNextDeparture(
         campus: Campus.sgw,
         now: monday7pm,
       );
-      expect(mins, 60);
+      expect(mins, isNull);
     });
 
     test('returns minutes until next departure for Loyola on Friday', () {

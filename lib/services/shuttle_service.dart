@@ -34,7 +34,7 @@ class ShuttleRouteResult {
 
   final RouteResult    routeResult;
   final ShuttleEtaType etaType;
-  final int            waitMinutes;
+  final int?           waitMinutes;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,9 +91,10 @@ class ShuttleRouteBuilder {
     );
 
     // -- Leg 2: shuttle ride (schedule-derived) ----------------------------
-    final totalRideMin   = waitMinutes + ShuttleScheduleData.rideDurationMinutes;
-    final durationString = waitMinutes > 0
-        ? '~$totalRideMin min (~$waitMinutes min wait + '
+    final effectiveWait  = waitMinutes ?? 0;
+    final totalRideMin   = effectiveWait + ShuttleScheduleData.rideDurationMinutes;
+    final durationString = effectiveWait > 0
+        ? '~$totalRideMin min (~$effectiveWait min wait + '
         '${ShuttleScheduleData.rideDurationMinutes} min ride)'
         : '~${ShuttleScheduleData.rideDurationMinutes} min';
 
@@ -127,11 +128,13 @@ class ShuttleRouteBuilder {
         ? '(Realtime)'
         : '(Estimated)';
 
-    // Sum distances from all legs so the shuttle ride is included.
-    final totalMeters = allLegs.fold<int>(
-      0,
-      (sum, leg) => sum + _parseDistanceMeters(leg.distanceText),
-    );
+    // Sum walking-leg distances and add the fixed shuttle leg constant
+    // directly — the '≈ 7 km' display string is not parseable by the regex.
+    const int _shuttleDistanceMeters = 7000;
+    final totalMeters =
+        walkIn.legs.fold<int>(0, (s, l) => s + _parseDistanceMeters(l.distanceText))
+        + _shuttleDistanceMeters
+        + walkOut.legs.fold<int>(0, (s, l) => s + _parseDistanceMeters(l.distanceText));
     final totalKm = totalMeters / 1000.0;
     final totalDistanceText = '${totalKm.toStringAsFixed(1)} km';
 

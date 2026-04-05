@@ -840,41 +840,9 @@ class _HomeScreenState extends HomeScreenState {
           isAnnex: isAnnex,
           startBuilding: _startBuilding,
           endBuilding: _endBuilding,
-          onSetStart: () async {
-            _suppressNextMapTap = true;
-            await _handleSetAsStart(building);
-            _sheetController?.close();
-            _sheetController = null;
-            // On non-web platforms the propagated tap never arrives, so reset
-            // the flag after the current event loop to avoid eating a real tap.
-            // 200 ms is long enough for any delayed propagated web tap event
-            // to arrive and be suppressed, but short enough to be invisible
-            // to a user who taps the map again on non-web platforms.
-            Future.delayed(const Duration(milliseconds: 200), () {
-              if (mounted) _suppressNextMapTap = false;
-            });
-          },
-          onSetDestination: () async {
-            _suppressNextMapTap = true;
-            await _handleSetAsDestination(building);
-            _sheetController?.close();
-            _sheetController = null;
-            // 200 ms is long enough for any delayed propagated web tap event
-            // to arrive and be suppressed, but short enough to be invisible
-            // to a user who taps the map again on non-web platforms.
-            Future.delayed(const Duration(milliseconds: 200), () {
-              if (mounted) _suppressNextMapTap = false;
-            });
-          },
-          onViewIndoorMap: () {
-            _sheetController?.close();
-            _sheetController = null;
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => IndoorMapScreen(building: building),
-              ),
-            );
-          },
+          onSetStart:       () => _sheetSetStart(building),
+          onSetDestination: () => _sheetSetDestination(building),
+          onViewIndoorMap:  () => _sheetViewIndoorMap(context, building),
         );
       });
       _attachSheetAnimation(_sheetController);
@@ -886,6 +854,42 @@ class _HomeScreenState extends HomeScreenState {
         }
       });
     });
+  }
+
+  // On non-web platforms the propagated tap never arrives, so reset the flag
+  // after the current event loop to avoid eating a real tap.
+  // 200 ms is long enough for any delayed propagated web tap event to arrive
+  // and be suppressed, but short enough to be invisible to the user.
+  void _resetSuppressTapSoon() {
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _suppressNextMapTap = false;
+    });
+  }
+
+  Future<void> _sheetSetStart(CampusBuilding building) async {
+    _suppressNextMapTap = true;
+    await _handleSetAsStart(building);
+    _sheetController?.close();
+    _sheetController = null;
+    _resetSuppressTapSoon();
+  }
+
+  Future<void> _sheetSetDestination(CampusBuilding building) async {
+    _suppressNextMapTap = true;
+    await _handleSetAsDestination(building);
+    _sheetController?.close();
+    _sheetController = null;
+    _resetSuppressTapSoon();
+  }
+
+  void _sheetViewIndoorMap(BuildContext context, CampusBuilding building) {
+    _sheetController?.close();
+    _sheetController = null;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => IndoorMapScreen(building: building),
+      ),
+    );
   }
 
   @override

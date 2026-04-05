@@ -235,7 +235,7 @@ abstract final class ShuttleScheduleData {
   }
 
   /// Whether the shuttle is currently in service at [time].
-  /// Service runs Monday–Friday only.
+  /// Service runs Monday–Friday only, between the first and last departure.
   static bool isInService(DateTime time) {
     if (time.weekday == DateTime.saturday || time.weekday == DateTime.sunday) {
       return false;
@@ -246,19 +246,21 @@ abstract final class ShuttleScheduleData {
       time.weekday,
     );
     return schedule.isNotEmpty &&
+        nowMinutes >= schedule.first &&
         nowMinutes <= schedule.last;
   }
 
   /// Minutes until the next scheduled departure from [campus] at [now].
   ///
-  /// Returns 60 when outside service hours or on weekends as a conservative
-  /// upper bound so callers always receive a usable estimate.
-  static int minutesUntilNextDeparture({
+  /// Returns [null] when outside service hours (weekends or past the last
+  /// departure for the day). Callers should handle null to avoid displaying
+  /// a fake ETA when no service is running.
+  static int? minutesUntilNextDeparture({
     required Campus campus,
     required DateTime now,
   }) {
     if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
-      return 60;
+      return null;
     }
 
     final departures = departuresFor(campus, now.weekday);
@@ -271,6 +273,6 @@ abstract final class ShuttleScheduleData {
     }
 
     // Past the last departure for today.
-    return 60;
+    return null;
   }
 }
