@@ -800,8 +800,9 @@ class _FloorOverlayPainter extends CustomPainter {
           );
           continue;
         }
-        if (!n.isWaypoint)
+        if (!n.isWaypoint) {
           continue; // rooms are drawn separately, skip silently
+        }
         canvas.drawCircle(
           Offset(n.x * sw, n.y * sh),
           size.shortestSide * 0.005,
