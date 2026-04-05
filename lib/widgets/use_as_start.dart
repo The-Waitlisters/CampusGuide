@@ -13,7 +13,7 @@ class UseAsStart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(onPressed: onSetStart, child: const Text('Start from Current Building'));
+    return ElevatedButton(onPressed: onSetStart, child: const Text('Start from Current Building', style: TextStyle(fontSize: 12),));
 
   }
 }

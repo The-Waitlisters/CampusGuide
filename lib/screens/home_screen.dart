@@ -1332,7 +1332,7 @@ class _HomeScreenState extends HomeScreenState {
             ),
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
-          _buildDirectionsCard(),
+          
           _buildSearchOverlay(),
           if (_mapMoved && _lastKnownPosition != null) _buildRecenterButton(),
           if (_currentBuildingFromGPS != null &&
@@ -1442,9 +1442,11 @@ class _HomeScreenState extends HomeScreenState {
                 showResults = false;
               }); },
             ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
+
+            Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
         onPressed: () {
           setState(() {
             showPoiSettings = true;
@@ -1452,6 +1454,10 @@ class _HomeScreenState extends HomeScreenState {
         },
         label: const Text('Points of Interest'),
         icon: const Icon(Icons.place),
+      ),
+      )
+        , _buildDirectionsCard(),
+      ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
     );
@@ -1545,8 +1551,8 @@ class _HomeScreenState extends HomeScreenState {
 
     return Positioned(
       left: 12,
-      right: 12,
-      bottom: sheetOpen ? _currentSheetLift : 12, // coverage:ignore-line
+      width: 200,
+      bottom: sheetOpen ? _currentSheetLift : 20, // coverage:ignore-line
       child: UseAsStart(
         selected: building,
         onSetStart: () {

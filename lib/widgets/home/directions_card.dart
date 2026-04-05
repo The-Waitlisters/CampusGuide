@@ -264,7 +264,7 @@ class DirectionsCard extends StatelessWidget {
     final startLabel = startBuilding != null
         ? '${_campusLabel(startBuilding!.campus)} - ${startBuilding!.fullName ?? startBuilding!.name}' 
         : (startPoi != null 
-          ? '${_campusLabel(startPoi!.campus)} - ${startPoi!.name}' 
+          ? startPoi!.name 
           :(useCurrentLocationAsStart ? 'Current location' : 'Not set'));
     final endLabel = endBuilding != null
         ? '${_campusLabel(endBuilding!.campus)} - ${endBuilding!.fullName ?? endBuilding!.name}'
