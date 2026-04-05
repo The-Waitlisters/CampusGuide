@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/data/indoor_map_data.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/vertical_link.dart';
 
 CampusBuilding _building(String name) => CampusBuilding(
       id: 'test',
@@ -18,10 +19,22 @@ CampusBuilding _building(String name) => CampusBuilding(
     );
 
 const _validJson = '''
-{"imageWidth": 200, "imageHeight": 200,
- "nodes": [{"id": "r1", "type": "room", "x": 50, "y": 50, "label": "H-801", "floor": 8}],
- "edges": []}
+{
+  "imageWidth": 200, "imageHeight": 200,
+  "nodes": [{"id": "r1", "type": "room", "x": 50, "y": 50, "label": "H-801", "floor": 8}],
+  "edges": [],
+  "verticalLinks": [
+    {
+      "from": {"floor": 8, "nodeId": "r1"},
+      "to":   {"floor": 9, "nodeId": "r2"},
+      "kind": "elevator",
+      "oneWay": false
+    }
+  ]
+}
 ''';
+
+const notJson = 'ayyy lmao {..[][';
 
 void _mockAsset(String key, String content) {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -56,5 +69,7 @@ void main() {
     expect(result, isNotNull);
     expect(result!.building.name, 'H');
     expect(result.floors, isNotEmpty);
+    expect(result.verticalLinks.length, 1);
+    expect(result.verticalLinks.first.kind, VerticalLinkKind.elevator);
   });
 }
