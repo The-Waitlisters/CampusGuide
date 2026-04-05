@@ -325,37 +325,6 @@ void main() {
       final map = IndoorMap(building: _building(), floors: []);
       expect(IndoorMultifloorRoutePlanner.floorForRoom(map, 'x'), isNull);
     });
-
-    test('returns floor for nav-graph-only node (no matching Room)', () {
-      final entryNode = NavNode(
-        id: 'Entrance/Exit stairs',
-        type: 'building_entry_exit',
-        x: 0,
-        y: 0,
-        name: 'Entrance/Exit stairs',
-      );
-      final roomNode =
-          NavNode(id: 'roomA', type: 'room', x: 100, y: 0, name: 'roomA');
-      final graph = NavGraph(
-        nodes: [entryNode, roomNode],
-        edges: [
-          NavEdge(from: 'Entrance/Exit stairs', to: 'roomA', weight: 10),
-        ],
-      );
-      final floor = Floor(
-        level: 2,
-        label: 'Floor 2',
-        rooms: [
-          Room(id: 'roomA', name: 'roomA', boundary: _fakeBoundary(0.5, 0.5)),
-        ],
-        navGraph: graph,
-      );
-      final map = IndoorMap(building: _building(), floors: [floor]);
-      expect(
-        IndoorMultifloorRoutePlanner.floorForRoom(map, 'Entrance/Exit stairs'),
-        2,
-      );
-    });
   });
 
   // ── Single-floor routing ─────────────────────────────────────────────────────

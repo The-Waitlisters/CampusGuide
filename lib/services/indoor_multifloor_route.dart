@@ -291,12 +291,6 @@ class IndoorMultifloorRoutePlanner {
     for (final floor in map.floors) {
       if (floor.roomById(roomId) != null) return floor.level;
     }
-    // Nav-only nodes (e.g. building_entry_exit, "Entrance/Exit stairs") may
-    // exist on the graph but not in `Floor.rooms`; still need a real level.
-    for (final floor in map.floors) {
-      final g = floor.navGraph;
-      if (g?.nodeById(roomId) != null) return floor.level;
-    }
     return null;
   }
 }

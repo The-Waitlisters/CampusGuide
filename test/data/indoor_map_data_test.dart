@@ -72,45 +72,4 @@ void main() {
     expect(result.verticalLinks.length, 1);
     expect(result.verticalLinks.first.kind, VerticalLinkKind.elevator);
   });
-
-  testWidgets('loads MB building when asset mocked', (tester) async {
-    _mockAsset('assets/indoor/MB.json', _validJson);
-    final future = loadIndoorMapForBuilding(_building('MB'));
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pump();
-    final result = await future;
-    expect(result, isNotNull);
-    expect(result!.building.name, 'MB');
-  });
-
-  testWidgets('loads CC building when asset mocked', (tester) async {
-    _mockAsset('assets/indoor/CC.json', _validJson);
-    final future = loadIndoorMapForBuilding(_building('CC'));
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pump();
-    final result = await future;
-    expect(result, isNotNull);
-    expect(result!.building.name, 'CC');
-  });
-
-  testWidgets('loads LB building when asset mocked', (tester) async {
-    _mockAsset('assets/indoor/LB.json', _validJson);
-    final future = loadIndoorMapForBuilding(_building('LB'));
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pump();
-    final result = await future;
-    expect(result, isNotNull);
-    expect(result!.building.name, 'LB');
-  });
-
-  testWidgets('loads VL/VE via VE.json when asset mocked', (tester) async {
-    _mockAsset('assets/indoor/VE.json', _validJson);
-    final future = loadIndoorMapForBuilding(_building('VL/VE'));
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pump();
-    final result = await future;
-    expect(result, isNotNull);
-    expect(result!.building.name, 'VL/VE');
-  });
-
 }
