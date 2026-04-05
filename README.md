@@ -43,6 +43,9 @@ Select the restrictions you want and create.
 
 ##To run
 flutter pub get
+
 From Terminal make sure you pass your API key
+
 flutter run --dart-define=DIRECTIONS_API_KEY= 
+
 if you're running from your IDE you can pass DIRECTIONS_API_KEY= in your edit config
