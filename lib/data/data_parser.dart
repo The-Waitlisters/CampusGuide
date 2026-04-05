@@ -1,3 +1,5 @@
+import 'package:proj/models/poi.dart';
+
 import '../models/campus_building.dart';
 import '../models/campus.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DataParser {
   List<CampusBuilding> buildingsPresent = [];
+  List<Poi> poiPresent = [];
   
   Future<List<CampusBuilding>> getBuildingInfoFromJSON(
   ) async {
@@ -44,6 +47,7 @@ class DataParser {
       final isWheelchairAccessible = properties['isWheelchairAccessible'];
       final hasBikeParking = properties['hasBikeParking'];
       final hasCarParking = properties['hasCarParking'];
+      final hasMetroAccess = properties['hasMetroAccess'] == true;
 
       final openingHoursRaw = properties['openingHours'];
       final departmentsRaw = properties['departments'];
@@ -83,6 +87,7 @@ class DataParser {
           isWheelchairAccessible: isWheelchairAccessible,
           hasBikeParking: hasBikeParking,
           hasCarParking: hasCarParking,
+          hasMetroAccess: hasMetroAccess,
           departments: departments,
           services: services,
         ),
@@ -92,7 +97,6 @@ class DataParser {
 
     return buildings;
   }
-
 
 }
 

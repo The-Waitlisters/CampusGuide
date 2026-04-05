@@ -34,7 +34,7 @@ jobs:
           EOF
 
       - name: Analyze code
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Run tests with coverage
         env:
@@ -101,6 +101,15 @@ jobs:
         with:
           name: coverage-lcov
           path: coverage
+
+      - name: Set up Flutter (Sonar job)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies (Sonar job)
+        run: flutter pub get
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6

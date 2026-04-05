@@ -3,13 +3,14 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i5;
+import 'dart:async' as _i6;
 
-import 'package:google_maps_flutter/google_maps_flutter.dart' as _i6;
+import 'package:google_maps_flutter/google_maps_flutter.dart' as _i7;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:proj/data/data_parser.dart' as _i3;
-import 'package:proj/models/campus.dart' as _i7;
+import 'package:proj/models/campus.dart' as _i8;
 import 'package:proj/models/campus_building.dart' as _i4;
+import 'package:proj/models/poi.dart' as _i5;
 import 'package:proj/services/building_locator.dart' as _i2;
 
 // ignore_for_file: type=lint
@@ -50,20 +51,34 @@ class MockDataParser extends _i1.Mock implements _i3.DataParser {
           as List<_i4.CampusBuilding>);
 
   @override
+  List<_i5.Poi> get poiPresent =>
+      (super.noSuchMethod(
+            Invocation.getter(#poiPresent),
+            returnValue: <_i5.Poi>[],
+          )
+          as List<_i5.Poi>);
+
+  @override
   set buildingsPresent(List<_i4.CampusBuilding>? value) => super.noSuchMethod(
     Invocation.setter(#buildingsPresent, value),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i5.Future<List<_i4.CampusBuilding>> getBuildingInfoFromJSON() =>
+  set poiPresent(List<_i5.Poi>? value) => super.noSuchMethod(
+    Invocation.setter(#poiPresent, value),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  _i6.Future<List<_i4.CampusBuilding>> getBuildingInfoFromJSON() =>
       (super.noSuchMethod(
             Invocation.method(#getBuildingInfoFromJSON, []),
-            returnValue: _i5.Future<List<_i4.CampusBuilding>>.value(
+            returnValue: _i6.Future<List<_i4.CampusBuilding>>.value(
               <_i4.CampusBuilding>[],
             ),
           )
-          as _i5.Future<List<_i4.CampusBuilding>>);
+          as _i6.Future<List<_i4.CampusBuilding>>);
 
   @override
   List<_i4.CampusBuilding> parseBuildings(Map<String, dynamic>? jsonFile) =>
@@ -106,8 +121,8 @@ class MockBuildingLocator extends _i1.Mock implements _i2.BuildingLocator {
 
   @override
   _i2.BuildingStatus update({
-    required _i6.LatLng? userPoint,
-    required _i7.Campus? campus,
+    required _i7.LatLng? userPoint,
+    required _i8.Campus? campus,
     required List<_i4.CampusBuilding>? buildings,
   }) =>
       (super.noSuchMethod(
