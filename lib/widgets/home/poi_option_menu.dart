@@ -105,7 +105,8 @@ class PoiOptionMenu extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Checkbox(
                             value: restaurants,
@@ -119,6 +120,7 @@ class PoiOptionMenu extends StatelessWidget {
                         ],
                       ),
                       Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Checkbox(value: parking, onChanged: onParkingChanged),
                           const Text('Parking'),

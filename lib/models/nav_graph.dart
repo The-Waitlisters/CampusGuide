@@ -36,9 +36,8 @@ class NavEdge {
   final String to;
   final double weight;
   final NavEdgeType edgeType;
-
-//for vertical preference
   final String? rawType;
+  final bool oneWay;
 
   const NavEdge({
     required this.from,
@@ -46,6 +45,7 @@ class NavEdge {
     required this.weight,
     this.edgeType = NavEdgeType.hallway,
     this.rawType,
+    this.oneWay = false,
   });
 }
 
@@ -61,7 +61,9 @@ class NavGraph {
     final adj = <String, List<_Nb>>{for (final n in nodes) n.id: []};
     for (final e in edges) {
       adj.putIfAbsent(e.from, () => []).add(_Nb(e.to, e.weight));
-      adj.putIfAbsent(e.to, () => []).add(_Nb(e.from, e.weight));
+      if(!e.oneWay){
+        adj.putIfAbsent(e.to, () => []).add(_Nb(e.from, e.weight));
+      }
     }
     _adj = adj;
   }
@@ -82,7 +84,7 @@ class NavGraph {
     dist[fromId] = 0;
 
     final pq = SplayTreeSet<_Pq>(
-          (a, b) => a.d != b.d ? a.d.compareTo(b.d) : a.id.compareTo(b.id),
+      (a, b) => a.d != b.d ? a.d.compareTo(b.d) : a.id.compareTo(b.id),
     );
     pq.add(_Pq(fromId, 0));
 
@@ -118,7 +120,6 @@ class NavGraph {
   /// explicit JSON edges so all weights are in the same unit.
   NavGraph withAutoConnections({
     double pixelScale = 2000.0,
-    Set<String> excludeFromAutoConnect = const {},
   }) {
     final waypoints = nodes.where((n) => n.isWaypoint).toList();
     if (waypoints.isEmpty) return this;
@@ -133,11 +134,7 @@ class NavGraph {
 
     // Connect each room to its nearest waypoint.
     for (final room in nodes.where((n) => n.isRoom)) {
-      final candidates = waypoints
-          .where((w) => !(excludeFromAutoConnect.contains(room.id) &&
-          excludeFromAutoConnect.contains(w.id)))
-          .toList();
-      final nearest = _nearest(room, candidates);
+      final nearest = _nearest(room, waypoints);
       if (nearest != null) {
         extra.add(NavEdge(
           from: room.id,
@@ -152,11 +149,8 @@ class NavGraph {
     final connectedWps =
     waypoints.where((n) => connectedIds.contains(n.id)).toList();
     for (final orphan in waypoints.where((n) => !connectedIds.contains(n.id))) {
-      final candidates = connectedWps
-          .where((w) => !(excludeFromAutoConnect.contains(orphan.id) &&
-          excludeFromAutoConnect.contains(w.id)))
-          .toList();
-      final nearest = _nearest(orphan, candidates);
+
+      final nearest = _nearest(orphan, connectedWps);
       if (nearest != null) {
         extra.add(NavEdge(
           from: orphan.id,

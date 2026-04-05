@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use, prefer_typing_uninitialized_variables
 
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,13 +24,19 @@ import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
+import '../services/directions/web_directions_client_stub.dart'
+    if (dart.library.html) '../services/directions/web_directions_client.dart';
 import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
+import '../widgets/home/route_polyline_overlay.dart';
 import '../widgets/home/search_overlay.dart';
+import '../data/indoor_map_data.dart';
+import '../models/indoor_map.dart';
 import 'indoor_map_screen.dart';
+import 'multi_building_route_screen.dart';
 import '../widgets/use_as_start.dart';
 import '../models/poi.dart';
 import '../widgets/schedule/schedule_overlay.dart';
@@ -70,6 +77,10 @@ class HomeScreen extends StatefulWidget {
   final DirectionsController? testDirectionsController;
   final dynamic testHttpClient;
 
+  /// For tests: when non-null, used instead of [loadIndoorMapForBuilding] when
+  /// loading indoor maps for room-to-room navigation.
+  final Future<IndoorMap?> Function(CampusBuilding)? testIndoorMapLoader;
+
   const HomeScreen({
     super.key,
     this.role = UserRole.guest,
@@ -80,6 +91,7 @@ class HomeScreen extends StatefulWidget {
     this.testMapControllerCompleter,
     this.testDirectionsController,
     this.testHttpClient,
+    this.testIndoorMapLoader,
     MarkerImageLoader? markerImageLoader,
   }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
 
@@ -91,8 +103,7 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
-  // ignore: strict_top_level_inference
-  get markers => [];
+  List<dynamic> get markers => []; // coverage:ignore-line
 
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
@@ -150,11 +161,21 @@ class _HomeScreenState extends HomeScreenState {
   bool _showSearchResults = false;
   late final DirectionsController _directions;
 
+  /// Last known camera position — passed to RoutePolylineOverlay so it can
+  /// reproject LatLng points to screen coordinates on every camera move.
+  CameraPosition? _lastCamera;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
   static const double _sheetLiftMax = 210.0;
   static const double _sheetLiftSmall = 100.0;
   double _currentSheetLift = _sheetLiftMax;
+
+  /// On Flutter web, clicking a button that overlays the Google Maps platform
+  /// view causes the click to propagate to the map's onTap handler.  Setting
+  /// this flag before programmatically closing the sheet lets handleMapTap
+  /// absorb that spurious tap instead of showing "Not part of campus".
+  bool _suppressNextMapTap = false;
 
   late BuildingLocator _buildingLocator;
 
@@ -193,6 +214,16 @@ class _HomeScreenState extends HomeScreenState {
   @override
   @visibleForTesting
   List<Marker> get markers => _markers;
+
+  // Room-to-room state
+  bool _roomToRoomEnabled = false;
+  bool _indoorMapsLoading = false;
+  IndoorMap? _startIndoorMap;
+  IndoorMap? _endIndoorMap;
+  int? _startFloorFilter;
+  int? _endFloorFilter;
+  String? _startRoomId;
+  String? _endRoomId;
 
   @override
   void initState() {
@@ -278,17 +309,19 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _initDirections() {
-    _directions =
-        widget.testDirectionsController ??
-            DirectionsController(
-              client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
-            );
+    // On web the REST Directions API is blocked by CORS; use the JS SDK client.
+    // On mobile/desktop use the standard HTTP client.
+    final client = kIsWeb
+        ? WebDirectionsClient() // coverage:ignore-line
+        : GoogleDirectionsClient(apiKey: Secrets.directionsApiKey);
+
+    _directions = widget.testDirectionsController ??
+        DirectionsController(client: client);
+    // coverage:ignore-line
     assert(() {
-      if (Secrets.directionsApiKey.isEmpty) {
+      if (!kIsWeb && Secrets.directionsApiKey.isEmpty) {
         debugPrint(
-          // coverage:ignore-line
-          'Directions API key is missing (DIRECTIONS_API_KEY not set).',
-        );
+            'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
       return true;
     }());
@@ -862,8 +895,8 @@ class _HomeScreenState extends HomeScreenState {
           'points=${_directions.state.polyline?.points.length}',
     );
 
-    if (start != null && _directions.state.polyline != null) {
-      await _zoomToRoute(start, end); // coverage:ignore-line
+    if (start != null && _directions.state.hasRoute) {
+      await _zoomToRoute(start, end);
     }
   }
 
@@ -1028,6 +1061,81 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  void _onRoomToRoomToggled(bool enabled) {
+    setState(() {
+      _roomToRoomEnabled = enabled;
+      if (enabled) {
+        _loadIndoorMapsForRoute();
+      } else {
+        _startIndoorMap = null;
+        _endIndoorMap = null;
+        _startRoomId = null;
+        _endRoomId = null;
+        _startFloorFilter = null;
+        _endFloorFilter = null;
+      }
+    });
+  }
+
+  Future<void> _loadIndoorMapsForRoute() async {
+    if (_startBuilding == null || _endBuilding == null) return;
+    setState(() => _indoorMapsLoading = true);
+    try {
+      final loader = widget.testIndoorMapLoader ?? loadIndoorMapForBuilding;
+      final results = await Future.wait([
+        loader(_startBuilding!),
+        loader(_endBuilding!),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _startIndoorMap = results[0];
+        _endIndoorMap = results[1];
+        _startFloorFilter = _startIndoorMap?.floorLevels.first;
+        _endFloorFilter = _endIndoorMap?.floorLevels.first;
+        _indoorMapsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _indoorMapsLoading = false);
+    }
+  }
+
+  void _launchRoomToRoomNavigation() { // coverage:ignore-start
+    if (_startBuilding == null ||
+        _endBuilding == null ||
+        _startRoomId == null ||
+        _endRoomId == null ||
+        _startIndoorMap == null ||
+        _endIndoorMap == null) {
+      return;
+    }
+
+    // Determine transport mode label from current selection
+    final modeLabel = kTransportModes
+        .firstWhere(
+          (m) => m.modeParam == _directions.mode.modeParam,
+          orElse: () => kTransportModes.first,
+        )
+        .label;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MultiBuildingRouteScreen(
+          startBuilding: _startBuilding!,
+          endBuilding: _endBuilding!,
+          startRoomId: _startRoomId!,
+          endRoomId: _endRoomId!,
+          startIndoorMap: _startIndoorMap!,
+          endIndoorMap: _endIndoorMap!,
+          transportModeLabel: modeLabel,
+          outdoorPolyline: _directions.state.polyline?.points,
+          outdoorDuration: _directions.state.durationText,
+          outdoorDistance: _directions.state.distanceText,
+        ),
+      ),
+    );
+  } // coverage:ignore-end
+
   Set<Polygon> _buildPolygons(List<CampusBuilding> buildings) {
     _polygonToBuilding.clear();
 
@@ -1098,6 +1206,10 @@ class _HomeScreenState extends HomeScreenState {
 
   @override
   void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
+    if (_suppressNextMapTap) {
+      _suppressNextMapTap = false;
+      return;
+    }
     if (_sheetController != null) {
       _sheetController?.close();
       setState(() {
@@ -1231,30 +1343,50 @@ class _HomeScreenState extends HomeScreenState {
           isAnnex: isAnnex,
           startBuilding: _startBuilding,
           endBuilding: _endBuilding,
-          onSetStart: () async {
-            await _handleSetAsStart(building);
-            _sheetController?.close();
-            _sheetController = null;
-          },
-          onSetDestination: () async {
-            await _handleSetAsDestination(building);
-            _sheetController?.close();
-            _sheetController = null;
-          },
-          onViewIndoorMap: () {
-            _sheetController?.close();
-            _sheetController = null;
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => IndoorMapScreen(building: building),
-              ),
-            );
-          },
+          onSetStart:       () => _sheetSetStart(building),
+          onSetDestination: () => _sheetSetDestination(building),
+          onViewIndoorMap:  () => _sheetViewIndoorMap(context, building),
           isPoi: false,
         );
       });
       _attachSheetAnimation(_sheetController);
     });
+  }
+
+  // On non-web platforms the propagated tap never arrives, so reset the flag
+  // after the current event loop to avoid eating a real tap.
+  // 200 ms is long enough for any delayed propagated web tap event to arrive
+  // and be suppressed, but short enough to be invisible to the user.
+  void _resetSuppressTapSoon() {
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _suppressNextMapTap = false;
+    });
+  }
+
+  Future<void> _sheetSetStart(CampusBuilding building) async {
+    _suppressNextMapTap = true;
+    await _handleSetAsStart(building);
+    _sheetController?.close();
+    _sheetController = null;
+    _resetSuppressTapSoon();
+  }
+
+  Future<void> _sheetSetDestination(CampusBuilding building) async {
+    _suppressNextMapTap = true;
+    await _handleSetAsDestination(building);
+    _sheetController?.close();
+    _sheetController = null;
+    _resetSuppressTapSoon();
+  }
+
+  void _sheetViewIndoorMap(BuildContext context, CampusBuilding building) {
+    _sheetController?.close();
+    _sheetController = null;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => IndoorMapScreen(building: building),
+      ),
+    );
   }
 
   @override
@@ -1296,10 +1428,20 @@ class _HomeScreenState extends HomeScreenState {
         children: [
           if (!isE2EMode) _buildMapLayer(),
 
-
+          // On Flutter Web, google_maps_flutter_web silently drops all
+          // polylines. RoutePolylineOverlay draws them with CustomPaint
+          // using synchronous Mercator projection — no platform channel.
+          // The GoogleMap `polylines:` param remains for iOS / Android.
+          // coverage:ignore-start
+          if (kIsWeb)
+            RoutePolylineOverlay(
+              legs:           _directions.state.legs,
+              cameraPosition: _lastCamera ?? _initialCamera,
+            ),
+          // coverage:ignore-end
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
-          _buildDirectionsCard(),
+          
           _buildSearchOverlay(),
           if (_currentBuildingFromGPS != null &&
               (_startBuilding == null && _startPoi == null))
@@ -1435,9 +1577,11 @@ class _HomeScreenState extends HomeScreenState {
                 });
               },
             ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
+
+            Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
         onPressed: () {
           setState(() {
             showPoiSettings = true;
@@ -1445,6 +1589,10 @@ class _HomeScreenState extends HomeScreenState {
         },
         label: const Text('Points of Interest'),
         icon: const Icon(Icons.place),
+      ),
+      )
+        , _buildDirectionsCard(),
+      ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
     );
@@ -1471,9 +1619,7 @@ class _HomeScreenState extends HomeScreenState {
     return CampusMap(
       initialCamera: _initialCamera,
       polygons: _polygons,
-      polylines: _directions.state.polyline == null
-          ? <Polyline>{}
-          : <Polyline>{_directions.state.polyline!}, // coverage:ignore-line
+      polylines: _directions.state.polylines,
       markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: false,
@@ -1538,21 +1684,10 @@ class _HomeScreenState extends HomeScreenState {
 
     final bool sheetOpen = _sheetController != null;
 
-    double bottomOffset;
-
-    if (!sheetOpen) {
-      bottomOffset = 25;
-    } else if (notCampus) {
-      bottomOffset = 90;
-    } else {
-      bottomOffset = _sheetLiftMax;
-    }
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      left: 0,
-      bottom: bottomOffset,
+    return Positioned(
+      left: 12,
+      width: 200,
+      bottom: sheetOpen ? _currentSheetLift : 20, // coverage:ignore-line
       child: UseAsStart(
         selected: _currentBuildingFromGPS!,
         onSetStart: () {
@@ -1622,18 +1757,47 @@ class _HomeScreenState extends HomeScreenState {
           _startFromCurrentLocation = false;
           _locationRequiredMessage = null;
           _modeChangedByUser = false;
+          _roomToRoomEnabled = false;
+          _startIndoorMap = null;
+          _endIndoorMap = null;
+          _startRoomId = null;
+          _endRoomId = null;
         });
         _directions.updateRoute(start: null, end: null);
         debugPrint('Directions cancelled');
       },
       onRetry: _updateDirectionsIfReady,
       placeholderMessage: _directions.state.placeholderMessage,
-      selectedModeParam: _directions.mode.modeParam,
+         etaType: _directions.state.etaType,
+         legs: _directions.state.legs,
+         selectedModeParam: _directions.mode.modeParam,
       onModeChanged: (modeParam) {
         setState(() => _modeChangedByUser = true);
         _directions.setMode(strategyForModeParam(modeParam));
         _updateDirectionsIfReady();
       },
+      roomToRoomEnabled: _roomToRoomEnabled,
+      onRoomToRoomToggled: _onRoomToRoomToggled,
+      startIndoorMap: _startIndoorMap,
+      endIndoorMap: _endIndoorMap,
+      startFloorFilter: _startFloorFilter,
+      endFloorFilter: _endFloorFilter,
+      startRoomId: _startRoomId,
+      endRoomId: _endRoomId,
+      indoorMapsLoading: _indoorMapsLoading,
+      onStartFloorChanged: (v) => setState(() {
+        _startFloorFilter = v;
+        _startRoomId = null;
+      }),
+      onEndFloorChanged: (v) => setState(() {
+        _endFloorFilter = v;
+        _endRoomId = null;
+      }),
+      onStartRoomChanged: (v) => setState(() => _startRoomId = v),
+      onEndRoomChanged: (v) => setState(() => _endRoomId = v),
+      onStartNavigation: (_startRoomId != null && _endRoomId != null)
+          ? _launchRoomToRoomNavigation
+          : null,
     );
   }
 
@@ -1715,8 +1879,8 @@ class _HomeScreenState extends HomeScreenState {
       bottom: bottom,
       child: FloatingActionButton.small(
         heroTag: 'recenter',
+        // coverage:ignore-start
         onPressed: () async {
-          // coverage:ignore-start
           final pos = _lastKnownPosition;
           if (pos == null) return;
           final controller = _mapController;
@@ -1729,8 +1893,8 @@ class _HomeScreenState extends HomeScreenState {
             _mapMoved = false;
             _programmaticCameraMove = false;
           });
-          // coverage:ignore-end
         },
+        // coverage:ignore-end
         tooltip: 'Recenter to my location',
         child: const Icon(Icons.my_location),
       ),
@@ -1916,10 +2080,14 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
-  void setPoisForTest(List<Poi> pois) {
-    setState(() {
-      poiPresent = List<Poi>.from(pois);
-    });
+  void setSuppressNextMapTapForTest(bool value) {
+    _suppressNextMapTap = value;
+  }
+
+  @visibleForTesting
+  void simulateShowPoiDetailSheet(Poi poi) {
+    _showPoiDetailSheet(poi);
+    setState(() {}); // schedules a frame so the post-frame callback fires
   }
 
   @visibleForTesting

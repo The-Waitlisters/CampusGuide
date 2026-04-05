@@ -128,8 +128,8 @@ class BuildingDetailContent extends StatelessWidget {
     );
   }
 
-  Widget _buildPhotoGallery() {
-    if (poi!.photoName.isEmpty) {
+Widget _buildPhotoGallery() {
+  if (poi!.photoName == null || poi!.photoName!.isEmpty) {
       return Container(
         height: 220,
         alignment: Alignment.center,
@@ -139,9 +139,9 @@ class BuildingDetailContent extends StatelessWidget {
     return SizedBox(
       height: 220,
       child: PageView.builder(
-        itemCount: poi!.photoName.length,
+        itemCount: poi!.photoName!.length,
         itemBuilder: (context, index) {
-          final imageUrl = poi!.photoName[index];
+          final imageUrl = poi!.photoName![index];
 
           return GestureDetector(
             onTap: () => _openZoomableImage(context, imageUrl),

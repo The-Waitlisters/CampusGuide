@@ -13,7 +13,8 @@ class CampusLocation {
   final double zoom;
 }
 
-const Map<Campus, CampusLocation> campusInfo = {
+// If any file needs to import this, it will use kCampusLocations and avoid collision
+const Map<Campus, CampusLocation> kCampusLocations = {
   Campus.sgw: CampusLocation(
     name: 'SGW',
     center: LatLng(45.4973, -73.5789),
