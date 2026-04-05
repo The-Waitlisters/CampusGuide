@@ -3,8 +3,8 @@
     {
       "level": 2,
       "label": "LB 2",
-      "imageWidth": 736,
-      "imageHeight": 857,
+      "imageWidth": 855,
+      "imageHeight": 889,
       "nodes": [
         {
           "id": "204",
@@ -183,19 +183,19 @@
           "accessible": true
         },
         {
-          "id": "Elevator1",
+          "id": "2nd floor elevator_2",
           "type": "room",
           "x": 251,
           "y": 318,
-          "label": "Elevator1",
+          "label": "2nd floor elevator_2",
           "accessible": true
         },
         {
-          "id": "Elevator 2",
+          "id": "2nd floor elevator",
           "type": "room",
           "x": 288,
           "y": 499,
-          "label": "Elevator 2",
+          "label": "2nd floor elevator",
           "accessible": true
         },
         {
@@ -1728,18 +1728,18 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_185",
-          "target": "Elevator1",
+          "target": "2nd floor elevator_2",
           "type": "door_to_hallway",
           "weight": 52
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_180",
-          "target": "Elevator 2",
+          "target": "2nd floor elevator",
           "type": "door_to_hallway",
           "weight": 58
         },
         {
-          "source": "Elevator 2",
+          "source": "2nd floor elevator",
           "target": "bldg-1_F1_hallway_waypoint_227",
           "type": "door_to_hallway",
           "weight": 23
@@ -1758,7 +1758,7 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_228",
-          "target": "Elevator 2",
+          "target": "2nd floor elevator",
           "type": "door_to_hallway",
           "weight": 59
         },
@@ -2619,8 +2619,8 @@
     {
       "level": 3,
       "label": "LB 3",
-      "imageWidth": 849,
-      "imageHeight": 840,
+      "imageWidth": 850,
+      "imageHeight": 884,
       "nodes": [
         {
           "id": "311",
@@ -2759,19 +2759,11 @@
           "accessible": true
         },
         {
-          "id": "bldg-1_F1_room_150",
+          "id": "3rd floor elevator",
           "type": "room",
           "x": 315,
           "y": 504,
-          "label": "bldg-1_F1_room_150",
-          "accessible": true
-        },
-        {
-          "id": "bldg-1_F1_room_151",
-          "type": "room",
-          "x": 317,
-          "y": 544,
-          "label": "bldg-1_F1_room_151",
+          "label": "3rd floor elevator",
           "accessible": true
         },
         {
@@ -3881,19 +3873,13 @@
           "weight": 56
         },
         {
-          "source": "F3_stair_landing_3",
+          "source": "F3_stair_landing_2",
           "target": "bldg-1_F1_hallway_waypoint_109",
           "type": "hallway",
           "weight": 80
         },
         {
-          "source": "bldg-1_F1_hallway_waypoint_109",
-          "target": "bldg-1_F1_room_151",
-          "type": "door_to_hallway",
-          "weight": 61
-        },
-        {
-          "source": "bldg-1_F1_room_150",
+          "source": "3rd floor elevator",
           "target": "bldg-1_F1_hallway_waypoint_83",
           "type": "door_to_hallway",
           "weight": 42
@@ -3912,13 +3898,7 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_128",
-          "target": "bldg-1_F1_room_151",
-          "type": "door_to_hallway",
-          "weight": 31
-        },
-        {
-          "source": "bldg-1_F1_hallway_waypoint_128",
-          "target": "bldg-1_F1_room_150",
+          "target": "3rd floor elevator",
           "type": "door_to_hallway",
           "weight": 34
         },
@@ -4059,8 +4039,8 @@
     {
       "level": 4,
       "label": "LB 4",
-      "imageWidth": 859,
-      "imageHeight": 791,
+      "imageWidth": 850,
+      "imageHeight": 884,
       "nodes": [
         {
           "id": "445",
@@ -4743,11 +4723,11 @@
           "accessible": true
         },
         {
-          "id": "Elevator",
+          "id": "4th floor elevator",
           "type": "room",
           "x": 327,
           "y": 515,
-          "label": "Elevator",
+          "label": "4th floor elevator",
           "accessible": true
         },
         {
@@ -7098,19 +7078,19 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_178",
-          "target": "Elevator",
+          "target": "4th floor elevator",
           "type": "door_to_hallway",
           "weight": 33
         },
         {
-          "source": "Elevator",
+          "source": "4th floor elevator",
           "target": "bldg-1_F1_hallway_waypoint_177",
           "type": "door_to_hallway",
           "weight": 74
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_173",
-          "target": "Elevator",
+          "target": "4th floor elevator",
           "type": "door_to_hallway",
           "weight": 65
         },
@@ -7485,8 +7465,8 @@
     {
       "level": 5,
       "label": "LB 5",
-      "imageWidth": 1014,
-      "imageHeight": 793,
+      "imageWidth": 850,
+      "imageHeight": 884,
       "nodes": [
         {
           "id": "545",
@@ -7721,11 +7701,11 @@
           "accessible": true
         },
         {
-          "id": "Elevator",
+          "id": "5th floor elevator",
           "type": "room",
           "x": 322,
           "y": 509,
-          "label": "Elevator",
+          "label": "5th floor elevator",
           "accessible": true
         },
         {
@@ -9278,12 +9258,12 @@
         },
         {
           "source": "bldg-1_F1_hallway_waypoint_389",
-          "target": "Elevator",
+          "target": "5th floor elevator",
           "type": "door_to_hallway",
           "weight": 51
         },
         {
-          "source": "Elevator",
+          "source": "5th floor elevator",
           "target": "bldg-1_F1_hallway_waypoint_387",
           "type": "door_to_hallway",
           "weight": 34
@@ -9528,16 +9508,16 @@
   "verticalLinks": [
     { "from": { "floor": 2, "nodeId": "F2_stair_landing_1" }, "to": { "floor": 3, "nodeId": "F3_stair_landing_1" }, "kind": "stairs" },
     { "from": { "floor": 2, "nodeId": "F2_stair_landing_2" }, "to": { "floor": 3, "nodeId": "F3_stair_landing_2" }, "kind": "stairs" },
-    { "from": { "floor": 3, "nodeId": "F3_stair_landing_1" }, "to": { "floor": 4, "nodeId": "F4_stair_landing_2" }, "kind": "stairs" },
+    { "from": { "floor": 3, "nodeId": "F3_stair_landing_1" }, "to": { "floor": 4, "nodeId": "F4_stair_landing_1" }, "kind": "stairs" },
     { "from": { "floor": 3, "nodeId": "F3_stair_landing_2" }, "to": { "floor": 4, "nodeId": "F4_stair_landing_2" }, "kind": "stairs" },
-    { "from": { "floor": 4, "nodeId": "F4_stair_landing_2" }, "to": { "floor": 5, "nodeId": "F5_stair_landing_2" }, "kind": "stairs" },
+    { "from": { "floor": 4, "nodeId": "F4_stair_landing_1" }, "to": { "floor": 5, "nodeId": "F5_stair_landing_1" }, "kind": "stairs" },
     { "from": { "floor": 4, "nodeId": "F4_stair_landing_2" }, "to": { "floor": 5, "nodeId": "F5_stair_landing_2" }, "kind": "stairs" },
 
-    { "from": { "floor": 2, "nodeId": "1st floor elevator" }, "to": { "floor": 3, "nodeId": "2nd floor elevator" }, "kind": "elevator" },
-    { "from": { "floor": 2, "nodeId": "1st floor elevator" }, "to": { "floor": 4, "nodeId": "8th floor elevator" }, "kind": "elevator" },
-    { "from": { "floor": 2, "nodeId": "1st floor elevator" }, "to": { "floor": 5, "nodeId": "9th floor elevator" }, "kind": "elevator" },
-    { "from": { "floor": 3, "nodeId": "1st floor elevator" }, "to": { "floor": 4, "nodeId": "2nd floor elevator" }, "kind": "elevator" },
-    { "from": { "floor": 3, "nodeId": "1st floor elevator" }, "to": { "floor": 5, "nodeId": "8th floor elevator" }, "kind": "elevator" },
-    { "from": { "floor": 4, "nodeId": "1st floor elevator" }, "to": { "floor": 5, "nodeId": "9th floor elevator" }, "kind": "elevator" }
+    { "from": { "floor": 2, "nodeId": "2nd floor elevator" }, "to": { "floor": 3, "nodeId": "3rd floor elevator" }, "kind": "elevator" },
+    { "from": { "floor": 2, "nodeId": "2nd floor elevator" }, "to": { "floor": 4, "nodeId": "4th floor elevator" }, "kind": "elevator" },
+    { "from": { "floor": 2, "nodeId": "2nd floor elevator" }, "to": { "floor": 5, "nodeId": "5th floor elevator" }, "kind": "elevator" },
+    { "from": { "floor": 3, "nodeId": "3rd floor elevator" }, "to": { "floor": 4, "nodeId": "4th floor elevator" }, "kind": "elevator" },
+    { "from": { "floor": 3, "nodeId": "3rd floor elevator" }, "to": { "floor": 5, "nodeId": "5th floor elevator" }, "kind": "elevator" },
+    { "from": { "floor": 4, "nodeId": "4th floor elevator" }, "to": { "floor": 5, "nodeId": "5th floor elevator" }, "kind": "elevator" }
   ]
 }
