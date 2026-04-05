@@ -200,7 +200,7 @@
         },
         {
           "id": "Entrance/Exit stairs",
-          "type": "building_entry_exit",
+          "type": "room",
           "x": 138,
           "y": 386,
           "label": "Entrance/Exit stairs",

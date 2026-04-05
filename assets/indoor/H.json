@@ -863,7 +863,7 @@
     },
     {
       "id": "Hall_F1_building_entry_exit_1",
-      "type": "building_entry_exit",
+      "type": "room",
       "x": 1940,
       "y": 1815,
       "label": "",
@@ -871,7 +871,7 @@
     },
     {
       "id": "Hall_F1_building_entry_exit_2",
-      "type": "building_entry_exit",
+      "type": "room",
       "x": 1943,
       "y": 1985,
       "label": "",
@@ -879,7 +879,7 @@
     },
     {
       "id": "Hall_F1_building_entry_exit_3",
-      "type": "building_entry_exit",
+      "type": "room",
       "x": 739,
       "y": 1933,
       "label": "",
@@ -887,7 +887,7 @@
     },
     {
       "id": "Hall_F1_building_entry_exit_4",
-      "type": "building_entry_exit",
+      "type": "room",
       "x": 490,
       "y": 1941,
       "label": "",
