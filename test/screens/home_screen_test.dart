@@ -12,7 +12,11 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:proj/data/data_parser.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/floor.dart';
+import 'package:proj/models/indoor_map.dart';
+import 'package:proj/models/nav_graph.dart';
 import 'package:proj/models/poi.dart';
+import 'package:proj/models/room.dart';
 import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/models/user_role.dart';
 import 'package:proj/screens/home_screen.dart' as home_screen;
@@ -371,6 +375,35 @@ Poi testPoi({
   String poiType = 'assets/coffee.png'
 }) {
   return Poi(id: id, name: name, boundary: boundary, description: description, campus: campus, openingHours: openingHours, photoName: [], rating: 2, address: '', );
+}
+
+IndoorMap _rtTinyIndoorMap(CampusBuilding b, String roomId) {
+  final roomNode =
+      NavNode(id: roomId, type: 'room', x: 0.5, y: 0.5, name: roomId);
+  final g = NavGraph(nodes: [roomNode], edges: []);
+  final floor = Floor(
+    level: 1,
+    label: '1',
+    rooms: [
+      Room(
+        id: roomId,
+        name: roomId,
+        boundary: _rtFakeRoomBoundary(0.5, 0.5),
+      ),
+    ],
+    navGraph: g,
+  );
+  return IndoorMap(building: b, floors: [floor]);
+}
+
+List<Offset> _rtFakeRoomBoundary(double cx, double cy) {
+  const h = 0.025;
+  return [
+    Offset(cx - h, cy - h),
+    Offset(cx + h, cy - h),
+    Offset(cx + h, cy + h),
+    Offset(cx - h, cy + h),
+  ];
 }
 
 Poi testPoi2({
@@ -1133,6 +1166,35 @@ Future<void> main() async {
           expect(find.text('AAA'), findsOneWidget);
         });
 
+    testWidgets('search matches POI by description', (WidgetTester tester) async {
+      final cafe = Poi(
+        id: 'c1',
+        name: 'Zebra Lounge',
+        description: 'matcha and coffee',
+        campus: Campus.sgw,
+        boundary: const LatLng(45.5, -73.5),
+        openingHours: const [],
+        photoName: const <String?>[],
+        rating: 4,
+        address: '1 St',
+      );
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state =
+          tester.state(find.byType(home_screen.HomeScreen).first);
+      state.poiPresent.add(cafe);
+
+      await tester.enterText(find.byType(TextField).first, 'matcha');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Zebra Lounge'), findsOneWidget);
+    });
+
     testWidgets(
         'simulateBuildingTap(null) shows Not part of campus modal sheet',
             (WidgetTester tester) async {
@@ -1198,6 +1260,191 @@ Future<void> main() async {
 
           expect(find.textContaining('Destination Building'), findsOneWidget);
         });
+
+    testWidgets(
+        'room-to-room toggle uses testIndoorMapLoader and shows room pickers',
+        (WidgetTester tester) async {
+      final startB = buildTestBuilding(
+          id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB = buildTestBuilding(
+          id: 'b2', name: 'DEST', fullName: 'Destination Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      const walkLeg = RouteLeg(
+        polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+        legMode: LegMode.walking,
+        durationSeconds: 60,
+        durationText: '1 min',
+        distanceText: '100 m',
+      );
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [walkLeg],
+          durationText: '1 min',
+          distanceText: '100 m',
+        )),
+      );
+
+      Future<IndoorMap?> testLoader(CampusBuilding b) async {
+        return _rtTinyIndoorMap(b, b.id == 'b1' ? 'ROOM_A' : 'ROOM_B');
+      }
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+        testIndoorMapLoader: testLoader,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'start');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('START'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+          find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Start room'), findsOneWidget);
+    });
+
+    testWidgets(
+        'room-to-room: failing testIndoorMapLoader clears loading state',
+        (WidgetTester tester) async {
+      final startB = buildTestBuilding(
+          id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB = buildTestBuilding(
+          id: 'b2', name: 'DEST', fullName: 'Destination Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      const walkLeg = RouteLeg(
+        polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+        legMode: LegMode.walking,
+        durationSeconds: 60,
+        durationText: '1 min',
+        distanceText: '100 m',
+      );
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [walkLeg],
+          durationText: '1 min',
+          distanceText: '100 m',
+        )),
+      );
+
+      Future<IndoorMap?> badLoader(CampusBuilding _) async {
+        throw Exception('loader failed');
+      }
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+        testIndoorMapLoader: badLoader,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'start');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('START'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+          find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
+
+    testWidgets('room-to-room toggle off clears indoor state',
+        (WidgetTester tester) async {
+      final startB = buildTestBuilding(
+          id: 'b1', name: 'START', fullName: 'Start Building');
+      final destB = buildTestBuilding(
+          id: 'b2', name: 'DEST', fullName: 'Destination Building');
+      when(mockDataParser.getBuildingInfoFromJSON())
+          .thenAnswer((_) async => [startB, destB]);
+      when(mockDataParser.buildingsPresent).thenReturn([startB, destB]);
+
+      const walkLeg = RouteLeg(
+        polylinePoints: [LatLng(0, 0), LatLng(1, 1)],
+        legMode: LegMode.walking,
+        durationSeconds: 60,
+        durationText: '1 min',
+        distanceText: '100 m',
+      );
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [walkLeg],
+          durationText: '1 min',
+          distanceText: '100 m',
+        )),
+      );
+
+      Future<IndoorMap?> testLoader(CampusBuilding b) async {
+        return _rtTinyIndoorMap(b, b.id == 'b1' ? 'ROOM_A' : 'ROOM_B');
+      }
+
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+        testIndoorMapLoader: testLoader,
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'start');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('START'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Set as Start'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'dest');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DEST'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+          find.widgetWithText(ElevatedButton, 'Set as Destination'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Start room'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('room_to_room_toggle')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Start room'), findsNothing);
+    });
 
     testWidgets('triggerPolygonOnTap runs Polygon.onTap closure',
             (WidgetTester tester) async {
@@ -2908,6 +3155,45 @@ Future<void> main() async {
       final dynamic state =
           tester.state(find.byType(home_screen.HomeScreen).first);
       await state.simulatePoiAsStart(startPoi);
+      await state.simulatePoiAsDestination(endPoi);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(home_screen.HomeScreen), findsOneWidget);
+    });
+
+    testWidgets(
+        'simulatePoiAsDestination without start sets current-location start path',
+        (WidgetTester tester) async {
+      final endPoi = testPoi(
+          id: 'pd3',
+          name: 'Lone End',
+          boundary: const LatLng(45.5, -73.6));
+      final fakeDirections = DirectionsController(
+        client: FakeDirectionsClient.success(const RouteResult(
+          legs: [
+            RouteLeg(
+                polylinePoints: [
+                  LatLng(45.4, -73.5),
+                  LatLng(45.5, -73.6)
+                ],
+                legMode: LegMode.walking,
+                durationSeconds: 0,
+                durationText: '5 min',
+                distanceText: '1 km')
+          ],
+          durationText: '5 min',
+          distanceText: '1 km',
+        )),
+      );
+      await tester.pumpWidget(wrap(home_screen.HomeScreen(
+        dataParser: mockDataParser,
+        buildingLocator: mockBuildingLocator,
+        testDirectionsController: fakeDirections,
+      )));
+      await tester.pumpAndSettle();
+
+      final dynamic state =
+          tester.state(find.byType(home_screen.HomeScreen).first);
       await state.simulatePoiAsDestination(endPoi);
       await tester.pumpAndSettle();
 

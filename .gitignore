@@ -18,3 +18,4 @@ web/env.js
 **/.env
 assets/.env
 assets/*.env
+assets/.DS_Store
