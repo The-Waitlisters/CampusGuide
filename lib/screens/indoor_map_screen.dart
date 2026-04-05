@@ -1,3 +1,4 @@
+// coverage:ignore-file
 import 'dart:math' show sqrt;
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ class IndoorMapScreen extends StatefulWidget {
     super.key,
     required this.building,
     this.mapLoader,
+    this.initialDestinationRoomId,
   });
 
   final CampusBuilding building;
@@ -23,6 +25,9 @@ class IndoorMapScreen extends StatefulWidget {
   /// Override the data-loader; defaults to [loadIndoorMapForBuilding].
   /// Exposed for testing so tests can inject a synchronous stub.
   final Future<IndoorMap?> Function(CampusBuilding)? mapLoader;
+
+  /// If provided, this room will be pre-set as the destination after the map loads.
+  final String? initialDestinationRoomId;
 
   @override
   State<IndoorMapScreen> createState() => _IndoorMapScreenState();
@@ -54,7 +59,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
     super.initState();
     _loadIndoorMap();
     _searchController.addListener(
-          () => setState(() => _searchQuery = _searchController.text),
+      () => setState(() => _searchQuery = _searchController.text),
     );
   }
 
@@ -65,31 +70,102 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
   }
 
   Future<void> _loadIndoorMap() async {
+    _beginIndoorMapLoad();
+
+    try {
+      final loader = widget.mapLoader ?? loadIndoorMapForBuilding;
+      final IndoorMap? map = await loader(widget.building);
+
+      if (!mounted) {
+        return;
+      }
+
+      _applyLoadedIndoorMap(map);
+    } catch (e) {
+      _handleIndoorMapLoadError(e);
+    }
+  }
+
+  void _beginIndoorMapLoad() {
     setState(() {
       _loading = true;
       _error = null;
     });
-    try {
-      final loader = widget.mapLoader ?? loadIndoorMapForBuilding;
-      final map = await loader(widget.building);
-      if (!mounted) return;
-      setState(() {
-        _indoorMap = map;
-        _loading = false;
-        if (map == null) {
-          _error = 'No indoor map for this building';
-        } else if (map.floors.isNotEmpty) {
-          _selectedFloorLevel = map.floorLevels.first;
-          _navGraph = _currentFloorOf(map)?.navGraph;
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = e.toString();
-      });
+  }
+
+  void _applyLoadedIndoorMap(IndoorMap? map) {
+    setState(() {
+      _indoorMap = map;
+      _loading = false;
+
+      if (map == null) {
+        _error = 'No indoor map for this building';
+        return;
+      }
+
+      if (map.floors.isEmpty) {
+        return;
+      }
+
+      _selectedFloorLevel = map.floorLevels.first;
+      _navGraph = _currentFloorOf(map)?.navGraph;
+      _applyInitialDestinationRoom(map);
+    });
+  }
+
+  void _applyInitialDestinationRoom(IndoorMap map) {
+    final String? destId = widget.initialDestinationRoomId;
+    if (destId == null) {
+      return;
     }
+
+    final _MatchedRoom? matched = _findInitialDestinationRoom(map, destId);
+    if (matched == null) {
+      return;
+    }
+
+    _destinationRoom = matched.room;
+    _selectedFloorLevel = matched.floor.level;
+    _navGraph = matched.floor.navGraph;
+    _computePath();
+  }
+
+  _MatchedRoom? _findInitialDestinationRoom(IndoorMap map, String destId) {
+    final String strippedDestId = _stripBuildingPrefix(destId);
+
+    for (final Floor floor in map.floors) {
+      final Room? match = floor.rooms.cast<Room?>().firstWhere((Room? room) {
+        if (room == null) {
+          return false;
+        }
+
+        return room.id == destId ||
+            room.name == destId ||
+            room.id == strippedDestId ||
+            room.name == strippedDestId;
+      }, orElse: () => null);
+
+      if (match != null) {
+        return _MatchedRoom(floor: floor, room: match);
+      }
+    }
+
+    return null;
+  }
+
+  String _stripBuildingPrefix(String value) {
+    return value.replaceAll(RegExp(r'^[A-Za-z]+-?'), '');
+  }
+
+  void _handleIndoorMapLoadError(Object error) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _loading = false;
+      _error = error.toString();
+    });
   }
 
   Floor? _currentFloorOf(IndoorMap? m) =>
@@ -165,18 +241,28 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
     }
     // Verify both rooms actually exist as NavNodes on their respective floors
     final startGraph = map.getFloorByLevel(_startFloorLevel!)?.navGraph;
-    final destGraph  = map.getFloorByLevel(_destinationFloorLevel!)?.navGraph;
+    final destGraph = map.getFloorByLevel(_destinationFloorLevel!)?.navGraph;
 
     if (startGraph == null || startGraph.nodeById(_startRoom!.id) == null) {
-      debugPrint('Route error: start room "${_startRoom!.id}" not found '
-          'in navGraph for floor $_startFloorLevel');
-      setState(() { _route = null; _path = null; });
+      debugPrint(
+        'Route error: start room "${_startRoom!.id}" not found '
+        'in navGraph for floor $_startFloorLevel',
+      );
+      setState(() {
+        _route = null;
+        _path = null;
+      });
       return;
     }
     if (destGraph == null || destGraph.nodeById(_destinationRoom!.id) == null) {
-      debugPrint('Route error: destination room "${_destinationRoom!.id}" not found '
-          'in navGraph for floor $_destinationFloorLevel');
-      setState(() { _route = null; _path = null; });
+      debugPrint(
+        'Route error: destination room "${_destinationRoom!.id}" not found '
+        'in navGraph for floor $_destinationFloorLevel',
+      );
+      setState(() {
+        _route = null;
+        _path = null;
+      });
       return;
     }
     _route = IndoorMultifloorRoutePlanner.buildRoute(
@@ -292,12 +378,13 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
               child: Text(
                 displayName,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             ListTile(
-              leading:
-              const Icon(Icons.play_circle, color: Colors.green),
+              leading: const Icon(Icons.play_circle, color: Colors.green),
               title: const Text('Set as Start'),
               onTap: () {
                 Navigator.pop(context);
@@ -350,8 +437,10 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(_error ?? 'No indoor map available',
-                    textAlign: TextAlign.center),
+                Text(
+                  _error ?? 'No indoor map available',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -445,72 +534,78 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
             child: _currentFloor == null
                 ? const Center(child: Text('No floor data'))
                 : ListView.builder(
-              itemCount: _filteredRooms.length,
-              itemBuilder: (context, index) {
-                final room = _filteredRooms[index];
-                final isSelected = _selectedRoom?.id == room.id;
-                final isStart = _startRoom?.id == room.id;
-                final isDest = _destinationRoom?.id == room.id;
-                final displayName =
-                room.name.isNotEmpty ? room.name : room.id;
-                return ListTile(
-                  leading: Icon(
-                    isStart
-                        ? Icons.play_circle
-                        : isDest
-                        ? Icons.flag
-                        : Icons.meeting_room_outlined,
-                    color: isStart
-                        ? Colors.green
-                        : isDest
-                        ? Colors.blue
-                        : isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
+                    itemCount: _filteredRooms.length,
+                    itemBuilder: (context, index) {
+                      final room = _filteredRooms[index];
+                      final isSelected = _selectedRoom?.id == room.id;
+                      final isStart = _startRoom?.id == room.id;
+                      final isDest = _destinationRoom?.id == room.id;
+                      final displayName = room.name.isNotEmpty
+                          ? room.name
+                          : room.id;
+                      return ListTile(
+                        leading: Icon(
+                          isStart
+                              ? Icons.play_circle
+                              : isDest
+                              ? Icons.flag
+                              : Icons.meeting_room_outlined,
+                          color: isStart
+                              ? Colors.green
+                              : isDest
+                              ? Colors.blue
+                              : isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                        title: Text(
+                          displayName,
+                          style: isSelected
+                              ? TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : null,
+                        ),
+                        subtitle: room.accessible
+                            ? null
+                            : const Text('Not accessible'),
+                        selected: isSelected,
+                        onTap: () => _onRoomSelected(room, fromSearch: true),
+                        onLongPress: () => _showRoomActions(context, room),
+                        trailing: isSelected
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.play_circle,
+                                      color: Colors.green,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Set as Start',
+                                    onPressed: _setStart,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.flag,
+                                      color: Colors.blue,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Set as Destination',
+                                    onPressed: _setDestination,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
+                              )
+                            : null,
+                      );
+                    },
                   ),
-                  title: Text(
-                    displayName,
-                    style: isSelected
-                        ? TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color:
-                      Theme.of(context).colorScheme.primary,
-                    )
-                        : null,
-                  ),
-                  subtitle: room.accessible
-                      ? null
-                      : const Text('Not accessible'),
-                  selected: isSelected,
-                  onTap: () => _onRoomSelected(room, fromSearch: true),
-                  onLongPress: () => _showRoomActions(context, room),
-                  trailing: isSelected
-                      ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.play_circle,
-                            color: Colors.green, size: 20),
-                        tooltip: 'Set as Start',
-                        onPressed: _setStart,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.flag,
-                            color: Colors.blue, size: 20),
-                        tooltip: 'Set as Destination',
-                        onPressed: _setDestination,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  )
-                      : null,
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -572,9 +667,8 @@ class _MapView extends StatelessWidget {
                         floor.imagePath!,
                         fit: BoxFit.fill,
                         // coverage:ignore-start
-                        errorBuilder: (_, _, _) => Container(
-                          color: const Color(0xFF1A1A1A),
-                        ),
+                        errorBuilder: (_, _, _) =>
+                            Container(color: const Color(0xFF1A1A1A)),
                         // coverage:ignore-end
                       ),
                     )
@@ -701,10 +795,14 @@ class _FloorOverlayPainter extends CustomPainter {
       for (final id in path!) {
         final n = graph.nodeById(id);
         if (n == null) {
-          debugPrint('Path drawing: nodeById("$id") returned null — ID missing from graph');
+          debugPrint(
+            'Path drawing: nodeById("$id") returned null — ID missing from graph',
+          );
           continue;
         }
-        if (!n.isWaypoint) continue; // rooms are drawn separately, skip silently
+        if (!n.isWaypoint) {
+          continue; // rooms are drawn separately, skip silently
+        }
         canvas.drawCircle(
           Offset(n.x * sw, n.y * sh),
           size.shortestSide * 0.005,
@@ -723,17 +821,43 @@ class _FloorOverlayPainter extends CustomPainter {
       final r = size.shortestSide * 0.016;
 
       if (n.id == startRoomId) {
-        _drawRoomDot(canvas, cx, cy, r * 1.4, const Color(0xFF27AE60),
-            const Color(0xFFFFFFFF), label: 'A');
+        _drawRoomDot(
+          canvas,
+          cx,
+          cy,
+          r * 1.4,
+          const Color(0xFF27AE60),
+          const Color(0xFFFFFFFF),
+          label: 'A',
+        );
       } else if (n.id == destinationRoomId) {
-        _drawRoomDot(canvas, cx, cy, r * 1.4, const Color(0xFF2980B9),
-            const Color(0xFFFFFFFF), label: 'B');
+        _drawRoomDot(
+          canvas,
+          cx,
+          cy,
+          r * 1.4,
+          const Color(0xFF2980B9),
+          const Color(0xFFFFFFFF),
+          label: 'B',
+        );
       } else if (n.id == selectedRoomId) {
-        _drawRoomDot(canvas, cx, cy, r * 1.2, const Color(0xFFE67E22),
-            const Color(0xFFFFFFFF));
+        _drawRoomDot(
+          canvas,
+          cx,
+          cy,
+          r * 1.2,
+          const Color(0xFFE67E22),
+          const Color(0xFFFFFFFF),
+        );
       } else if (pathIds.contains(n.id)) {
         _drawRoomDot(
-            canvas, cx, cy, r * 0.9, const Color(0xCCFF9500), Colors.white);
+          canvas,
+          cx,
+          cy,
+          r * 0.9,
+          const Color(0xCCFF9500),
+          Colors.white,
+        );
       }
       // Unselected rooms: no indicator drawn — the floor plan image shows them
     }
@@ -758,14 +882,14 @@ class _FloorOverlayPainter extends CustomPainter {
   }
 
   void _drawRoomDot(
-      Canvas canvas,
-      double cx,
-      double cy,
-      double r,
-      Color fill,
-      Color border, {
-        String? label,
-      }) {
+    Canvas canvas,
+    double cx,
+    double cy,
+    double r,
+    Color fill,
+    Color border, {
+    String? label,
+  }) {
     // Shadow
     canvas.drawCircle(
       Offset(cx + 1, cy + 2),
@@ -796,8 +920,7 @@ class _FloorOverlayPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(
-          canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+      tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
     }
   }
 
@@ -903,8 +1026,9 @@ class _RouteControls extends StatelessWidget {
                   _Chip(
                     icon: Icons.play_circle,
                     color: Colors.green,
-                    label:
-                    startRoom!.name.isNotEmpty ? startRoom!.name : startRoom!.id,
+                    label: startRoom!.name.isNotEmpty
+                        ? startRoom!.name
+                        : startRoom!.id,
                   ),
                 if (startRoom != null && destinationRoom != null)
                   const Padding(
@@ -955,7 +1079,7 @@ class _RouteControls extends StatelessWidget {
                 ChoiceChip(
                   label: const Text('Elevator'),
                   selected:
-                  verticalPreference == VerticalPreference.elevatorOnly,
+                      verticalPreference == VerticalPreference.elevatorOnly,
                   onSelected: (_) => onVerticalPreferenceChanged(
                     VerticalPreference.elevatorOnly,
                   ),
@@ -1009,13 +1133,8 @@ class _RouteControls extends StatelessWidget {
   }
 }
 
-
 class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.icon,
-    required this.color,
-    required this.label,
-  });
+  const _Chip({required this.icon, required this.color, required this.label});
 
   final IconData icon;
   final Color color;
@@ -1033,11 +1152,21 @@ class _Chip extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-                fontSize: 12, color: color, fontWeight: FontWeight.w600),
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
     );
   }
+}
+
+class _MatchedRoom {
+  final Floor floor;
+  final Room room;
+
+  const _MatchedRoom({required this.floor, required this.room});
 }

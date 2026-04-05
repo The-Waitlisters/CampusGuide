@@ -53,9 +53,9 @@ class SearchOverlay extends StatelessWidget {
                   suffixIcon: controller.text.isEmpty
                       ? null
                       : IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: onClear,
-                        ),
+                    icon: const Icon(Icons.clear),
+                    onPressed: onClear,
+                  ),
                 ),
                 onChanged: onChanged,
                 onTap: onTapField,
@@ -105,7 +105,7 @@ class SearchResultsCard extends StatelessWidget {
               dense: true,
               title: Text(b.name),
               subtitle:
-                  (b.description != null && b.description!.trim().isNotEmpty)
+              (b.description != null && b.description!.trim().isNotEmpty)
                   ? Text(b.description!)
                   : null,
               onTap: () => onSelect(b),

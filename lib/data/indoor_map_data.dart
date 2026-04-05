@@ -7,6 +7,8 @@ import '../models/vertical_link.dart';
 import '../models/indoor_map.dart';
 import 'floor_plan_editor_loader.dart';
 
+/// Loads indoor map data for a building (TASK-5.1.1).
+/// Tries floor-plan-editor JSON from `assets/indoor/<building>.json` first (see docs/indoor-floor-plan-editor.md).
 Future<IndoorMap?> loadIndoorMapForBuilding(CampusBuilding building) async {
   await Future.delayed(const Duration(milliseconds: 150));
 

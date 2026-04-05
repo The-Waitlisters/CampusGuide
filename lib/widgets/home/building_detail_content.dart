@@ -13,7 +13,9 @@ class BuildingDetailContent extends StatelessWidget {
     required this.onSetStart,
     required this.onSetDestination,
     required this.isPoi,
-    this.onViewIndoorMap, this.startPoi, this.endPoi,
+    this.onViewIndoorMap,
+    this.startPoi,
+    this.endPoi,
   });
 
   final Poi? poi;
@@ -35,13 +37,29 @@ class BuildingDetailContent extends StatelessWidget {
 
   Widget _buildHeader() {
     return Text(
-      '${building?.name ?? poi?.name} ${isPoi ? '' : (isAnnex ? 'Annex' : '- ${building?.fullName ?? poi?.name}')}',
+      _buildHeaderTitle(),
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
     );
   }
 
+  String _buildHeaderTitle() {
+    final String baseName = building?.name ?? poi?.name ?? '';
+
+    if (isPoi) {
+      return baseName;
+    }
+
+    if (isAnnex) {
+      return '$baseName Annex';
+    }
+
+    final String fullName = building?.fullName ?? poi?.name ?? '';
+    return '$baseName - $fullName';
+  }
+
   Widget _buildAccessibilityIcons() {
-    final bool show = building!.isWheelchairAccessible ||
+    final bool show =
+        building!.isWheelchairAccessible ||
         building!.hasBikeParking ||
         building!.hasCarParking ||
         building!.hasMetroAccess;
@@ -70,7 +88,7 @@ class BuildingDetailContent extends StatelessWidget {
     );
   }
 
-void _openZoomableImage(BuildContext context, String imageUrl) {
+  void _openZoomableImage(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
       builder: (context) {
@@ -110,7 +128,6 @@ void _openZoomableImage(BuildContext context, String imageUrl) {
     );
   }
 
-
 Widget _buildPhotoGallery() {
   if (poi!.photoName == null || poi!.photoName!.isEmpty) {
       return Container(
@@ -131,71 +148,70 @@ Widget _buildPhotoGallery() {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey.shade300,
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.broken_image),
-                  );
-                },
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey.shade300,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image),
+                    );
+                  },
+                ),
               ),
             ),
-            )
           );
         },
       ),
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
-    String open = "";
-    bool status = true;
-    (poi) ?? status == false;
-    
-    (poi?.openNow ?? false) ? open = "Open": open = "Closed";
+    final bool poiOpenNow = poi?.openNow ?? false;
+    final String openText = poiOpenNow ? 'Open' : 'Closed';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: <Widget>[
         _buildHeader(),
-        if(isPoi) Column(crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('${poi?.description ?? ''}, Rating: ${poi?.rating}/5'),
-           Text(open, style: TextStyle(color: ((poi!.openNow ?? false) ? Colors.green : Colors.red)),)
-          ],
+        if (isPoi)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('${poi?.description ?? ''}, Rating: ${poi?.rating}/5'),
+              Text(
+                openText,
+                style: TextStyle(color: poiOpenNow ? Colors.green : Colors.red),
+              ),
+            ],
           ),
-          
         const SizedBox(height: 8),
-        // Direction selection buttons — always show both
         Row(
-          children: [
+          children: <Widget>[
             ElevatedButton(
-              onPressed: (((startBuilding?.id == building?.id)) ? null : onSetStart) ?? ((startPoi?.id == poi?.id) ? null : onSetStart),
+              onPressed: _startAction(),
               child: const Text('Set as Start'),
             ),
             const SizedBox(width: 12),
             ElevatedButton(
-               onPressed: (((endBuilding?.id == building?.id)) ? null : onSetDestination) ?? ((endPoi?.id == poi?.id) ? null : onSetDestination),
+              onPressed: _destinationAction(),
               child: const Text('Set as Destination'),
             ),
           ],
         ),
-        if(!isPoi) ...[
+        if (!isPoi) ...<Widget>[
           const SizedBox(height: 12),
           _buildAccessibilityIcons(),
           const SizedBox(height: 12),
-          Text(building!.description ?? ''),
+          Text(building?.description ?? ''),
           const SizedBox(height: 12),
           _buildSection('Opening Hours:', building!.openingHours),
           _buildSection('Departments:', building!.departments),
           _buildSection('Services:', building!.services),
-          if (onViewIndoorMap != null) ...[
+          if (onViewIndoorMap != null) ...<Widget>[
             const SizedBox(height: 16),
             FilledButton.icon(
               key: const Key('view_indoor_map_button'),
@@ -203,20 +219,54 @@ Widget _buildPhotoGallery() {
               label: const Text('View indoor map'),
               onPressed: onViewIndoorMap,
             ),
-          ],],
-        if(isPoi) ...[
-          const SizedBox(height: 12),
+          ],
+        ],
+        if (isPoi) ...<Widget>[
           const SizedBox(height: 12),
           _buildPhotoGallery(),
           const SizedBox(height: 18),
-          Text('Opening Hours', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
+          const Text(
+            'Opening Hours',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
-          for(final hour in poi!.openingHours) Text(hour),
-          if(poi!.openingHours.isEmpty) Text('Location is closed for the forseeable future')
-          ],
-          
-          
+          for (final String hour in poi?.openingHours ?? <String>[]) Text(hour),
+          if ((poi?.openingHours ?? <String>[]).isEmpty)
+            const Text('Location is closed for the foreseeable future'),
+        ],
       ],
     );
+  }
+
+  VoidCallback? _startAction() {
+    if (isPoi) {
+      if (startPoi?.id == poi?.id) {
+        return null;
+      }
+
+      return onSetStart;
+    }
+
+    if (startBuilding?.id == building?.id) {
+      return null;
+    }
+
+    return onSetStart;
+  }
+
+  VoidCallback? _destinationAction() {
+    if (isPoi) {
+      if (endPoi?.id == poi?.id) {
+        return null;
+      }
+
+      return onSetDestination;
+    }
+
+    if (endBuilding?.id == building?.id) {
+      return null;
+    }
+
+    return onSetDestination;
   }
 }
