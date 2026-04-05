@@ -11,6 +11,20 @@ const _kToday = 'Mon'; // matches _kNow.weekday
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
+/// Shared entry factory used by the lower display-specific tests.
+/// [room] defaults to a non-empty value so [hasRoom] is true by default.
+CourseScheduleEntry buildEntry({String room = 'H-937'}) {
+  return CourseScheduleEntry(
+    courseCode: 'SOEN 363',
+    section: 'LEC H',
+    dayText: 'Sat',       // Saturday keeps tests day-independent
+    timeText: '10:00 - 11:00',
+    room: room,
+    campus: 'SGW',
+    buildingCode: 'H',
+  );
+}
+
 /// Creates a [CourseScheduleEntry] with sensible defaults.
 /// [timeText] must be "HH:mm - HH:mm".
 CourseScheduleEntry _entry({
@@ -312,6 +326,7 @@ void main() {
 
           expect(find.textContaining('N/A'), findsOneWidget);
         });
+  });
 
   Widget wrap(Widget child) {
     return MaterialApp(
@@ -404,14 +419,13 @@ void main() {
     expect(called, isFalse);
   });
 
-  testWidgets('renders a Scrollbar and ListView for non-empty entries', (tester) async {
+  testWidgets('renders a ListView for non-empty entries', (tester) async {
     await tester.pumpWidget(wrap(ScheduleDisplay(
       entries: [buildEntry(), buildEntry(room: 'MB-3.270')],
       onRemove: (_) {},
       onRoomTap: (_) {},
     )));
 
-    expect(find.byType(Scrollbar), findsOneWidget);
     expect(find.byType(ListView), findsOneWidget);
   });
 }

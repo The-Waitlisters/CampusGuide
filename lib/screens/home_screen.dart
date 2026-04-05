@@ -25,7 +25,7 @@ import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../services/directions/web_directions_client_stub.dart'
-    if (dart.library.html) '../services/directions/web_directions_client.dart';
+if (dart.library.html) '../services/directions/web_directions_client.dart';
 import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
@@ -75,7 +75,9 @@ class HomeScreen extends StatefulWidget {
   final Completer<GoogleMapController>? testMapControllerCompleter;
 
   final DirectionsController? testDirectionsController;
-  final dynamic testHttpClient;
+
+  /// For tests: injectable HTTP client so [_searchNearbyPlaces] can be mocked.
+  final http.Client? testHttpClient;
 
   /// For tests: when non-null, used instead of [loadIndoorMapForBuilding] when
   /// loading indoor maps for room-to-room navigation.
@@ -142,7 +144,6 @@ class _HomeScreenState extends HomeScreenState {
 
   /// Shown when destination-first but location is unavailable.
   String? _locationRequiredMessage;
-
 
   /// When true, do not auto-apply default transport mode (user chose manually).
   bool _modeChangedByUser = false;
@@ -275,13 +276,6 @@ class _HomeScreenState extends HomeScreenState {
     return minSize + t * (maxSize - minSize);
   }
 
-  void _onCameraMove(CameraPosition _) {
-    _markerRebuildDebounce?.cancel();
-    if (!_programmaticCameraMove && !_mapMoved) {
-      _mapMoved = true;
-    }
-  }
-
   @visibleForTesting
   Future<void> simulatePointerDown(Offset position) async {
     GoogleMapController? controller;
@@ -375,6 +369,11 @@ class _HomeScreenState extends HomeScreenState {
         ).listen((Position pos) {
           final userPoint = LatLng(pos.latitude, pos.longitude);
           locationPoint = userPoint;
+          if (mounted) {
+            setState(() {
+              _lastKnownPosition = userPoint;
+            });
+          }
           final result = _buildingLocator.update(
             userPoint: userPoint,
             campus: _campus,
@@ -414,7 +413,6 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-  // coverage:ignore-start
   Future<void> _loadNearbyPois(
       bool restaurant,
       bool cafe,
@@ -488,7 +486,7 @@ class _HomeScreenState extends HomeScreenState {
           includedTypes: ['restaurant'],
           rankPreference: type,
         );
-        _finishLoadingPois(places, markIconResto, logicalSize);
+        _finishLoadingPois(places, markIconResto, logicalSize); // coverage:ignore-line
       }
 
       if (cafe) {
@@ -512,7 +510,7 @@ class _HomeScreenState extends HomeScreenState {
           includedTypes: ['park'],
           rankPreference: type,
         );
-        _finishLoadingPois(places3, markIconPark, logicalSize);
+        _finishLoadingPois(places3, markIconPark, logicalSize); // coverage:ignore-line
       }
 
       if (parking) {
@@ -524,7 +522,7 @@ class _HomeScreenState extends HomeScreenState {
           includedTypes: ['parking'],
           rankPreference: type,
         );
-        _finishLoadingPois(places4, markIconParking, logicalSize);
+        _finishLoadingPois(places4, markIconParking, logicalSize); // coverage:ignore-line
       }
 
       if (fastFood) {
@@ -536,7 +534,7 @@ class _HomeScreenState extends HomeScreenState {
           includedTypes: ['fast_food_restaurant'],
           rankPreference: type,
         );
-        _finishLoadingPois(places5, markIconFastFood, logicalSize);
+        _finishLoadingPois(places5, markIconFastFood, logicalSize); // coverage:ignore-line
       }
 
       if (nightClub) {
@@ -548,7 +546,7 @@ class _HomeScreenState extends HomeScreenState {
           includedTypes: ['night_club'],
           rankPreference: type,
         );
-        _finishLoadingPois(places6, markIconNightClub, logicalSize);
+        _finishLoadingPois(places6, markIconNightClub, logicalSize); // coverage:ignore-line
       }
     } catch (e) {
       // ignore: use_build_context_synchronously
@@ -563,8 +561,6 @@ class _HomeScreenState extends HomeScreenState {
     }
   }
 
-  // coverage:ignore-end
-  // coverage:ignore-start
   void _finishLoadingPois(
       List<dynamic> places,
       Uint8List markIcon,
@@ -638,7 +634,6 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
-  // coverage:ignore-end
   Future<void> _initUid() async {
     try {
       final user = await (widget.authService ?? AuthService())
@@ -659,7 +654,6 @@ class _HomeScreenState extends HomeScreenState {
         '?key=$apiKey&maxWidthPx=$maxWidthPx';
   }
 
-  // coverage:ignore-start
   Future<List<dynamic>> _searchNearbyPlaces({
     required double latitude,
     required double longitude,
@@ -672,7 +666,8 @@ class _HomeScreenState extends HomeScreenState {
       'https://places.googleapis.com/v1/places:searchNearby',
     );
 
-    final response = await http.post(
+    final client = widget.testHttpClient ?? http.Client();
+    final response = await client.post(
       uri,
       headers: {
         'Content-Type': 'application/json',
@@ -703,7 +698,6 @@ class _HomeScreenState extends HomeScreenState {
     return (jsonBody['places'] as List<dynamic>?) ?? [];
   }
 
-  // coverage:ignore-end
   CameraPosition get _initialCamera {
     final info = campusInfo[_campus]!;
     return CameraPosition(target: info.center, zoom: info.zoom);
@@ -922,9 +916,6 @@ class _HomeScreenState extends HomeScreenState {
     await _updateDirectionsIfReady();
   }
 
-
-
-
   Future<void> _handlePoiAsStart(Poi poi) async {
     debugPrint('Set as Start: ${poi.name}');
     setState(() {
@@ -949,20 +940,18 @@ class _HomeScreenState extends HomeScreenState {
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
     final controller = widget.testMapControllerCompleter != null
-        ? await widget
-        .testMapControllerCompleter!
-        .future // coverage:ignore-line
+        ? await widget.testMapControllerCompleter!.future // coverage:ignore-line
         : _mapController;
     if (controller == null) return;
     final bounds = boundsForRoute(a, b);
 
-    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80)); // coverage:ignore-line
+    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
   }
 
   void _onBuildingTapped(CampusBuilding? building) {
     debugPrint('_onBuildingTapped called with: ${building?.name}');
     if (building == null) {
-      showModalBottomSheet( // coverage:ignore-line
+      showModalBottomSheet(
         context: context,
         builder: (context) {
           return const Padding(
@@ -971,12 +960,12 @@ class _HomeScreenState extends HomeScreenState {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                 Text(
+                Text(
                   'Not part of campus',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 8),
-                 Text('Please select a shaded building'),
+                Text('Please select a shaded building'),
               ],
             ),
           );
@@ -998,11 +987,10 @@ class _HomeScreenState extends HomeScreenState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${building.campus.name.toUpperCase()} - ${building.name} - ${building.fullName}',
+                '${building.campus.name.toUpperCase()} - ${building
+                    .name} - ${building.fullName}',
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                    fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(building.description ?? 'No description available'),
@@ -1058,6 +1046,9 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {
       _campus = campus;
       _buildingLocator.reset();
+      _currentBuildingFromGPS = null;
+      _mapMoved = false;
+      _programmaticCameraMove = false;
     });
   }
 
@@ -1114,8 +1105,8 @@ class _HomeScreenState extends HomeScreenState {
     final modeLabel = kTransportModes
         .firstWhere(
           (m) => m.modeParam == _directions.mode.modeParam,
-          orElse: () => kTransportModes.first,
-        )
+      orElse: () => kTransportModes.first,
+    )
         .label;
 
     Navigator.of(context).push(
@@ -1181,6 +1172,7 @@ class _HomeScreenState extends HomeScreenState {
           endBuilding: _endBuilding,
           startPoi: _startPoi,
           endPoi: _endPoi,
+          // coverage:ignore-start
           onSetStart: () async {
             await _handlePoiAsStart(poi);
             _sheetController?.close();
@@ -1191,6 +1183,7 @@ class _HomeScreenState extends HomeScreenState {
             _sheetController?.close();
             _sheetController = null;
           },
+          // coverage:ignore-end
         );
       });
       _attachSheetAnimation(_sheetController);
@@ -1212,9 +1205,7 @@ class _HomeScreenState extends HomeScreenState {
     }
     if (_sheetController != null) {
       _sheetController?.close();
-      setState(() {
-        _sheetController = null;
-      });
+      setState(() { _sheetController = null; });
       return;
     }
 
@@ -1350,6 +1341,13 @@ class _HomeScreenState extends HomeScreenState {
         );
       });
       _attachSheetAnimation(_sheetController);
+
+      final attachedController = _sheetController!;
+      attachedController.closed.then((_) {
+        if (mounted && _sheetController == attachedController) {
+          setState(() { _sheetController = null; }); // coverage:ignore-line
+        }
+      });
     });
   }
 
@@ -1415,7 +1413,9 @@ class _HomeScreenState extends HomeScreenState {
               if (!context.mounted) return;
 
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => AuthGate(authService: svc)),
+                MaterialPageRoute(
+                  builder: (_) => AuthGate(authService: svc),
+                ),
                     (route) => false,
               );
             },
@@ -1424,10 +1424,10 @@ class _HomeScreenState extends HomeScreenState {
         ],
       ),
 
+
       body: Stack(
         children: [
           if (!isE2EMode) _buildMapLayer(),
-
           // On Flutter Web, google_maps_flutter_web silently drops all
           // polylines. RoutePolylineOverlay draws them with CustomPaint
           // using synchronous Mercator projection — no platform channel.
@@ -1441,15 +1441,14 @@ class _HomeScreenState extends HomeScreenState {
           // coverage:ignore-end
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
-          
+
           _buildSearchOverlay(),
+          if (_mapMoved && _lastKnownPosition != null) _buildRecenterButton(),
           if (_currentBuildingFromGPS != null &&
               (_startBuilding == null && _startPoi == null))
             _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
-          if (_mapMoved) _buildRecenterButton(),
           if (showPoiSettings)
-          // coverage:ignore-start
             PoiOptionMenu(
               restaurants: restaurants,
               cafes: cafes,
@@ -1511,15 +1510,13 @@ class _HomeScreenState extends HomeScreenState {
                   showPoiSettings = false;
                   showResults = true;
                 });
-              },
-              distanceSliderValue: distance,
+              }, distanceSliderValue: distance,
               onDistanceChanged: (value) {
                 setState(() {
                   distance = value ?? 0;
                 });
               },
             ),
-          // coverage:ignore-end
           if (_showScheduleOverlay)
             ScheduleOverlay(
               uid: _uid,
@@ -1534,7 +1531,6 @@ class _HomeScreenState extends HomeScreenState {
                 setState(() {
                   _showScheduleOverlay = false;
                 });
-
                 final destination = buildingsPresent
                     .cast<CampusBuilding?>()
                     .firstWhere(
@@ -1570,34 +1566,30 @@ class _HomeScreenState extends HomeScreenState {
                 setState(() {
                   _showPoiDetailSheet(b);
                 });
-              },
-              onClose: () {
-                setState(() {
-                  showResults = false;
-                });
-              },
+              }, onClose: () { setState(() {
+              showResults = false;
+            }); },
             ),
 
-            Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-        onPressed: () {
-          setState(() {
-            showPoiSettings = true;
-          });
-        },
-        label: const Text('Points of Interest'),
-        icon: const Icon(Icons.place),
-      ),
-      )
-        , _buildDirectionsCard(),
-      ],
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                setState(() {
+                  showPoiSettings = true;
+                });
+              },
+              label: const Text('Points of Interest'),
+              icon: const Icon(Icons.place),
+            ),
+          )
+          , _buildDirectionsCard(),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
     );
   }
-
 
   Widget _buildMapLayer() {
     return MapLayer<CampusBuilding>(
@@ -1642,7 +1634,7 @@ class _HomeScreenState extends HomeScreenState {
         // coverage:ignore-end
       },
 
-      onCameraMove: _onCameraMove,
+      // onCameraMove: _onCameraMove,
     );
   }
 
@@ -1671,7 +1663,8 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Widget _buildSetCurrentAsStartCard() {
-    if (_currentBuildingFromGPS == null ||
+    final building = _currentBuildingFromGPS;
+    if (building == null ||
         !isInBuilding ||
         _startBuilding != null ||
         _startPoi != null) {
@@ -1689,7 +1682,7 @@ class _HomeScreenState extends HomeScreenState {
       width: 200,
       bottom: sheetOpen ? _currentSheetLift : 20, // coverage:ignore-line
       child: UseAsStart(
-        selected: _currentBuildingFromGPS!,
+        selected: building,
         onSetStart: () {
           debugPrint(
             'Set as Start pressed for ${_currentBuildingFromGPS?.name}',
@@ -1702,8 +1695,7 @@ class _HomeScreenState extends HomeScreenState {
 
           _updateDirectionsIfReady();
 
-          if (_sheetController != null) {
-            // coverage:ignore-start
+          if (_sheetController != null) { // coverage:ignore-start
             _sheetController?.close();
             setState(() {
               _sheetController = null;
@@ -1768,9 +1760,9 @@ class _HomeScreenState extends HomeScreenState {
       },
       onRetry: _updateDirectionsIfReady,
       placeholderMessage: _directions.state.placeholderMessage,
-         etaType: _directions.state.etaType,
-         legs: _directions.state.legs,
-         selectedModeParam: _directions.mode.modeParam,
+      etaType: _directions.state.etaType,
+      legs: _directions.state.legs,
+      selectedModeParam: _directions.mode.modeParam,
       onModeChanged: (modeParam) {
         setState(() => _modeChangedByUser = true);
         _directions.setMode(strategyForModeParam(modeParam));
@@ -1859,23 +1851,17 @@ class _HomeScreenState extends HomeScreenState {
   Widget _buildRecenterButton() {
     final bool sheetOpen = _sheetController != null;
     final bool setAsStartVisible =
-        _currentBuildingFromGPS != null &&
-            isInBuilding &&
-            _startBuilding == null;
+        _currentBuildingFromGPS != null && isInBuilding && _startBuilding == null;
     const double setAsStartHeight = 48.0;
     const double gap = 8.0;
-    final double setAsStartBottom = sheetOpen
-        ? _currentSheetLift
-        : 12; // coverage:ignore-line
+    final double setAsStartBottom = sheetOpen ? _currentSheetLift : 12; // coverage:ignore-line
     final double bottom = setAsStartVisible
-        ? setAsStartBottom +
-        setAsStartHeight +
-        gap // coverage:ignore-line
+        ? setAsStartBottom + setAsStartHeight + gap // coverage:ignore-line
         : (sheetOpen ? _currentSheetLift : 0); // coverage:ignore-line
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
-      left: 12,
+      right: 12,
       bottom: bottom,
       child: FloatingActionButton.small(
         heroTag: 'recenter',
@@ -1888,7 +1874,9 @@ class _HomeScreenState extends HomeScreenState {
           setState(() {
             _programmaticCameraMove = true;
           });
-          await controller.animateCamera(CameraUpdate.newLatLng(pos));
+          await controller.animateCamera(
+            CameraUpdate.newLatLng(pos),
+          );
           setState(() {
             _mapMoved = false;
             _programmaticCameraMove = false;
@@ -1901,8 +1889,7 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _buildE2ECampusLabel() {
-    // coverage:ignore-start
+  Widget _buildE2ECampusLabel() { // coverage:ignore-start
     return Text(
       _campus == Campus.loyola ? "campus:loyola" : "campus:sgw",
       key: const Key("campus_label"),
@@ -2064,7 +2051,6 @@ class _HomeScreenState extends HomeScreenState {
     _mapController = controller;
   }
 
-
   @visibleForTesting
   void setShowPoiSettingsForTest(bool value) {
     setState(() {
@@ -2080,6 +2066,13 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
+  void setShowResultsForTest(bool value) {
+    setState(() {
+      showResults = value;
+    });
+  }
+
+  @visibleForTesting
   void setSuppressNextMapTapForTest(bool value) {
     _suppressNextMapTap = value;
   }
@@ -2090,13 +2083,31 @@ class _HomeScreenState extends HomeScreenState {
     setState(() {}); // schedules a frame so the post-frame callback fires
   }
 
+
   @visibleForTesting
   void simulatePoiSelection(Poi poi) {
     _showPoiDetailSheet(poi);
   }
 
+  @visibleForTesting
+  Future<void> simulatePoiAsStart(Poi poi) => _handlePoiAsStart(poi);
 
+  @visibleForTesting
+  Future<void> simulatePoiAsDestination(Poi poi) => _handlePoiAsDestination(poi);
 
+  @visibleForTesting
+  Future<void> loadNearbyPoisForTest() => _loadNearbyPois(
+      restaurants, cafes, parks, parking, fastFood, nightClub, nearbyPois,
+      type, distance * 1000);
+
+  @visibleForTesting
+  void finishLoadingPoisForTest(
+      List<dynamic> places, Uint8List markIcon, double size) {
+    _finishLoadingPois(places, markIcon, size);
+  }
+
+  @visibleForTesting
+  List<Marker> get testMarkers => _markers;
 }
 
 // For tests: Make sure we cover route-zoom math without a real map
