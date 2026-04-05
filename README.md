@@ -31,10 +31,14 @@ samples, guidance on mobile development, and a full API reference.
 
 ##Google Apis
 To get your own key go to https://console.cloud.google.com/ and setup an account.
+
 <img width="600" height="650" alt="image" src="https://github.com/user-attachments/assets/804fcf82-82a2-42c3-92d4-ed78ffffe9fc" />
 <img width="600" height=" 250" alt="image" src="https://github.com/user-attachments/assets/c8f35945-7d01-4707-85a0-ccba383832e9" />
+
 The following APIS are needed to run this App on your own machine
+
 <img width="600" height="450" alt="image" src="https://github.com/user-attachments/assets/a8d0a8d7-d360-4c92-b155-581d48d5256f" />
+
 Select the restrictions you want and create.
 
 ##To run
