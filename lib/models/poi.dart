@@ -1,16 +1,13 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:proj/models/campus.dart';
 import 'package:proj/models/location.dart';
 
-class Poi implements MapLocation {
-  final String id;
-  @override final String name;
-  final String? fullName;
-  @override final String? description;
+class Poi extends MapLocation{
   final LatLng boundary;
-  final Campus campus;
+  final bool? openNow;
+  final List<String?> photoName;
   final List<String> openingHours;
-  final String poiType;
+  final double rating;
+  final String address;
 
   // Extended fields used by the Results / POI-details UI
   final bool? openNow;
@@ -19,18 +16,14 @@ class Poi implements MapLocation {
   final String? address;
 
   Poi({
-    required this.id,
-    required this.name,
-    required this.campus,
-    required this.description,
+    required super.id,
+    required super.name,
+    required super.campus,
+    required super.description,
     required this.boundary,
-    this.fullName,
-    this.openingHours = const [],
-    this.poiType = '',
     this.openNow,
-    this.photoName,
-    this.rating,
-    this.address,
+    required this.openingHours, required this.photoName, required this.rating, required this.address
+    
   });
 
   @override

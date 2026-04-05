@@ -6,13 +6,13 @@ import 'package:proj/models/poi.dart';
 class SearchOverlay extends StatelessWidget {
   final TextEditingController controller;
   final bool showResults;
-  final List<CampusBuilding> results;
+  final List<MapLocation> results;
 
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
   final ValueChanged<String> onMenuSelected;
   final VoidCallback onTapField;
-  final ValueChanged<CampusBuilding> onSelectResult;
+  final ValueChanged<MapLocation> onSelectResult;
 
   const SearchOverlay({
     super.key,
@@ -47,18 +47,15 @@ class SearchOverlay extends StatelessWidget {
                     icon: const Icon(Icons.menu),
                     onSelected: onMenuSelected,
                     itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'schedule',
-                        child: Text('Schedule'),
-                      ),
+                      PopupMenuItem(value: 'schedule', child: Text('Schedule')),
                     ],
                   ),
                   suffixIcon: controller.text.isEmpty
                       ? null
                       : IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: onClear,
-                  ),
+                          icon: const Icon(Icons.clear),
+                          onPressed: onClear,
+                        ),
                 ),
                 onChanged: onChanged,
                 onTap: onTapField,
@@ -66,10 +63,7 @@ class SearchOverlay extends StatelessWidget {
             ),
           ),
           if (showResults)
-            SearchResultsCard(
-              results: results.cast<MapLocation>().toList(),
-              onSelect: (loc) => onSelectResult(loc as CampusBuilding),
-            ),
+            SearchResultsCard(results: results, onSelect: onSelectResult),
         ],
       ),
     );
@@ -94,24 +88,29 @@ class SearchResultsCard extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: results.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
+        // ignore: body_might_complete_normally_nullable
         itemBuilder: (context, i) {
-          final loc = results[i];
-
-          String? subtitle;
-          if (loc is CampusBuilding) {
-            final fn = loc.fullName;
-            if (fn != null && fn.trim().isNotEmpty) subtitle = fn;
-          } else if (loc is Poi) {
-            final desc = loc.description;
-            if (desc != null && desc.isNotEmpty) subtitle = desc;
+          final b = results[i];
+          if (b is CampusBuilding) {
+            return ListTile(
+              dense: true,
+              title: Text(b.name),
+              subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
+                  ? Text(b.fullName!)
+                  : null,
+              onTap: () => onSelect(b),
+            );
+          } else if (b is Poi) {
+            return ListTile(
+              dense: true,
+              title: Text(b.name),
+              subtitle:
+                  (b.description != null && b.description!.trim().isNotEmpty)
+                  ? Text(b.description!)
+                  : null,
+              onTap: () => onSelect(b),
+            );
           }
-
-          return ListTile(
-            dense: true,
-            title: Text(loc.name),
-            subtitle: subtitle != null ? Text(subtitle) : null,
-            onTap: () => onSelect(loc),
-          );
         },
       ),
     );

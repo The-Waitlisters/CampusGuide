@@ -1,6 +1,10 @@
-/// Marker interface for items that appear in map search results.
-/// Both [CampusBuilding] and [Poi] implement this interface.
-abstract class MapLocation {
-  String get name;
-  String? get description;
+import 'package:proj/models/campus.dart';
+
+abstract class MapLocation{
+  final String id;
+  final String name;
+  final String? description;
+  final Campus campus;
+
+  MapLocation({required this.id, required this.name, required this.description, required this.campus});
 }

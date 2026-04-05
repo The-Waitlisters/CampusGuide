@@ -2,12 +2,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
-import '../../models/poi.dart';
+import 'package:proj/models/poi.dart';
 
 class Results extends StatelessWidget {
   final List<Poi> poiPresent;
   final LatLng locationPoint;
+
   final ValueChanged<Poi> onSelect;
   final VoidCallback onClose;
 
@@ -15,82 +15,106 @@ class Results extends StatelessWidget {
     super.key,
     required this.poiPresent,
     required this.locationPoint,
-    required this.onSelect,
-    required this.onClose,
+    required this.onSelect, required this.onClose,
   });
 
-  // Simple Haversine distance in metres.
-  double _distanceMeters(LatLng a, LatLng b) {
-    const r = 6371000.0;
-    final lat1 = a.latitude * pi / 180;
-    final lat2 = b.latitude * pi / 180;
-    final dLat = (b.latitude - a.latitude) * pi / 180;
-    final dLng = (b.longitude - a.longitude) * pi / 180;
-    final h = sin(dLat / 2) * sin(dLat / 2) +
-        cos(lat1) * cos(lat2) * sin(dLng / 2) * sin(dLng / 2);
-    return r * 2 * atan2(sqrt(h), sqrt(1 - h));
-  }
+  String _computeDistance(LatLng point1, LatLng point2) {
+    //distance in km
+    double R = 6356;
 
-  String _formatDistance(double meters) {
-    if (meters >= 1000) {
-      return '${(meters / 1000).toStringAsFixed(1)} km';
+    double x = R * (pi / 180) * (point2.latitude - point1.latitude);
+    double y =
+        R *
+        (pi / 180) *
+        (point2.longitude - point1.longitude) *
+        cos(point1.latitude);
+
+    double distance = sqrt(pow(x, 2) + pow(y, 2));
+    String roundedDistance;
+    if(distance < 1) {
+      distance *= 1000;
+      roundedDistance = distance.toStringAsFixed(2);
+      roundedDistance += ' m';
+    } else {
+      roundedDistance = distance.toStringAsFixed(2);
+      roundedDistance += ' km';
     }
-    return '${meters.round()} m';
+    
+
+    return roundedDistance;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Header
-        Row(
-          children: [
-            const Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Text(
-                  'Results',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: Material(
+            color: Colors.transparent,
+            child: Card(
+              elevation: 8,
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Results',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close),
+                            tooltip: 'Cancel',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: poiPresent.isEmpty
+                            ? const Center(child: Text('No matching results'))
+                            : ListView.builder(
+                                itemCount: poiPresent.length,
+                                itemBuilder: (context, i) {
+                                  final result = poiPresent[i];
+
+                                  String subtitle = "";
+
+                                  if (result.description!.trim().isNotEmpty) {
+                                    subtitle =
+                                        '${result.description} • ${_computeDistance(locationPoint, result.boundary)}';
+                                  }
+
+                                  return ListTile(
+                                    title: Text(result.name),
+                                    subtitle: Text(subtitle),
+                                    onTap: () => onSelect(result),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            IconButton(
-              tooltip: 'Cancel',
-              icon: const Icon(Icons.cancel),
-              onPressed: onClose,
-            ),
-          ],
-        ),
-        const Divider(height: 1),
-        // Body
-        if (poiPresent.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: Text('No matching results')),
-          )
-        else
-          Expanded(
-            child: ListView.separated(
-              itemCount: poiPresent.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, i) {
-                final poi = poiPresent[i];
-                final dist = _distanceMeters(locationPoint, poi.boundary);
-                final desc = poi.description;
-                final subtitle = (desc != null && desc.isNotEmpty)
-                    ? '$desc  •  ${_formatDistance(dist)}'
-                    : null;
-
-                return ListTile(
-                  title: Text(poi.name),
-                  subtitle: subtitle != null ? Text(subtitle) : null,
-                  onTap: () => onSelect(poi),
-                );
-              },
-            ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }
