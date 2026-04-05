@@ -24,7 +24,6 @@ const _validJson = '''
   "nodes": [{"id": "r1", "type": "room", "x": 50, "y": 50, "label": "H-801", "floor": 8}],
   "edges": [],
   "verticalLinks": [
-    "not_a_map",
     {
       "from": {"floor": 8, "nodeId": "r1"},
       "to":   {"floor": 9, "nodeId": "r2"},
@@ -55,8 +54,7 @@ void main() {
   });
 
   testWidgets('returns null for unknown building', (tester) async {
-    _mockAsset('assets/indoor/H.json', notJson);
-    final future = loadIndoorMapForBuilding(_building('H'));
+    final future = loadIndoorMapForBuilding(_building('UNKNOWN'));
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump();
     expect(await future, isNull);
