@@ -16,7 +16,7 @@ void main() {
             .toList();
     
 
-    expect(result.length, 36);
+    expect(result.length, 35);
   });
 
   test('Building data contains Loyola campus buildings', () async {
