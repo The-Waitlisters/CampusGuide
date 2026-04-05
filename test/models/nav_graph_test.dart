@@ -228,38 +228,5 @@ void main() {
         expect(path.last, 'W_orphan');
       }
     });
-    test('excludeFromAutoConnect prevents room-to-waypoint edge', () {
-      final r1 = const NavNode(id: 'R1', type: 'room', x: 0.0, y: 0.0);
-      final w1 = const NavNode(id: 'W1', type: 'hallway_waypoint', x: 0.1, y: 0.0);
-      final w2 = const NavNode(id: 'W2', type: 'hallway_waypoint', x: 0.9, y: 0.0);
-      final base = NavGraph(
-        nodes: [r1, w1, w2],
-        edges: [const NavEdge(from: 'W1', to: 'W2', weight: 800)],
-      );
-      final g = base.withAutoConnections(
-        pixelScale: 1000,
-        excludeFromAutoConnect: {'R1', 'W1'},
-      );
-      // there's no R1→W1 auto-edge, findPath returns null.
-      expect(g.findPath('R1', 'W2'), isNull);
-    });
-
-    test('excludeFromAutoConnect prevents orphan-waypoint-to-waypoint edge', () {
-      final r1 = const NavNode(id: 'R1', type: 'room', x: 0.0, y: 0.0);
-      final w1 = const NavNode(id: 'W1', type: 'hallway_waypoint', x: 0.3, y: 0.0);
-      final w2 = const NavNode(id: 'W2', type: 'hallway_waypoint', x: 0.7, y: 0.0);
-      final wOrphan = const NavNode(id: 'W_orphan', type: 'hallway_waypoint', x: 0.5, y: 0.0);
-      final base = NavGraph(
-        nodes: [r1, w1, w2, wOrphan],
-        edges: [const NavEdge(from: 'W1', to: 'W2', weight: 400)],
-      );
-      final g = base.withAutoConnections(
-        pixelScale: 1000,
-        excludeFromAutoConnect: {'W_orphan', 'W1'},
-      );
-      // W_orphan and its nearest connected waypoint W1 are both excluded,
-      // so no auto-edge is added and W_orphan remains unreachable.
-      expect(g.findPath('R1', 'W_orphan'), isNull);
-    });
   });
 }

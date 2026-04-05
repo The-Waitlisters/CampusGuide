@@ -120,7 +120,6 @@ class NavGraph {
   /// explicit JSON edges so all weights are in the same unit.
   NavGraph withAutoConnections({
     double pixelScale = 2000.0,
-    Set<String> excludeFromAutoConnect = const {},
   }) {
     final waypoints = nodes.where((n) => n.isWaypoint).toList();
     if (waypoints.isEmpty) return this;
@@ -135,11 +134,7 @@ class NavGraph {
 
     // Connect each room to its nearest waypoint.
     for (final room in nodes.where((n) => n.isRoom)) {
-      final candidates = waypoints
-          .where((w) => !(excludeFromAutoConnect.contains(room.id) &&
-          excludeFromAutoConnect.contains(w.id)))
-          .toList();
-      final nearest = _nearest(room, candidates);
+      final nearest = _nearest(room, waypoints);
       if (nearest != null) {
         extra.add(NavEdge(
           from: room.id,
@@ -154,11 +149,8 @@ class NavGraph {
     final connectedWps =
     waypoints.where((n) => connectedIds.contains(n.id)).toList();
     for (final orphan in waypoints.where((n) => !connectedIds.contains(n.id))) {
-      final candidates = connectedWps
-          .where((w) => !(excludeFromAutoConnect.contains(orphan.id) &&
-          excludeFromAutoConnect.contains(w.id)))
-          .toList();
-      final nearest = _nearest(orphan, candidates);
+
+      final nearest = _nearest(orphan, connectedWps);
       if (nearest != null) {
         extra.add(NavEdge(
           from: orphan.id,

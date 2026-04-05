@@ -6754,7 +6754,6 @@
     { "from": { "floor": 2, "nodeId": "Hall_F2_stair_landing_9" }, "to": { "floor": 8, "nodeId": "8th floor Escalator Up" }, "kind": "stairs", "oneWay": true },
     { "from": { "floor": 2, "nodeId": "Hall_F2_stair_landing_11" }, "to": { "floor": 8, "nodeId": "898 - Fire exit" }, "kind": "stairs" },
 
-
     { "from": { "floor": 8, "nodeId": "8th floor elevator" }, "to": { "floor": 9, "nodeId": "9th floor elevator" }, "kind": "elevator" },
     { "from": { "floor": 8, "nodeId": "8th floor Escalator Down" }, "to": { "floor": 2, "nodeId": "Hall_F2_stair_landing_10" }, "kind": "stairs", "oneWay": true  },
     { "from": { "floor": 8, "nodeId": "8th floor Escalator Up" }, "to": { "floor": 9, "nodeId": "9th floor Escalator Up" }, "kind": "stairs", "oneWay": true  },
@@ -6762,7 +6761,6 @@
     { "from": { "floor": 8, "nodeId": "885 - Fire exit" }, "to": { "floor": 9, "nodeId": "985 - Fire exit" }, "kind": "stairs" },
     { "from": { "floor": 8, "nodeId": "875 - Fire exit" }, "to": { "floor": 9, "nodeId": "975 - Fire exit" }, "kind": "stairs" },
     { "from": { "floor": 8, "nodeId": "898 - Fire exit" }, "to": { "floor": 9, "nodeId": "998 - Fire exit" }, "kind": "stairs" },
-
 
     { "from": { "floor": 9, "nodeId": "9th floor Escalator Down" }, "to": { "floor": 8, "nodeId": "8th floor Escalator Down" }, "kind": "stairs" , "oneWay": true }
   ]
