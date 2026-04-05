@@ -41,7 +41,7 @@ The following APIS are needed to run this App on your own machine
 
 Select the restrictions you want and create.
 
-##To run
+## To run
 flutter pub get
 
 From Terminal make sure you pass your API key
