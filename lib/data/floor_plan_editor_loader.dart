@@ -119,11 +119,11 @@ class FloorPlanEditorLoader {
   }
 
   static List<Floor> parseMultiFloor(
-      Map<String, dynamic> json, {
-        String floorLabelPrefix = 'Floor ',
-        String? imageAssetPrefix,
-        String imageAssetSeparator = '_',
-      }) {
+    Map<String, dynamic> json, {
+    String floorLabelPrefix = 'Floor ',
+    String? imageAssetPrefix,
+    String imageAssetSeparator = '_',
+  }) {
     final floorsList = json['floors'];
 
     if (floorsList is List && floorsList.isNotEmpty) {
@@ -263,7 +263,12 @@ class FloorPlanEditorLoader {
     return '$prefix$separator$level.png';
   }
   static double _euclidean(
-      List<NavNode> nodes, String fromId, String toId, double w, double h) {
+    List<NavNode> nodes,
+    String fromId,
+    String toId,
+    double w,
+    double h,
+  ) {
     final a = nodes.where((n) => n.id == fromId).firstOrNull;
     final b = nodes.where((n) => n.id == toId).firstOrNull;
     if (a == null || b == null) return 1.0;

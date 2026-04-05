@@ -292,7 +292,6 @@ class DirectionsCard extends StatelessWidget {
     final bothBuildingsSet = startBuilding != null &&
         endBuilding != null &&
         startBuilding!.id != endBuilding!.id;
-
     return Positioned(
       left: 12,
       right: 12,

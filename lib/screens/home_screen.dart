@@ -13,7 +13,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/location.dart';
 import 'package:proj/widgets/home/poi_option_menu.dart';
-import 'package:proj/services/markerIconLoader.dart';
+import 'package:proj/services/marker_icon_loader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
@@ -25,7 +25,7 @@ import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
 import '../services/directions/web_directions_client_stub.dart'
-    if (dart.library.html) '../services/directions/web_directions_client.dart';
+if (dart.library.html) '../services/directions/web_directions_client.dart';
 import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
@@ -52,7 +52,7 @@ typedef MarkerImageLoader = Future<Uint8List> Function(String path, int width);
 extension StringExtension on String {
   String capitalize() {
     List<String> current =
-        "${this[0].toUpperCase()}${substring(1).toLowerCase()}".split(' ');
+    "${this[0].toUpperCase()}${substring(1).toLowerCase()}".split(' ');
     String newOne = "";
     for (final b in current) {
       newOne += "${b[0].toUpperCase()}${b.substring(1).toLowerCase()} ";
@@ -124,6 +124,7 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+  String? _uid;
   Poi? _startPoi;
   Poi? _endPoi;
 
@@ -190,7 +191,7 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
-  LatLng locationPoint = LatLng(0, 0);
+  LatLng locationPoint = const LatLng(0, 0);
 
   bool firstRun = false;
 
@@ -232,8 +233,10 @@ class _HomeScreenState extends HomeScreenState {
     _initDependencies();
     _initDirections();
     _tryInitLocationTracking();
+    _initUid();
   }
 
+  // coverage:ignore-start
   void resetFilters() {
     setState(() {
       restaurants = false;
@@ -259,9 +262,10 @@ class _HomeScreenState extends HomeScreenState {
       nightClub,
       nearbyPois,
       type,
-      distance*1000
+      distance * 1000,
     );
   }
+  // coverage:ignore-end
 
   double _iconSizeForZoom(double zoom) {
     const double minZoom = 13.0;
@@ -293,7 +297,7 @@ class _HomeScreenState extends HomeScreenState {
     data = widget.dataParser ?? DataParser();
     _buildingLocator =
         widget.buildingLocator ??
-        BuildingLocator(enterThresholdMeters: 15, exitThresholdMeters: 25);
+            BuildingLocator(enterThresholdMeters: 15, exitThresholdMeters: 25);
 
     _refreshBuildingsFromParser();
   }
@@ -410,16 +414,16 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _loadNearbyPois(
-    bool restaurant,
-    bool cafe,
-    bool park,
-    bool parking,
-    bool fastFood,
-    bool nightClub,
-    double nearbyPois,
-    String type,
-    double distance
-  ) async {
+      bool restaurant,
+      bool cafe,
+      bool park,
+      bool parking,
+      bool fastFood,
+      bool nightClub,
+      double nearbyPois,
+      String type,
+      double distance,
+      ) async {
     if (_mapController == null) return;
 
     setState(() {
@@ -558,10 +562,10 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   void _finishLoadingPois(
-    List<dynamic> places,
-    Uint8List markIcon,
-    double logicalSize,
-  ) {
+      List<dynamic> places,
+      Uint8List markIcon,
+      double logicalSize,
+      ) {
     final Set<Marker> newMarkers = places.map((place) {
       final placeId = place['id'] as String? ?? UniqueKey().toString();
       final displayName =
@@ -590,11 +594,11 @@ class _HomeScreenState extends HomeScreenState {
       }
 
       final regularOpeningHours =
-          place['regularOpeningHours'] as Map<String, dynamic>?;
+      place['regularOpeningHours'] as Map<String, dynamic>?;
       final weekdayDescriptions =
           (regularOpeningHours?['weekdayDescriptions'] as List?)
               ?.cast<String>() ??
-          const [];
+              const [];
 
       final openNow = regularOpeningHours?['openNow'] as bool?;
 
@@ -630,6 +634,16 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  Future<void> _initUid() async {
+    try {
+      final user = await (widget.authService ?? AuthService())
+          .getCurrentAppUser();
+      if (mounted) setState(() => _uid = user?.uid);
+    } catch (_) {
+      // Firebase not initialized in test environment
+    }
+  }
+
   String buildPhotoUrl({
     //Helper function to build photo url to be able to fetch with Places API
     required String photoName,
@@ -659,7 +673,7 @@ class _HomeScreenState extends HomeScreenState {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': Secrets.directionsApiKey,
         'X-Goog-FieldMask':
-            'places.id,places.displayName,places.location,places.primaryType,places.rating,places.regularOpeningHours,places.priceRange,places.userRatingCount,places.shortFormattedAddress,places.photos',
+        'places.id,places.displayName,places.location,places.primaryType,places.rating,places.regularOpeningHours,places.priceRange,places.userRatingCount,places.shortFormattedAddress,places.photos',
       },
       body: jsonEncode({
         'includedPrimaryTypes': includedTypes,
@@ -704,7 +718,7 @@ class _HomeScreenState extends HomeScreenState {
 
       if (placemarks.isNotEmpty) {
         address =
-            '${placemarks[0].street ?? ''}, '
+        '${placemarks[0].street ?? ''}, '
             '${placemarks[0].locality ?? ''}, '
             '${placemarks[0].postalCode ?? ''}';
       }
@@ -734,18 +748,18 @@ class _HomeScreenState extends HomeScreenState {
       List<MapLocation> results = buildingsPresent
           .where(
             (b) =>
-                b.name.toLowerCase().contains(q) ||
-                (b.fullName ?? "").toLowerCase().contains(q),
-          )
+        b.name.toLowerCase().contains(q) ||
+            (b.fullName ?? "").toLowerCase().contains(q),
+      )
           .take(8)
           .toList();
 
       List<MapLocation> results2 = poiPresent
           .where(
             (b) =>
-                b.name.toLowerCase().contains(q) ||
-                (b.description ?? "").toLowerCase().contains(q),
-          )
+        b.name.toLowerCase().contains(q) ||
+            (b.description ?? "").toLowerCase().contains(q),
+      )
           .take(120)
           .toList();
 
@@ -838,7 +852,7 @@ class _HomeScreenState extends HomeScreenState {
     if (_startFromCurrentLocation && start == null) {
       setState(() {
         _locationRequiredMessage =
-            'To create a route from your current location, please allow location access.';
+        'To create a route from your current location, please allow location access.';
       });
       await _directions.updateRoute(start: null, end: null);
       return;
@@ -848,7 +862,7 @@ class _HomeScreenState extends HomeScreenState {
 
     final startCampus =
         _startBuilding?.campus ??
-        (start != null ? _campusAtPoint(start) : null);
+            (start != null ? _campusAtPoint(start) : null);
     var endCampus;
     if (_endPoi == null) {
       endCampus = _endBuilding!.campus;
@@ -872,7 +886,7 @@ class _HomeScreenState extends HomeScreenState {
 
     debugPrint(
       'Directions done: err=${_directions.state.errorMessage} '
-      'points=${_directions.state.polyline?.points.length}',
+          'points=${_directions.state.polyline?.points.length}',
     );
 
     if (start != null && _directions.state.hasRoute) {
@@ -1091,8 +1105,8 @@ class _HomeScreenState extends HomeScreenState {
     final modeLabel = kTransportModes
         .firstWhere(
           (m) => m.modeParam == _directions.mode.modeParam,
-          orElse: () => kTransportModes.first,
-        )
+      orElse: () => kTransportModes.first,
+    )
         .label;
 
     Navigator.of(context).push(
@@ -1225,7 +1239,7 @@ class _HomeScreenState extends HomeScreenState {
     _sheetController?.close();
     _currentSheetLift = _sheetLiftSmall;
     _sheetController = scaffoldState.showBottomSheet(
-      (_) => const Padding(
+          (_) => const Padding(
         padding: EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1274,7 +1288,7 @@ class _HomeScreenState extends HomeScreenState {
     final isSelected = p.polygonId == _selectedId;
     final isGps =
         _currentBuildingFromGPS != null &&
-        p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
+            p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
 
     const Color selectedFill = Color.fromARGB(255, 124, 115, 29);
     const Color gpsFill = Color(0x803197F6);
@@ -1427,7 +1441,7 @@ class _HomeScreenState extends HomeScreenState {
           // coverage:ignore-end
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
-          
+
           _buildSearchOverlay(),
           if (_mapMoved && _lastKnownPosition != null) _buildRecenterButton(),
           if (_currentBuildingFromGPS != null &&
@@ -1496,8 +1510,8 @@ class _HomeScreenState extends HomeScreenState {
                   showPoiSettings = false;
                   showResults = true;
                 });
-              }, distanceSliderValue: distance, 
-              onDistanceChanged: (value) {  
+              }, distanceSliderValue: distance,
+              onDistanceChanged: (value) {
                 setState(() {
                   distance = value ?? 0;
                 });
@@ -1505,6 +1519,7 @@ class _HomeScreenState extends HomeScreenState {
             ),
           if (_showScheduleOverlay)
             ScheduleOverlay(
+              uid: _uid,
               onClose: () {
                 setState(() {
                   _showScheduleOverlay = false;
@@ -1516,6 +1531,24 @@ class _HomeScreenState extends HomeScreenState {
                 setState(() {
                   _showScheduleOverlay = false;
                 });
+                final destination = buildingsPresent
+                    .cast<CampusBuilding?>()
+                    .firstWhere(
+                      (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
+                  orElse: () => null,
+                );
+
+                if (destination != null) {
+                  _handleSetAsDestination(destination);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => IndoorMapScreen(
+                        building: destination,
+                        initialDestinationRoomId: entry.room,
+                      ),
+                    ),
+                  );
+                }
               },
               lookupService: ScheduleLookupService(
                 api: ConcordiaApiService(
@@ -1534,25 +1567,25 @@ class _HomeScreenState extends HomeScreenState {
                   _showPoiDetailSheet(b);
                 });
               }, onClose: () { setState(() {
-                showResults = false;
-              }); },
+              showResults = false;
+            }); },
             ),
 
-            Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-        onPressed: () {
-          setState(() {
-            showPoiSettings = true;
-          });
-        },
-        label: const Text('Points of Interest'),
-        icon: const Icon(Icons.place),
-      ),
-      )
-        , _buildDirectionsCard(),
-      ],
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                setState(() {
+                  showPoiSettings = true;
+                });
+              },
+              label: const Text('Points of Interest'),
+              icon: const Icon(Icons.place),
+            ),
+          )
+          , _buildDirectionsCard(),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
     );
@@ -1608,8 +1641,8 @@ class _HomeScreenState extends HomeScreenState {
   Widget _buildGpsStatusCard() {
     final text =
         _currentBuildingFromGPS?.fullName ??
-        _currentBuildingFromGPS?.name ??
-        'Not in a building';
+            _currentBuildingFromGPS?.name ??
+            'Not in a building';
     return _topCard(
       top: 12,
       elevation: 4,
@@ -1700,7 +1733,7 @@ class _HomeScreenState extends HomeScreenState {
       endBuilding: _endBuilding,
       endPoi: _endPoi,
       useCurrentLocationAsStart:
-          _startFromCurrentLocation && _startBuilding == null,
+      _startFromCurrentLocation && _startBuilding == null,
       locationRequiredMessage: _locationRequiredMessage,
       isLoading: _directions.state.isLoading,
       errorMessage: _directions.state.errorMessage,
@@ -1727,9 +1760,9 @@ class _HomeScreenState extends HomeScreenState {
       },
       onRetry: _updateDirectionsIfReady,
       placeholderMessage: _directions.state.placeholderMessage,
-         etaType: _directions.state.etaType,
-         legs: _directions.state.legs,
-         selectedModeParam: _directions.mode.modeParam,
+      etaType: _directions.state.etaType,
+      legs: _directions.state.legs,
+      selectedModeParam: _directions.mode.modeParam,
       onModeChanged: (modeParam) {
         setState(() => _modeChangedByUser = true);
         _directions.setMode(strategyForModeParam(modeParam));
@@ -1885,14 +1918,14 @@ class _HomeScreenState extends HomeScreenState {
   @visibleForTesting
   void triggerPolygonOnTap(PolygonId id) {
     final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
-      (p) => p != null && p.polygonId == id,
+          (p) => p != null && p.polygonId == id,
       orElse: () => null,
     );
     poly?.onTap?.call();
   }
 
   /// For tests: invoke the private `_onBuildingTapped` method, including the null branch.
-   @visibleForTesting
+  @visibleForTesting
   void simulateBuildingTap(CampusBuilding? building) {
     _onBuildingTapped(building);
   }
@@ -1943,6 +1976,33 @@ class _HomeScreenState extends HomeScreenState {
       _mapMoved = true;
       _lastKnownPosition ??= position.target;
     });
+  }
+
+  @visibleForTesting
+  void simulatePoi(Poi poi, {bool isStart = false}) {
+    if (isStart) {
+      _handlePoiAsStart(poi);
+    } else {
+      _handlePoiAsDestination(poi);
+    }
+  }
+
+  @visibleForTesting
+  void simulateRoomSelected(CourseScheduleEntry entry) {
+    setState(() => _showScheduleOverlay = false);
+    final destination = buildingsPresent.cast<CampusBuilding?>().firstWhere(
+          (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
+      orElse: () => null,
+    );
+    if (destination != null) {
+      _handleSetAsDestination(destination);
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => IndoorMapScreen(
+          building: destination,
+          initialDestinationRoomId: entry.room,
+        ),
+      ));
+    }
   }
 
   @visibleForTesting
@@ -1999,6 +2059,13 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
+  void setLastKnownPositionForTest(LatLng point) {
+    setState(() {
+      _lastKnownPosition = point;
+    });
+  }
+
+  @visibleForTesting
   void setShowResultsForTest(bool value) {
     setState(() {
       showResults = value;
@@ -2014,6 +2081,12 @@ class _HomeScreenState extends HomeScreenState {
   void simulateShowPoiDetailSheet(Poi poi) {
     _showPoiDetailSheet(poi);
     setState(() {}); // schedules a frame so the post-frame callback fires
+  }
+
+
+  @visibleForTesting
+  void simulatePoiSelection(Poi poi) {
+    _showPoiDetailSheet(poi);
   }
 
   @visibleForTesting

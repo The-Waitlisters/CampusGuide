@@ -32,7 +32,7 @@ class MapLayer<T> extends StatefulWidget {
 
 class _MapLayerState<T> extends State<MapLayer<T>> {
 
-  Future<void> _handlePointerDown(PointerDownEvent event) async {
+  Future<void> _handlePointerUp(PointerUpEvent event) async {
     final controller = widget.controller;
     if (controller == null || !mounted) return;
 
@@ -68,7 +68,7 @@ class _MapLayerState<T> extends State<MapLayer<T>> {
 
         return Listener(
           behavior: HitTestBehavior.translucent,
-          onPointerDown: _handlePointerDown,
+          onPointerUp: _handlePointerUp,
           child: Stack(
             children: [
               SizedBox(

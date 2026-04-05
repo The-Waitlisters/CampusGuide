@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:proj/models/user_role.dart';
+import 'package:proj/models/course_schedule_entry.dart';
 import 'package:proj/services/auth/user_profile_service.dart';
 
 class MockFirebaseFirestore extends Mock implements FirebaseFirestore {}
@@ -96,4 +97,41 @@ void main() {
 
     expect(role, UserRole.user);
   });
+
+  test('saveSchedule calls update with serialized entries', () async {
+    when(() => docRef.update(any())).thenAnswer((_) async {});
+
+    final entries = [
+      const CourseScheduleEntry(
+        courseCode: 'SOEN 363',
+        section: 'LEC H',
+        dayText: 'Mon - Wed',
+        timeText: '08:45 - 10:00',
+        room: 'H-937',
+        campus: 'SGW',
+        buildingCode: 'H',
+      ),
+    ];
+
+    await service.saveSchedule(uid: 'u1', entries: entries);
+
+    verify(() => docRef.update(any())).called(1);
+  });
+
+  test('loadSchedule returns empty list when data is null', () async {
+    when(() => docSnapshot.data()).thenReturn(null);
+
+    final result = await service.loadSchedule(uid: 'u1');
+
+    expect(result, isEmpty);
+  });
+
+  test('loadSchedule returns empty list when schedule key is null', () async {
+    when(() => docSnapshot.data()).thenReturn({'firstName': 'Sam'});
+
+    final result = await service.loadSchedule(uid: 'u1');
+
+    expect(result, isEmpty);
+  });
+
 }

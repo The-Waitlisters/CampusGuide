@@ -319,7 +319,7 @@ void main() {
       await tester.pumpWidget(_wrapPoi(p));
       await tester.pumpAndSettle();
       expect(
-        find.text('Location is closed for the forseeable future'),
+        find.text('Location is closed for the foreseeable future'),
         findsOneWidget,
       );
     });
