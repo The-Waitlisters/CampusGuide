@@ -32,9 +32,9 @@ class ShuttleRouteResult {
     required this.waitMinutes,
   });
 
-  final RouteResult    routeResult;
+  final RouteResult routeResult;
   final ShuttleEtaType etaType;
-  final int?           waitMinutes;
+  final int? waitMinutes;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,13 +69,13 @@ class ShuttleRouteBuilder {
           'Shuttle is only available for cross-campus travel (SGW ↔ Loyola).');
     }
 
-    final pickupStop  = ShuttleScheduleData.stopForCampus(fromCampus);
+    final pickupStop = ShuttleScheduleData.stopForCampus(fromCampus);
     final dropoffStop = ShuttleScheduleData.stopForCampus(toCampus);
 
     final effectiveNow = now ?? DateTime.now();
-    final waitMinutes  = ShuttleScheduleData.minutesUntilNextDeparture(
+    final waitMinutes = ShuttleScheduleData.minutesUntilNextDeparture(
       campus: fromCampus,
-      now:    effectiveNow,
+      now: effectiveNow,
     );
 
     // Always Estimated until Concordia provides a live shuttle API.
@@ -85,34 +85,34 @@ class ShuttleRouteBuilder {
 
     // -- Leg 1: walk to pickup stop ----------------------------------------
     final walkIn = await _client.getRoute(
-      origin:      origin,
+      origin: origin,
       destination: pickupStop.location,
-      mode:        WalkStrategy(),
+      mode: WalkStrategy(),
     );
 
     // -- Leg 2: shuttle ride (schedule-derived) ----------------------------
-    final effectiveWait  = waitMinutes ?? 0;
-    final totalRideMin   = effectiveWait + ShuttleScheduleData.rideDurationMinutes;
+    final effectiveWait = waitMinutes ?? 0;
+    final totalRideMin = effectiveWait + ShuttleScheduleData.rideDurationMinutes;
     final durationString = effectiveWait > 0
         ? '~$totalRideMin min (~$effectiveWait min wait + '
-        '${ShuttleScheduleData.rideDurationMinutes} min ride)'
+            '${ShuttleScheduleData.rideDurationMinutes} min ride)'
         : '~${ShuttleScheduleData.rideDurationMinutes} min';
 
     final shuttleLeg = RouteLeg(
-      polylinePoints:  [pickupStop.location, dropoffStop.location],
-      legMode:         LegMode.shuttle,
+      polylinePoints: [pickupStop.location, dropoffStop.location],
+      legMode: LegMode.shuttle,
       durationSeconds: totalRideMin * 60,
-      durationText:    durationString,
-      distanceText:    '≈ 7 km',
-      transitColor:    const Color(0xFF912338), // Concordia burgundy
-      lineName:        'Concordia Shuttle',
+      durationText: durationString,
+      distanceText: '≈ 7 km',
+      transitColor: const Color(0xFF912338), // Concordia burgundy
+      lineName: 'Concordia Shuttle',
     );
 
     // -- Leg 3: walk from drop-off to destination -------------------------
     final walkOut = await _client.getRoute(
-      origin:      dropoffStop.location,
+      origin: dropoffStop.location,
       destination: destination,
-      mode:        WalkStrategy(),
+      mode: WalkStrategy(),
     );
 
     // -- Combine ----------------------------------------------------------
@@ -122,29 +122,30 @@ class ShuttleRouteBuilder {
       ...walkOut.legs,
     ];
 
-    final totalSec  = allLegs.fold<int>(0, (s, l) => s + l.durationSeconds);
-    final totalMin  = totalSec ~/ 60;
+    final totalSec = allLegs.fold<int>(0, (s, l) => s + l.durationSeconds);
+    final totalMin = totalSec ~/ 60;
     final etaSuffix = etaType == ShuttleEtaType.realtime
         ? '(Realtime)'
         : '(Estimated)';
 
     // Sum walking-leg distances and add the fixed shuttle leg constant
     // directly — the '≈ 7 km' display string is not parseable by the regex.
-    const int _shuttleDistanceMeters = 7000;
-    final totalMeters =
-        walkIn.legs.fold<int>(0, (s, l) => s + _parseDistanceMeters(l.distanceText))
-        + _shuttleDistanceMeters
-        + walkOut.legs.fold<int>(0, (s, l) => s + _parseDistanceMeters(l.distanceText));
+    const int shuttleDistanceMeters = 7000;
+    final totalMeters = walkIn.legs.fold<int>(
+            0, (s, l) => s + _parseDistanceMeters(l.distanceText)) +
+        shuttleDistanceMeters +
+        walkOut.legs.fold<int>(
+            0, (s, l) => s + _parseDistanceMeters(l.distanceText));
     final totalKm = totalMeters / 1000.0;
     final totalDistanceText = '${totalKm.toStringAsFixed(1)} km';
 
     return ShuttleRouteResult(
       routeResult: RouteResult(
-        legs:         allLegs,
+        legs: allLegs,
         durationText: '$totalMin min $etaSuffix',
         distanceText: totalDistanceText,
       ),
-      etaType:     etaType,
+      etaType: etaType,
       waitMinutes: waitMinutes,
     );
   }
