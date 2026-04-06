@@ -11,13 +11,15 @@ import 'package:proj/services/auth/user_profile_service.dart';
 
 class MockUserProfileService extends Mock implements UserProfileService {}
 
-  class FakeAuthService extends AuthService {
+class MockAuthService extends Mock implements AuthService {}
+
+class FakeAuthService extends AuthService {
   FakeAuthService({
-  this.signInThrows,
-  this.signUpThrows,
+    this.signInThrows,
+    this.signUpThrows,
   }) : super(
-  auth: MockFirebaseAuth(),
-  profileService: MockUserProfileService(),
+    auth: MockFirebaseAuth(),
+    profileService: MockUserProfileService(),
   );
 
   final Object? signInThrows;
@@ -26,81 +28,172 @@ class MockUserProfileService extends Mock implements UserProfileService {}
 
   @override
   Future<AppUser> signIn({
-  required String email,
-  required String password,
+    required String email,
+    required String password,
   }) async {
-  if (signInThrows != null) throw signInThrows!;
-  return const AppUser(
-  uid: 'u1',
-  email: 'ok@test.com',
-  role: UserRole.user,
-  firstName: 'Ok',
-  lastName: 'User',
-  isGuest: false,
-  );
+    if (signInThrows != null) throw signInThrows!;
+    return const AppUser(
+      uid: 'u1',
+      email: 'ok@test.com',
+      role: UserRole.user,
+      firstName: 'Ok',
+      lastName: 'User',
+      isGuest: false,
+    );
   }
 
   @override
   Future<AppUser> signUp({
-  required String email,
-  required String password,
-  required String firstName,
-  required String lastName,
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
   }) async {
-  if (signUpThrows != null) throw signUpThrows!;
-  return AppUser(
-  uid: 'u2',
-  email: email,
-  role: UserRole.user,
-  firstName: firstName,
-  lastName: lastName,
-  isGuest: false,
-  );
+    if (signUpThrows != null) throw signUpThrows!;
+    return AppUser(
+      uid: 'u2',
+      email: email,
+      role: UserRole.user,
+      firstName: firstName,
+      lastName: lastName,
+      isGuest: false,
+    );
   }
 
   @override
   Future<AppUser> continueAsGuest() async {
-  continueAsGuestCalled = true;
-  return AppUser.guest();
+    continueAsGuestCalled = true;
+    return AppUser.guest();
   }
-  }
+}
 
-  void main() {
 
+void main() {
   late AuthService authService;
   late MockUserProfileService mockProfile;
 
   setUp(() {
-  final mockAuth = MockFirebaseAuth();
-  mockProfile = MockUserProfileService();
+    final mockAuth = MockFirebaseAuth();
+    mockProfile = MockUserProfileService();
 
-  when(() => mockProfile.createUserProfile(
-  uid: any(named: 'uid'),
-  email: any(named: 'email'),
-  firstName: any(named: 'firstName'),
-  lastName: any(named: 'lastName'),
-  )).thenAnswer((_) async {});
-  when(() => mockProfile.getUserProfile(any())).thenAnswer((_) async => throw Exception('not used'));
+    when(() => mockProfile.createUserProfile(
+      uid: any(named: 'uid'),
+      email: any(named: 'email'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
+    )).thenAnswer((_) async {});
+    when(() => mockProfile.getUserProfile(any())).thenAnswer((_) async => throw Exception('not used'));
 
-  authService = AuthService(
-  auth: mockAuth,
-  profileService: mockProfile,
-  );
+    authService = AuthService(
+      auth: mockAuth,
+      profileService: mockProfile,
+    );
+  });
+
+  setUpAll(() {
+    registerFallbackValue(UserRole.user);
   });
 
   testWidgets('LoginScreen renders controls', (tester) async {
-  await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: authService)));
-  expect(find.byType(TextField), findsNWidgets(2));
-  expect(find.text('Login'), findsOneWidget);
-  expect(find.text('Create account'), findsOneWidget);
-  expect(find.text('Continue as Guest'), findsOneWidget);
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: authService)));
+    expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('Continue as Guest'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen shows "Incorrect email or password" for invalid-credential', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signIn(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+    )).thenThrow(Exception('[firebase_auth/invalid-credential] bad creds'));
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: mock)));
+    await tester.tap(find.text('Login'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Incorrect email or password.'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen shows error for invalid-email', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signIn(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+    )).thenThrow(Exception('[firebase_auth/invalid-email]'));
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: mock)));
+    await tester.tap(find.text('Login'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Please enter a valid email.'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen shows error for user-not-found', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signIn(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+    )).thenThrow(Exception('[firebase_auth/user-not-found]'));
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: mock)));
+    await tester.tap(find.text('Login'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No account found for this email.'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen shows error for wrong-password', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signIn(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+    )).thenThrow(Exception('[firebase_auth/wrong-password]'));
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: mock)));
+    await tester.tap(find.text('Login'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Incorrect email or password.'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen shows generic error for unknown exception', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signIn(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+    )).thenThrow(Exception('some unknown error'));
+
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(authService: mock)));
+    await tester.tap(find.text('Login'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unable to sign in right now. Please try again.'), findsOneWidget);
+  });
+
+  testWidgets('LoginScreen calls continueAsGuest when Continue as Guest is tapped', (tester) async {
+    final mock = MockAuthService();
+    bool called = false;
+    when(() => mock.continueAsGuest()).thenAnswer((_) async {
+      called = true;
+      return AppUser.guest();
+    });
+
+    await tester.pumpWidget(MaterialApp(
+      home: LoginScreen(authService: mock, onGuestContinue: () {}),
+    ));
+    await tester.tap(find.text('Continue as Guest'));
+    await tester.pumpAndSettle();
+
+    expect(called, isTrue);
   });
 
   testWidgets('RegisterScreen renders controls', (tester) async {
-  await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: authService)));
-  expect(find.byType(TextField), findsNWidgets(4));
-  expect(find.text('First name'), findsOneWidget);
-  expect(find.text('Last name'), findsOneWidget);
+    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: authService)));
+    expect(find.byType(TextField), findsNWidgets(4));
+    expect(find.text('First name'), findsOneWidget);
+    expect(find.text('Last name'), findsOneWidget);
   });
 
   testWidgets('LoginScreen maps auth errors to friendly messages', (tester) async {
@@ -219,4 +312,84 @@ class MockUserProfileService extends Mock implements UserProfileService {}
 
     expect(find.byType(RegisterScreen), findsNothing);
   });
-  }
+
+  testWidgets('RegisterScreen shows error for email-already-in-use', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signUp(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
+    )).thenThrow(Exception('[firebase_auth/email-already-in-use]'));
+
+    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('This email is already registered.'), findsOneWidget);
+  });
+
+  testWidgets('RegisterScreen shows error for invalid-email', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signUp(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
+    )).thenThrow(Exception('[firebase_auth/invalid-email]'));
+
+    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Please enter a valid email.'), findsOneWidget);
+  });
+
+  testWidgets('RegisterScreen shows error for weak-password', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signUp(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
+    )).thenThrow(Exception('[firebase_auth/weak-password]'));
+
+    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Password must be at least 6 characters.'), findsOneWidget);
+  });
+
+  testWidgets('RegisterScreen shows generic error for unknown exception', (tester) async {
+    final mock = MockAuthService();
+    when(() => mock.signUp(
+      email: any(named: 'email'),
+      password: any(named: 'password'),
+      firstName: any(named: 'firstName'),
+      lastName: any(named: 'lastName'),
+    )).thenThrow(Exception('something went wrong'));
+
+    await tester.pumpWidget(MaterialApp(home: RegisterScreen(authService: mock)));
+    await tester.enterText(find.byType(TextField).at(0), 'Sam');
+    await tester.enterText(find.byType(TextField).at(1), 'User');
+    await tester.enterText(find.byType(TextField).at(2), 'sam@test.com');
+    await tester.enterText(find.byType(TextField).at(3), '123456');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unable to create account right now. Please try again.'), findsOneWidget);
+  });
+}

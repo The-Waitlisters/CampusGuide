@@ -51,8 +51,6 @@ class ScheduleLookupService {
     return result.map<CourseScheduleEntry>((dynamic item) {
       final map = item as Map<String, dynamic>;
 
-
-
       final String subject = _str(map, 'subject');
       final String catalog = _str(map, 'catalog');
       final String section = _str(map, 'section');
@@ -67,13 +65,8 @@ class ScheduleLookupService {
 
       final String campus = _str(map, 'locationCode');
 
-      final String startTime = _formatConcordiaTime(
-        _str(map, 'classStartTime'),
-      );
-
-      final String endTime = _formatConcordiaTime(
-        _str(map, 'classEndTime'),
-      );
+      final String startTime = _formatConcordiaTime(_str(map, 'classStartTime'),);
+      final String endTime = _formatConcordiaTime(_str(map, 'classEndTime'),);
 
       return CourseScheduleEntry(
         courseCode: '$subject $catalog',
@@ -88,39 +81,17 @@ class ScheduleLookupService {
     }).toList();
   }
 
-  String _extractDayText(Map<String, dynamic> map)
-  {
+  String _extractDayText(Map<String, dynamic> map) {
     final List<String> days = <String>[];
 
-    if (_str(map, 'mondays') == 'Y')
-    {
-      days.add('Mon');
-    }
-    if (_str(map, 'tuesdays') == 'Y')
-    {
-      days.add('Tue');
-    }
-    if (_str(map, 'wednesdays') == 'Y')
-    {
-      days.add('Wed');
-    }
-    if (_str(map, 'thursdays') == 'Y')
-    {
-      days.add('Thu');
-    }
+    if (_str(map, 'mondays') == 'Y') { days.add('Mon'); }
+    if (_str(map, 'tuesdays') == 'Y') { days.add('Tue'); }
+    if (_str(map, 'wednesdays') == 'Y') { days.add('Wed'); }
+    if (_str(map, 'thursdays') == 'Y') { days.add('Thu'); }
     // coverage:ignore-start
-    if (_str(map, 'fridays') == 'Y')
-    {
-      days.add('Fri');
-    }
-    if (_str(map, 'saturdays') == 'Y')
-    {
-      days.add('Sat');
-    }
-    if (_str(map, 'sundays') == 'Y')
-    {
-      days.add('Sun');
-    }
+    if (_str(map, 'fridays') == 'Y') { days.add('Fri'); }
+    if (_str(map, 'saturdays') == 'Y') { days.add('Sat'); }
+    if (_str(map, 'sundays') == 'Y') { days.add('Sun'); }
     // coverage:ignore-end
 
     return days.join(' - ');
@@ -145,8 +116,7 @@ class ScheduleLookupService {
     return '$hour:$minute';
   }
 
-  String _str(Map<String, dynamic> map, String key)
-  {
+  String _str(Map<String, dynamic> map, String key) {
     return '${map[key] ?? ''}'.trim();
   }
 }

@@ -1,88 +1,108 @@
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
-/// What the UI needs after route generation
+// ---------------------------------------------------------------------------
+// LegMode
+// ---------------------------------------------------------------------------
+
+enum LegMode { walking, cycling, driving, transit, shuttle }
+
+// ---------------------------------------------------------------------------
+// RouteLeg — one segment of a multi-modal route
+// ---------------------------------------------------------------------------
+
+@immutable
+class RouteLeg {
+  const RouteLeg({
+    required this.polylinePoints,
+    required this.legMode,
+    required this.durationSeconds,
+    required this.durationText,
+    required this.distanceText,
+    this.transitColor,
+    this.lineName,
+  });
+
+  final List<LatLng> polylinePoints;
+  final LegMode legMode;
+  final int durationSeconds;
+  final String durationText;
+  final String distanceText;
+  final Color? transitColor;  // Transit brand color from Google API
+  final String? lineName;     // e.g. "105", "Green Line"
+}
+
+// ---------------------------------------------------------------------------
+// RouteResult
+// ---------------------------------------------------------------------------
+
 @immutable
 class RouteResult {
   const RouteResult({
-    required this.polylinePoints,
+    required this.legs,
     required this.durationText,
     required this.distanceText,
   });
 
-  final List<LatLng> polylinePoints;
-  final String durationText; // e.g. "12 min"
-  final String distanceText; // e.g. "0.9 km"
+  final List<RouteLeg> legs;
+  final String durationText;
+  final String distanceText;
+
+  List<LatLng> get polylinePoints =>
+      legs.expand((l) => l.polylinePoints).toList();
 }
 
-// Single source of truth for mode param strings (used by strategies, UI list, and mapping).
-const String kModeWalking = 'walking';
-const String kModeBicycling = 'bicycling';
-const String kModeDriving = 'driving';
-const String kModeTransit = 'transit';
-const String kModeShuttle = 'shuttle';
+// ---------------------------------------------------------------------------
+// Mode param constants — single source of truth
+// ---------------------------------------------------------------------------
 
-/// Ordered list of transport modes for UI (e.g. direction chip list). Single source for labels + modeParam.
+const String kModeWalking   = 'walking';
+const String kModeBicycling = 'bicycling';
+const String kModeDriving   = 'driving';
+const String kModeTransit   = 'transit';
+const String kModeShuttle   = 'shuttle';
+
+/// Ordered list used by the UI chip row.
 const List<({String label, String modeParam})> kTransportModes = [
-  (label: 'Walk', modeParam: kModeWalking),
-  (label: 'Bike', modeParam: kModeBicycling),
-  (label: 'Drive', modeParam: kModeDriving),
+  (label: 'Walk',    modeParam: kModeWalking),
+  (label: 'Bike',    modeParam: kModeBicycling),
+  (label: 'Drive',   modeParam: kModeDriving),
   (label: 'Transit', modeParam: kModeTransit),
   (label: 'Shuttle', modeParam: kModeShuttle),
 ];
 
-/// Returns the strategy for the given [modeParam]. Defaults to Walk if unknown.
 TransportModeStrategy strategyForModeParam(String modeParam) {
   switch (modeParam) {
-    case kModeBicycling:
-      return BikeStrategy();
-    case kModeDriving:
-      return DriveStrategy();
-    case kModeTransit:
-      return MetroStrategy();
-    case kModeShuttle:
-      return ShuttleStrategy();
+    case kModeBicycling: return BikeStrategy();
+    case kModeDriving:   return DriveStrategy();
+    case kModeTransit:   return MetroStrategy();
+    case kModeShuttle:   return ShuttleStrategy();
     case kModeWalking:
-    default:
-      return WalkStrategy();
+    default:             return WalkStrategy();
   }
 }
 
-/// Strategy: each mode maps to a google directions mode string
+// ---------------------------------------------------------------------------
+// Strategies
+// ---------------------------------------------------------------------------
+
 abstract class TransportModeStrategy {
-  String get modeParam; // e.g. driving, walking, bicycling, transit
+  String get modeParam;
 }
 
-class WalkStrategy implements TransportModeStrategy {
-  @override
-  String get modeParam => kModeWalking;
-}
+class WalkStrategy    implements TransportModeStrategy { @override String get modeParam => kModeWalking;   }
+class BikeStrategy    implements TransportModeStrategy { @override String get modeParam => kModeBicycling; }
+class DriveStrategy   implements TransportModeStrategy { @override String get modeParam => kModeDriving;   }
+class MetroStrategy   implements TransportModeStrategy { @override String get modeParam => kModeTransit;   }
+class ShuttleStrategy implements TransportModeStrategy { @override String get modeParam => kModeShuttle;   }
 
-class BikeStrategy implements TransportModeStrategy {
-  @override
-  String get modeParam => kModeBicycling;
-}
+// ---------------------------------------------------------------------------
+// DirectionsClient
+// ---------------------------------------------------------------------------
 
-class DriveStrategy implements TransportModeStrategy {
-  @override
-  String get modeParam => kModeDriving;
-}
-
-class MetroStrategy implements TransportModeStrategy {
-  @override
-  String get modeParam => kModeTransit;
-}
-
-/// Shuttle mode: campus shuttle routing (not yet implemented).
-/// Does not call Directions API; shows placeholder in UI instead.
-class ShuttleStrategy implements TransportModeStrategy {
-  @override
-  String get modeParam => kModeShuttle;
-}
-
-/// Abstraction for testability & decoupling from Google API
 abstract class DirectionsClient {
   Future<RouteResult> getRoute({
     required LatLng origin,
@@ -91,13 +111,13 @@ abstract class DirectionsClient {
   });
 }
 
-/// Concrete client using Google Directions API (REST).
-/// NOTE: Don’t hardcode keys. Inject from secure config.
+// ---------------------------------------------------------------------------
+// GoogleDirectionsClient
+// ---------------------------------------------------------------------------
+
 class GoogleDirectionsClient implements DirectionsClient {
-  GoogleDirectionsClient({
-    required this.apiKey,
-    http.Client? httpClient,
-  }) : _http = httpClient ?? http.Client();
+  GoogleDirectionsClient({required this.apiKey, http.Client? httpClient})
+      : _http = httpClient ?? http.Client();
 
   final String apiKey;
   final http.Client _http;
@@ -108,14 +128,17 @@ class GoogleDirectionsClient implements DirectionsClient {
     required LatLng destination,
     required TransportModeStrategy mode,
   }) async {
+    assert(mode.modeParam != kModeShuttle,
+    'Shuttle routes must go through ShuttleRouteBuilder.');
+
     final uri = Uri.https(
       'maps.googleapis.com',
       '/maps/api/directions/json',
-      <String, String>{
-        'origin': '${origin.latitude},${origin.longitude}',
+      {
+        'origin':      '${origin.latitude},${origin.longitude}',
         'destination': '${destination.latitude},${destination.longitude}',
-        'mode': mode.modeParam,
-        'key': apiKey,
+        'mode':        mode.modeParam,
+        'key':         apiKey,
       },
     );
 
@@ -124,62 +147,124 @@ class GoogleDirectionsClient implements DirectionsClient {
       throw Exception('Directions HTTP ${resp.statusCode}');
     }
 
-    final jsonBody = json.decode(resp.body) as Map<String, dynamic>;
-    final status = (jsonBody['status'] ?? '') as String;
-
+    final body   = json.decode(resp.body) as Map<String, dynamic>;
+    final status = (body['status'] ?? '') as String;
     if (status != 'OK') {
-      final msg = (jsonBody['error_message'] ?? status).toString();
-      throw Exception('Directions error: $msg');
+      throw Exception('Directions error: ${body['error_message'] ?? status}');
     }
 
-    final routes = (jsonBody['routes'] as List).cast<Map<String, dynamic>>();
+    final routes = (body['routes'] as List).cast<Map<String, dynamic>>();
     final route0 = routes.first;
-
-    final legs = (route0['legs'] as List).cast<Map<String, dynamic>>();
-    final leg0 = legs.first;
+    final legs   = (route0['legs'] as List).cast<Map<String, dynamic>>();
+    final leg0   = legs.first;
 
     final durationText = (leg0['duration'] as Map)['text'].toString();
     final distanceText = (leg0['distance'] as Map)['text'].toString();
 
-    final polyline = (route0['overview_polyline'] as Map)['points'].toString();
-    final points = decodePolyline(polyline);
+    // Transit: parse each step as a separate leg (walk + vehicle legs).
+    if (mode.modeParam == kModeTransit) {
+      final steps = (leg0['steps'] as List).cast<Map<String, dynamic>>();
+      return RouteResult(
+        legs:         steps.map(_stepToLeg).toList(),
+        durationText: durationText,
+        distanceText: distanceText,
+      );
+    }
+
+    // All other modes: single leg from the overview polyline.
+    final durationSeconds =
+        ((leg0['duration'] as Map)['value'] as num?)?.toInt() ?? 0;
+    final encoded =
+    (route0['overview_polyline'] as Map)['points'].toString();
 
     return RouteResult(
-      polylinePoints: points,
+      legs: [
+        RouteLeg(
+          polylinePoints:  decodePolyline(encoded),
+          legMode:         _modeToLegMode(mode.modeParam),
+          durationSeconds: durationSeconds,
+          durationText:    durationText,
+          distanceText:    distanceText,
+        ),
+      ],
       durationText: durationText,
       distanceText: distanceText,
     );
   }
+
+  // ---- helpers -------------------------------------------------------------
+
+  static RouteLeg _stepToLeg(Map<String, dynamic> step) {
+    final travelMode = (step['travel_mode'] as String?)?.toUpperCase() ?? 'WALKING';
+    final legMode    = travelMode == 'TRANSIT' ? LegMode.transit : LegMode.walking;
+
+    final dur     = step['duration'] as Map?;
+    final durText = dur?['text']?.toString() ?? '';
+    final durSec  = (dur?['value'] as num?)?.toInt() ?? 0;
+    final distTxt = (step['distance'] as Map?)?['text']?.toString() ?? '';
+    final encoded = (step['polyline'] as Map?)?['points']?.toString() ?? '';
+
+    Color? transitColor;
+    String? lineName;
+
+    if (legMode == LegMode.transit) {
+      final details = step['transit_details'] as Map<String, dynamic>?;
+      final line    = details?['line'] as Map<String, dynamic>?;
+      final hex     = line?['color'] as String?;
+      if (hex != null) transitColor = _hexColor(hex);
+      lineName = (line?['short_name'] ?? line?['name']) as String?;
+    }
+
+    return RouteLeg(
+      polylinePoints:  decodePolyline(encoded),
+      legMode:         legMode,
+      durationSeconds: durSec,
+      durationText:    durText,
+      distanceText:    distTxt,
+      transitColor:    transitColor,
+      lineName:        lineName,
+    );
+  }
+
+  static LegMode _modeToLegMode(String p) {
+    switch (p) {
+      case kModeBicycling: return LegMode.cycling;
+      case kModeDriving:   return LegMode.driving;
+      case kModeTransit:   return LegMode.transit;
+      default:             return LegMode.walking;
+    }
+  }
+
+  static Color _hexColor(String hex) {
+    final c = hex.replaceAll('#', '');
+    if (c.length == 6) return Color(int.parse('FF$c', radix: 16));
+    return const Color(0xFF1A73E8);
+  }
 }
 
-/// Google encoded polyline decoder
-List<LatLng> decodePolyline(String encoded) {
-  final List<LatLng> points = [];
-  int index = 0;
-  int lat = 0;
-  int lng = 0;
+// ---------------------------------------------------------------------------
+// Polyline decoder
+// ---------------------------------------------------------------------------
 
-  while (index < encoded.length) {
+List<LatLng> decodePolyline(String encoded) {
+  final pts = <LatLng>[];
+  int i = 0, lat = 0, lng = 0;
+  while (i < encoded.length) {
     int b, shift = 0, result = 0;
     do {
-      b = encoded.codeUnitAt(index++) - 63;
+      b = encoded.codeUnitAt(i++) - 63;
       result |= (b & 0x1f) << shift;
       shift += 5;
     } while (b >= 0x20);
-    final dlat = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-    lat += dlat;
-
-    shift = 0;
-    result = 0;
+    lat += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
     do {
-      b = encoded.codeUnitAt(index++) - 63;
+      b = encoded.codeUnitAt(i++) - 63;
       result |= (b & 0x1f) << shift;
       shift += 5;
     } while (b >= 0x20);
-    final dlng = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-    lng += dlng;
-
-    points.add(LatLng(lat / 1e5, lng / 1e5));
+    lng += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    pts.add(LatLng(lat / 1e5, lng / 1e5));
   }
-  return points;
+  return pts;
 }

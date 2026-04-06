@@ -28,6 +28,7 @@ void main() {
         ScheduleResultTile(
           entry: buildEntry(room: 'H-937'),
           onTap: () {},
+          onAddToSchedule: () {  },
         ),
       ),
     );
@@ -42,6 +43,7 @@ void main() {
         ScheduleResultTile(
           entry: buildEntry(room: ''),
           onTap: () {},
+          onAddToSchedule: () {  },
         ),
       ),
     );
@@ -59,11 +61,12 @@ void main() {
           onTap: () {
             tapCount++;
           },
+          onAddToSchedule: () {  },
         ),
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byType(InkWell).first);
     await tester.pump();
 
     expect(tapCount, 1);
@@ -79,11 +82,12 @@ void main() {
           onTap: () {
             tapCount++;
           },
+          onAddToSchedule: () {  },
         ),
       ),
     );
 
-    await tester.tap(find.byType(InkWell));
+    await tester.tap(find.byType(InkWell).first);
     await tester.pump();
 
     expect(tapCount, 0);

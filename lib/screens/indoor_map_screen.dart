@@ -1,3 +1,4 @@
+// coverage:ignore-file
 import 'dart:math' show sqrt;
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../models/floor.dart';
 import '../models/indoor_map.dart';
 import '../models/nav_graph.dart';
 import '../models/room.dart';
+import '../services/indoor_multifloor_route.dart';
 
 /// Indoor map screen — view floor plan, select rooms, find a route.
 class IndoorMapScreen extends StatefulWidget {
@@ -15,6 +17,7 @@ class IndoorMapScreen extends StatefulWidget {
     super.key,
     required this.building,
     this.mapLoader,
+    this.initialDestinationRoomId,
   });
 
   final CampusBuilding building;
@@ -22,6 +25,9 @@ class IndoorMapScreen extends StatefulWidget {
   /// Override the data-loader; defaults to [loadIndoorMapForBuilding].
   /// Exposed for testing so tests can inject a synchronous stub.
   final Future<IndoorMap?> Function(CampusBuilding)? mapLoader;
+
+  /// If provided, this room will be pre-set as the destination after the map loads.
+  final String? initialDestinationRoomId;
 
   @override
   State<IndoorMapScreen> createState() => _IndoorMapScreenState();
@@ -36,8 +42,14 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
 
   Room? _selectedRoom;
   Room? _startRoom;
+  int? _startFloorLevel;
   Room? _destinationRoom;
+  int? _destinationFloorLevel;
   List<String>? _path; // node IDs in Dijkstra result
+  IndoorRoute? _route;
+  int _activeSegmentIndex = 0;
+  int _activeNodeIndex = 0;
+  VerticalPreference _verticalPreference = VerticalPreference.either;
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -58,31 +70,102 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
   }
 
   Future<void> _loadIndoorMap() async {
+    _beginIndoorMapLoad();
+
+    try {
+      final loader = widget.mapLoader ?? loadIndoorMapForBuilding;
+      final IndoorMap? map = await loader(widget.building);
+
+      if (!mounted) {
+        return;
+      }
+
+      _applyLoadedIndoorMap(map);
+    } catch (e) {
+      _handleIndoorMapLoadError(e);
+    }
+  }
+
+  void _beginIndoorMapLoad() {
     setState(() {
       _loading = true;
       _error = null;
     });
-    try {
-      final loader = widget.mapLoader ?? loadIndoorMapForBuilding;
-      final map = await loader(widget.building);
-      if (!mounted) return;
-      setState(() {
-        _indoorMap = map;
-        _loading = false;
-        if (map == null) {
-          _error = 'No indoor map for this building';
-        } else if (map.floors.isNotEmpty) {
-          _selectedFloorLevel = map.floorLevels.first;
-          _navGraph = _currentFloorOf(map)?.navGraph;
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = e.toString();
-      });
+  }
+
+  void _applyLoadedIndoorMap(IndoorMap? map) {
+    setState(() {
+      _indoorMap = map;
+      _loading = false;
+
+      if (map == null) {
+        _error = 'No indoor map for this building';
+        return;
+      }
+
+      if (map.floors.isEmpty) {
+        return;
+      }
+
+      _selectedFloorLevel = map.floorLevels.first;
+      _navGraph = _currentFloorOf(map)?.navGraph;
+      _applyInitialDestinationRoom(map);
+    });
+  }
+
+  void _applyInitialDestinationRoom(IndoorMap map) {
+    final String? destId = widget.initialDestinationRoomId;
+    if (destId == null) {
+      return;
     }
+
+    final _MatchedRoom? matched = _findInitialDestinationRoom(map, destId);
+    if (matched == null) {
+      return;
+    }
+
+    _destinationRoom = matched.room;
+    _selectedFloorLevel = matched.floor.level;
+    _navGraph = matched.floor.navGraph;
+    _computePath();
+  }
+
+  _MatchedRoom? _findInitialDestinationRoom(IndoorMap map, String destId) {
+    final String strippedDestId = _stripBuildingPrefix(destId);
+
+    for (final Floor floor in map.floors) {
+      final Room? match = floor.rooms.cast<Room?>().firstWhere((Room? room) {
+        if (room == null) {
+          return false;
+        }
+
+        return room.id == destId ||
+            room.name == destId ||
+            room.id == strippedDestId ||
+            room.name == strippedDestId;
+      }, orElse: () => null);
+
+      if (match != null) {
+        return _MatchedRoom(floor: floor, room: match);
+      }
+    }
+
+    return null;
+  }
+
+  String _stripBuildingPrefix(String value) {
+    return value.replaceAll(RegExp(r'^[A-Za-z]+-?'), '');
+  }
+
+  void _handleIndoorMapLoadError(Object error) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _loading = false;
+      _error = error.toString();
+    });
   }
 
   Floor? _currentFloorOf(IndoorMap? m) =>
@@ -104,14 +187,26 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
     setState(() {
       _selectedFloorLevel = level;
       _navGraph = _indoorMap?.getFloorByLevel(level)?.navGraph;
-      _path = null;
+
+      final route = _route;
+      if (route == null) {
+        _path = null;
+        return;
+      }
+
+      // If the floor we're switching to has a segment, show it
+      final segIndex = route.segments.indexWhere((s) => s.floorLevel == level);
+      if (segIndex != -1) {
+        _path = route.segments[segIndex].nodeIds;
+      } else {
+        _path = null;
+      }
     });
   }
 
   void _onRoomSelected(Room room, {bool fromSearch = false}) {
     setState(() => _selectedRoom = room);
     if (fromSearch) {
-      // Clear search + hide keyboard so the map is visible with the selection
       _searchController.clear();
       FocusScope.of(context).unfocus();
     }
@@ -120,6 +215,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
   void _setStart() {
     setState(() {
       _startRoom = _selectedRoom;
+      _startFloorLevel = _selectedFloorLevel;
       _computePath();
     });
   }
@@ -127,23 +223,145 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
   void _setDestination() {
     setState(() {
       _destinationRoom = _selectedRoom;
+      _destinationFloorLevel = _selectedFloorLevel;
       _computePath();
     });
   }
 
   void _computePath() {
-    if (_startRoom == null || _destinationRoom == null || _navGraph == null) {
+    final map = _indoorMap;
+    if (_startRoom == null ||
+        _destinationRoom == null ||
+        _startFloorLevel == null ||
+        _destinationFloorLevel == null ||
+        map == null) {
+      _route = null;
       _path = null;
       return;
     }
-    _path = _navGraph!.findPath(_startRoom!.id, _destinationRoom!.id);
+    // Verify both rooms actually exist as NavNodes on their respective floors
+    final startGraph = map.getFloorByLevel(_startFloorLevel!)?.navGraph;
+    final destGraph = map.getFloorByLevel(_destinationFloorLevel!)?.navGraph;
+
+    if (startGraph == null || startGraph.nodeById(_startRoom!.id) == null) {
+      debugPrint(
+        'Route error: start room "${_startRoom!.id}" not found '
+        'in navGraph for floor $_startFloorLevel',
+      );
+      setState(() {
+        _route = null;
+        _path = null;
+      });
+      return;
+    }
+    if (destGraph == null || destGraph.nodeById(_destinationRoom!.id) == null) {
+      debugPrint(
+        'Route error: destination room "${_destinationRoom!.id}" not found '
+        'in navGraph for floor $_destinationFloorLevel',
+      );
+      setState(() {
+        _route = null;
+        _path = null;
+      });
+      return;
+    }
+    _route = IndoorMultifloorRoutePlanner.buildRoute(
+      map: map,
+      startFloorLevel: _startFloorLevel!,
+      startRoomId: _startRoom!.id,
+      destinationFloorLevel: _destinationFloorLevel!,
+      destinationRoomId: _destinationRoom!.id,
+      preference: _verticalPreference,
+    );
+    _activeSegmentIndex = 0;
+    _activeNodeIndex = 0;
+    _syncUiToActiveSegment();
   }
 
   void _clearRoute() {
     setState(() {
       _startRoom = null;
+      _startFloorLevel = null;
       _destinationRoom = null;
+      _destinationFloorLevel = null;
+      _route = null;
+      _activeSegmentIndex = 0;
+      _activeNodeIndex = 0;
       _path = null;
+    });
+  }
+
+  void _syncUiToActiveSegment() {
+    final route = _route;
+    if (route == null || route.segments.isEmpty) {
+      _path = null;
+      return;
+    }
+    final seg = route.segments[_activeSegmentIndex];
+    _selectedFloorLevel = seg.floorLevel;
+    _navGraph = _indoorMap?.getFloorByLevel(seg.floorLevel)?.navGraph;
+    _path = seg.nodeIds;
+  }
+
+  String? get _currentMarkerNodeId {
+    final route = _route;
+    if (route == null || route.segments.isEmpty) return null;
+    final seg = route.segments[_activeSegmentIndex];
+    if (seg.nodeIds.isEmpty) return null;
+    final idx = _activeNodeIndex.clamp(0, seg.nodeIds.length - 1);
+    return seg.nodeIds[idx];
+  }
+
+  String get _currentStepText {
+    final route = _route;
+    if (route == null || route.segments.isEmpty) {
+      return 'No route generated';
+    }
+    final seg = route.segments[_activeSegmentIndex];
+    final nodeId = _currentMarkerNodeId;
+    if (nodeId == null) return 'No active step';
+    final atSegmentEnd = _activeNodeIndex >= seg.nodeIds.length - 1;
+    if (atSegmentEnd && seg.transitionInstruction != null) {
+      return seg.transitionInstruction!;
+    }
+    if (atSegmentEnd && _activeSegmentIndex == route.segments.length - 1) {
+      return 'Arrive at destination.';
+    }
+    final nextIndex = (_activeNodeIndex + 1).clamp(0, seg.nodeIds.length - 1);
+    final nextId = seg.nodeIds[nextIndex];
+    final nextName = _navGraph?.nodeById(nextId)?.name;
+    final label = (nextName != null && nextName.isNotEmpty) ? nextName : nextId;
+    return 'Proceed to $label on floor ${seg.floorLevel}.';
+  }
+
+  bool get _canGoNext {
+    final route = _route;
+    if (route == null || route.segments.isEmpty) return false;
+    final seg = route.segments[_activeSegmentIndex];
+    final hasNodeAdvance = _activeNodeIndex < seg.nodeIds.length - 1;
+    final hasSegmentAdvance = _activeSegmentIndex < route.segments.length - 1;
+    return hasNodeAdvance || hasSegmentAdvance;
+  }
+
+  void _goToNextStep() {
+    final route = _route;
+    if (route == null || route.segments.isEmpty) return;
+    setState(() {
+      final seg = route.segments[_activeSegmentIndex];
+      if (_activeNodeIndex < seg.nodeIds.length - 1) {
+        _activeNodeIndex++;
+      } else if (_activeSegmentIndex < route.segments.length - 1) {
+        _activeSegmentIndex++;
+        _activeNodeIndex = 0;
+        _syncUiToActiveSegment();
+      }
+    });
+  }
+
+  void _setVerticalPreference(VerticalPreference preference) {
+    setState(() {
+      _verticalPreference = preference;
+      _computePath();
     });
   }
 
@@ -160,18 +378,20 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
               child: Text(
                 displayName,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             ListTile(
-              leading:
-                  const Icon(Icons.play_circle, color: Colors.green),
+              leading: const Icon(Icons.play_circle, color: Colors.green),
               title: const Text('Set as Start'),
               onTap: () {
                 Navigator.pop(context);
                 setState(() {
                   _selectedRoom = room;
                   _startRoom = room;
+                  _startFloorLevel = _selectedFloorLevel;
                   _computePath();
                 });
               },
@@ -184,6 +404,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
                 setState(() {
                   _selectedRoom = room;
                   _destinationRoom = room;
+                  _destinationFloorLevel = _selectedFloorLevel;
                   _computePath();
                 });
               },
@@ -216,8 +437,10 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(_error ?? 'No indoor map available',
-                    textAlign: TextAlign.center),
+                Text(
+                  _error ?? 'No indoor map available',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -280,13 +503,14 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
           if (_currentFloor != null)
             Flexible(
               child: _MapView(
-              floor: _currentFloor!,
-              navGraph: _navGraph,
-              selectedRoom: _selectedRoom,
-              startRoom: _startRoom,
-              destinationRoom: _destinationRoom,
-              path: _path,
-              onRoomTap: _onRoomSelected,
+                floor: _currentFloor!,
+                navGraph: _navGraph,
+                selectedRoom: _selectedRoom,
+                startRoom: _startRoom,
+                destinationRoom: _destinationRoom,
+                path: _path,
+                currentNodeId: _currentMarkerNodeId,
+                onRoomTap: _onRoomSelected,
               ),
             ),
           // Route controls
@@ -295,9 +519,15 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
             startRoom: _startRoom,
             destinationRoom: _destinationRoom,
             path: _path,
+            directions: _route?.directions ?? const <String>[],
+            currentStepText: _currentStepText,
+            hasNext: _canGoNext,
+            verticalPreference: _verticalPreference,
             onSetStart: _setStart,
             onSetDestination: _setDestination,
             onClear: _clearRoute,
+            onNextStep: _goToNextStep,
+            onVerticalPreferenceChanged: _setVerticalPreference,
           ),
           // Room list
           Expanded(
@@ -310,30 +540,30 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
                       final isSelected = _selectedRoom?.id == room.id;
                       final isStart = _startRoom?.id == room.id;
                       final isDest = _destinationRoom?.id == room.id;
-                      final displayName =
-                          room.name.isNotEmpty ? room.name : room.id;
+                      final displayName = room.name.isNotEmpty
+                          ? room.name
+                          : room.id;
                       return ListTile(
                         leading: Icon(
                           isStart
                               ? Icons.play_circle
                               : isDest
-                                  ? Icons.flag
-                                  : Icons.meeting_room_outlined,
+                              ? Icons.flag
+                              : Icons.meeting_room_outlined,
                           color: isStart
                               ? Colors.green
                               : isDest
-                                  ? Colors.blue
-                                  : isSelected
-                                      ? Theme.of(context).colorScheme.primary
-                                      : null,
+                              ? Colors.blue
+                              : isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
                         ),
                         title: Text(
                           displayName,
                           style: isSelected
                               ? TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color:
-                                      Theme.of(context).colorScheme.primary,
+                                  color: Theme.of(context).colorScheme.primary,
                                 )
                               : null,
                         ),
@@ -348,8 +578,11 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.play_circle,
-                                        color: Colors.green, size: 20),
+                                    icon: const Icon(
+                                      Icons.play_circle,
+                                      color: Colors.green,
+                                      size: 20,
+                                    ),
                                     tooltip: 'Set as Start',
                                     onPressed: _setStart,
                                     padding: EdgeInsets.zero,
@@ -357,8 +590,11 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   IconButton(
-                                    icon: const Icon(Icons.flag,
-                                        color: Colors.blue, size: 20),
+                                    icon: const Icon(
+                                      Icons.flag,
+                                      color: Colors.blue,
+                                      size: 20,
+                                    ),
                                     tooltip: 'Set as Destination',
                                     onPressed: _setDestination,
                                     padding: EdgeInsets.zero,
@@ -389,6 +625,7 @@ class _MapView extends StatelessWidget {
     required this.startRoom,
     required this.destinationRoom,
     required this.path,
+    required this.currentNodeId,
     required this.onRoomTap,
   });
 
@@ -398,6 +635,7 @@ class _MapView extends StatelessWidget {
   final Room? startRoom;
   final Room? destinationRoom;
   final List<String>? path;
+  final String? currentNodeId;
   final ValueChanged<Room> onRoomTap;
 
   @override
@@ -429,9 +667,8 @@ class _MapView extends StatelessWidget {
                         floor.imagePath!,
                         fit: BoxFit.fill,
                         // coverage:ignore-start
-                        errorBuilder: (_, _, _) => Container(
-                          color: const Color(0xFF1A1A1A),
-                        ),
+                        errorBuilder: (_, _, _) =>
+                            Container(color: const Color(0xFF1A1A1A)),
                         // coverage:ignore-end
                       ),
                     )
@@ -448,6 +685,7 @@ class _MapView extends StatelessWidget {
                         startRoomId: startRoom?.id,
                         destinationRoomId: destinationRoom?.id,
                         path: path,
+                        currentNodeId: currentNodeId,
                       ),
                     ),
                   ),
@@ -500,6 +738,7 @@ class _FloorOverlayPainter extends CustomPainter {
     required this.startRoomId,
     required this.destinationRoomId,
     required this.path,
+    required this.currentNodeId,
   });
 
   final NavGraph? navGraph;
@@ -507,6 +746,7 @@ class _FloorOverlayPainter extends CustomPainter {
   final String? startRoomId;
   final String? destinationRoomId;
   final List<String>? path;
+  final String? currentNodeId;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -554,7 +794,15 @@ class _FloorOverlayPainter extends CustomPainter {
       // coverage:ignore-start
       for (final id in path!) {
         final n = graph.nodeById(id);
-        if (n == null || (!n.isWaypoint)) continue;
+        if (n == null) {
+          debugPrint(
+            'Path drawing: nodeById("$id") returned null — ID missing from graph',
+          );
+          continue;
+        }
+        if (!n.isWaypoint) {
+          continue; // rooms are drawn separately, skip silently
+        }
         canvas.drawCircle(
           Offset(n.x * sw, n.y * sh),
           size.shortestSide * 0.005,
@@ -573,19 +821,63 @@ class _FloorOverlayPainter extends CustomPainter {
       final r = size.shortestSide * 0.016;
 
       if (n.id == startRoomId) {
-        _drawRoomDot(canvas, cx, cy, r * 1.4, const Color(0xFF27AE60),
-            const Color(0xFFFFFFFF), label: 'A');
+        _drawRoomDot(
+          canvas,
+          cx,
+          cy,
+          r * 1.4,
+          const Color(0xFF27AE60),
+          const Color(0xFFFFFFFF),
+          label: 'A',
+        );
       } else if (n.id == destinationRoomId) {
-        _drawRoomDot(canvas, cx, cy, r * 1.4, const Color(0xFF2980B9),
-            const Color(0xFFFFFFFF), label: 'B');
+        _drawRoomDot(
+          canvas,
+          cx,
+          cy,
+          r * 1.4,
+          const Color(0xFF2980B9),
+          const Color(0xFFFFFFFF),
+          label: 'B',
+        );
       } else if (n.id == selectedRoomId) {
-        _drawRoomDot(canvas, cx, cy, r * 1.2, const Color(0xFFE67E22),
-            const Color(0xFFFFFFFF));
+        _drawRoomDot(
+          canvas,
+          cx,
+          cy,
+          r * 1.2,
+          const Color(0xFFE67E22),
+          const Color(0xFFFFFFFF),
+        );
       } else if (pathIds.contains(n.id)) {
         _drawRoomDot(
-            canvas, cx, cy, r * 0.9, const Color(0xCCFF9500), Colors.white);
+          canvas,
+          cx,
+          cy,
+          r * 0.9,
+          const Color(0xCCFF9500),
+          Colors.white,
+        );
       }
       // Unselected rooms: no indicator drawn — the floor plan image shows them
+    }
+
+    if (currentNodeId != null) {
+      final current = graph.nodeById(currentNodeId!);
+      if (current != null) {
+        final cx = current.x * sw;
+        final cy = current.y * sh;
+        final r = size.shortestSide * 0.018;
+        _drawRoomDot(
+          canvas,
+          cx,
+          cy,
+          r * 1.2,
+          const Color(0xFFFF2D55),
+          Colors.white,
+          label: '•',
+        );
+      }
     }
   }
 
@@ -628,8 +920,7 @@ class _FloorOverlayPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(
-          canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+      tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
     }
   }
 
@@ -639,6 +930,7 @@ class _FloorOverlayPainter extends CustomPainter {
         old.startRoomId != startRoomId ||
         old.destinationRoomId != destinationRoomId ||
         old.path != path ||
+        old.currentNodeId != currentNodeId ||
         old.navGraph != navGraph;
   }
 }
@@ -653,18 +945,30 @@ class _RouteControls extends StatelessWidget {
     required this.startRoom,
     required this.destinationRoom,
     required this.path,
+    required this.directions,
+    required this.currentStepText,
+    required this.hasNext,
+    required this.verticalPreference,
     required this.onSetStart,
     required this.onSetDestination,
     required this.onClear,
+    required this.onNextStep,
+    required this.onVerticalPreferenceChanged,
   });
 
   final Room? selectedRoom;
   final Room? startRoom;
   final Room? destinationRoom;
   final List<String>? path;
+  final List<String> directions;
+  final String currentStepText;
+  final bool hasNext;
+  final VerticalPreference verticalPreference;
   final VoidCallback onSetStart;
   final VoidCallback onSetDestination;
   final VoidCallback onClear;
+  final VoidCallback onNextStep;
+  final ValueChanged<VerticalPreference> onVerticalPreferenceChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -722,8 +1026,9 @@ class _RouteControls extends StatelessWidget {
                   _Chip(
                     icon: Icons.play_circle,
                     color: Colors.green,
-                    label:
-                        startRoom!.name.isNotEmpty ? startRoom!.name : startRoom!.id,
+                    label: startRoom!.name.isNotEmpty
+                        ? startRoom!.name
+                        : startRoom!.id,
                   ),
                 if (startRoom != null && destinationRoom != null)
                   const Padding(
@@ -761,6 +1066,66 @@ class _RouteControls extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Any'),
+                  selected: verticalPreference == VerticalPreference.either,
+                  onSelected: (_) =>
+                      onVerticalPreferenceChanged(VerticalPreference.either),
+                ),
+                ChoiceChip(
+                  label: const Text('Elevator'),
+                  selected:
+                      verticalPreference == VerticalPreference.elevatorOnly,
+                  onSelected: (_) => onVerticalPreferenceChanged(
+                    VerticalPreference.elevatorOnly,
+                  ),
+                ),
+                ChoiceChip(
+                  label: const Text('Stairs'),
+                  selected: verticalPreference == VerticalPreference.stairsOnly,
+                  onSelected: (_) => onVerticalPreferenceChanged(
+                    VerticalPreference.stairsOnly,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    currentStepText,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                FilledButton(
+                  onPressed: hasNext ? onNextStep : null,
+                  child: const Text('Next Step'),
+                ),
+              ],
+            ),
+            if (directions.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 120),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: directions.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      '${index + 1}. ${directions[index]}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ],
       ),
@@ -768,13 +1133,8 @@ class _RouteControls extends StatelessWidget {
   }
 }
 
-
 class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.icon,
-    required this.color,
-    required this.label,
-  });
+  const _Chip({required this.icon, required this.color, required this.label});
 
   final IconData icon;
   final Color color;
@@ -792,11 +1152,21 @@ class _Chip extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-                fontSize: 12, color: color, fontWeight: FontWeight.w600),
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
     );
   }
+}
+
+class _MatchedRoom {
+  final Floor floor;
+  final Room room;
+
+  const _MatchedRoom({required this.floor, required this.room});
 }

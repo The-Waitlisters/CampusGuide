@@ -33,6 +33,7 @@ void main() {
         ScheduleResultsList(
           results: const <CourseScheduleEntry>[],
           onResultTap: (_) {},
+          onAddToSchedule: (CourseScheduleEntry value) {  },
         ),
       ),
     );
@@ -52,6 +53,7 @@ void main() {
         ScheduleResultsList(
           results: results,
           onResultTap: (_) {},
+          onAddToSchedule: (CourseScheduleEntry value) {  },
         ),
       ),
     );
@@ -75,6 +77,7 @@ void main() {
           onResultTap: (value) {
             tapped = value;
           },
+          onAddToSchedule: (CourseScheduleEntry value) {  },
         ),
       ),
     );

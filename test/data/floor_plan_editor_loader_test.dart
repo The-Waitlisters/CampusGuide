@@ -1,3 +1,4 @@
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proj/data/floor_plan_editor_loader.dart';
 
@@ -324,6 +325,35 @@ void main() {
             'edges': [],
           },
         ],
+      });
+      expect(floors.first.imagePath, isNull);
+    });
+    test('flat multi-node: edges without floor field are included on all floors', () {
+      final floors = FloorPlanEditorLoader.parseMultiFloor({
+        'imageWidth': 2000,
+        'imageHeight': 2000,
+        'nodes': [
+          {'id': 'r1', 'type': 'room', 'x': 100, 'y': 100, 'label': 'R1', 'floor': 1},
+          {'id': 'r2', 'type': 'room', 'x': 100, 'y': 100, 'label': 'R2', 'floor': 2},
+          {'id': 'wp', 'type': 'hallway_waypoint', 'x': 100, 'y': 100, 'label': ''},
+        ],
+        'edges': [
+          {'source': 'r1', 'target': 'wp', 'weight': 50},
+          {'source': 'r2', 'target': 'wp', 'weight': 50},
+        ],
+      });
+      expect(floors.length, 2);
+      expect(floors[0].navGraph!.nodeById('r1'), isNotNull);
+      expect(floors[1].navGraph!.nodeById('r2'), isNotNull);
+    });
+    test('flat multi-node: imagePath is null when no imageAssetPrefix supplied', () {
+      final floors = FloorPlanEditorLoader.parseMultiFloor({
+        'imageWidth': 2000,
+        'imageHeight': 2000,
+        'nodes': [
+          {'id': 'r1', 'type': 'room', 'x': 100, 'y': 100, 'label': 'R1', 'floor': 1},
+        ],
+        'edges': [],
       });
       expect(floors.first.imagePath, isNull);
     });

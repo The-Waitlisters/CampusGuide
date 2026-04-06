@@ -6,11 +6,45 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:proj/models/course_schedule_entry.dart';
+import 'package:proj/models/user_role.dart';
+import 'package:proj/services/auth/user_profile_service.dart';
 import 'package:proj/services/schedule_lookup.dart';
 import 'package:proj/widgets/home/search_overlay.dart';
+import 'package:proj/widgets/schedule/schedule_display.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
 
 import 'schedule_overlay_test.mocks.dart';
+
+/// Fake [UserProfileService] that stores schedules in memory.
+class _FakeProfileService implements UserProfileService {
+  List<CourseScheduleEntry> stored = [];
+
+  @override
+  Future<List<CourseScheduleEntry>> loadSchedule({required String uid}) async =>
+      stored;
+
+  @override
+  Future<void> saveSchedule({
+    required String uid,
+    required List<CourseScheduleEntry> entries,
+  }) async {
+    stored = List.of(entries);
+  }
+
+  @override
+  Future<void> createUserProfile({
+    required String uid,
+    required String email,
+    required String firstName,
+    required String lastName,
+  }) async {}
+
+  @override
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async => null;
+
+  @override
+  Future<UserRole> getUserRole(String uid) async => UserRole.user;
+}
 
 @GenerateMocks([ScheduleLookupService])
 void main() {
@@ -33,14 +67,12 @@ void main() {
   }
 
   Widget wrap(Widget child) {
-    return MaterialApp(
-      home: Scaffold(
-        body: child,
-      ),
-    );
+    return MaterialApp(home: Scaffold(body: child));
   }
 
-  testWidgets('calls onClose when back button is pressed', (WidgetTester tester) async {
+  testWidgets('calls onClose when back button is pressed', (
+    WidgetTester tester,
+  ) async {
     int closeCount = 0;
 
     await tester.pumpWidget(
@@ -75,7 +107,9 @@ void main() {
     expect(find.text('No schedule results yet.'), findsOneWidget);
   });
 
-  testWidgets('clears results and does not search when query is blank', (WidgetTester tester) async {
+  testWidgets('clears results and does not search when query is blank', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       wrap(
         ScheduleOverlay(
@@ -93,8 +127,11 @@ void main() {
     expect(find.text('No schedule results yet.'), findsOneWidget);
   });
 
-  testWidgets('shows loading then results on successful search', (WidgetTester tester) async {
-    final Completer<List<CourseScheduleEntry>> completer = Completer<List<CourseScheduleEntry>>();
+  testWidgets('shows loading then results on successful search', (
+    WidgetTester tester,
+  ) async {
+    final Completer<List<CourseScheduleEntry>> completer =
+        Completer<List<CourseScheduleEntry>>();
 
     when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) {
       return completer.future;
@@ -123,7 +160,9 @@ void main() {
     verify(mockLookup.searchCourse('SOEN 363')).called(1);
   });
 
-  testWidgets('shows error message when search throws', (WidgetTester tester) async {
+  testWidgets('shows error message when search throws', (
+    WidgetTester tester,
+  ) async {
     when(mockLookup.searchCourse('SOEN 363')).thenThrow(Exception('boom'));
 
     await tester.pumpWidget(
@@ -143,7 +182,9 @@ void main() {
     expect(find.text('Could not load course schedule.'), findsOneWidget);
   });
 
-  testWidgets('forwards selected room entry through onRoomSelected', (WidgetTester tester) async {
+  testWidgets('forwards selected room entry through onRoomSelected', (
+    WidgetTester tester,
+  ) async {
     final CourseScheduleEntry entry = buildEntry();
     CourseScheduleEntry? selected;
 
@@ -172,7 +213,161 @@ void main() {
     expect(selected, same(entry));
   });
 
-  testWidgets('submits search from keyboard action too', (WidgetTester tester) async {
+  testWidgets('switching to My Schedule tab shows ScheduleDisplay', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        ScheduleOverlay(
+          onClose: () {},
+          onRoomSelected: (_) {},
+          lookupService: mockLookup,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('My Schedule'));
+    await tester.pump();
+
+    expect(find.byType(ScheduleDisplay), findsOneWidget);
+  });
+
+  testWidgets('adding a search result to schedule updates My Schedule count', (
+    tester,
+  ) async {
+    final entry = buildEntry();
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(
+      wrap(
+        ScheduleOverlay(
+          onClose: () {},
+          onRoomSelected: (_) {},
+          lookupService: mockLookup,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    expect(find.text('My Schedule (1)'), findsOneWidget);
+  });
+
+  testWidgets('duplicate entries are ignored when added twice', (tester) async {
+    final entry = buildEntry();
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(
+      wrap(
+        ScheduleOverlay(
+          onClose: () {},
+          onRoomSelected: (_) {},
+          lookupService: mockLookup,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    expect(find.text('My Schedule (1)'), findsOneWidget);
+  });
+
+  testWidgets('removing an entry from My Schedule clears the count', (
+    tester,
+  ) async {
+    final entry = buildEntry();
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(
+      wrap(
+        ScheduleOverlay(
+          onClose: () {},
+          onRoomSelected: (_) {},
+          lookupService: mockLookup,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    await tester.tap(find.text('My Schedule (1)'));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.remove_circle_outline));
+    await tester.pump();
+
+    expect(find.text('My Schedule (1)'), findsNothing);
+  });
+
+  testWidgets('loads saved schedule when uid and profileService are provided', (
+    tester,
+  ) async {
+    final profile = _FakeProfileService();
+    profile.stored = [buildEntry()];
+
+    await tester.pumpWidget(
+      wrap(
+        ScheduleOverlay(
+          onClose: () {},
+          onRoomSelected: (_) {},
+          lookupService: mockLookup,
+          uid: 'user-123',
+          profileService: profile,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Schedule (1)'), findsOneWidget);
+  });
+
+  testWidgets(
+    'persists schedule via profileService when entry is added with uid',
+    (tester) async {
+      final profile = _FakeProfileService();
+      final entry = buildEntry();
+      when(
+        mockLookup.searchCourse('SOEN 363'),
+      ).thenAnswer((_) async => [entry]);
+
+      await tester.pumpWidget(
+        wrap(
+          ScheduleOverlay(
+            onClose: () {},
+            onRoomSelected: (_) {},
+            lookupService: mockLookup,
+            uid: 'user-123',
+            profileService: profile,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'SOEN 363');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_circle_outline));
+      await tester.pumpAndSettle();
+
+      expect(profile.stored.length, 1);
+      expect(profile.stored.first.room, 'H-937');
+    },
+  );
+
+  testWidgets('submits search from keyboard action too', (
+    WidgetTester tester,
+  ) async {
     when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async {
       return <CourseScheduleEntry>[buildEntry()];
     });
@@ -195,7 +390,9 @@ void main() {
     verify(mockLookup.searchCourse('SOEN 363')).called(greaterThanOrEqualTo(1));
   });
 
-  testWidgets('menu button builds schedule item and calls onMenuSelected', (WidgetTester tester) async {
+  testWidgets('menu button builds schedule item and calls onMenuSelected', (
+    WidgetTester tester,
+  ) async {
     String? selectedValue;
 
     await tester.pumpWidget(
@@ -233,5 +430,208 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selectedValue, 'schedule');
+  });
+
+  testWidgets('tapping room in My Schedule tab calls onRoomSelected', (
+    tester,
+  ) async {
+    // Covers line 175: onRoomTap path through ScheduleDisplay in My Schedule tab
+    final entry = buildEntry();
+    CourseScheduleEntry? selectedFromSchedule;
+    when(mockLookup.searchCourse('SOEN 363')).thenAnswer((_) async => [entry]);
+
+    await tester.pumpWidget(
+      wrap(
+        ScheduleOverlay(
+          onClose: () {},
+          onRoomSelected: (e) => selectedFromSchedule = e,
+          lookupService: mockLookup,
+        ),
+      ),
+    );
+
+    // Add entry to schedule
+    await tester.enterText(find.byType(TextField), 'SOEN 363');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.pump();
+
+    // Switch to My Schedule tab
+    await tester.tap(find.text('My Schedule (1)'));
+    await tester.pump();
+
+    // Tap the room
+    await tester.tap(find.text('H-937'));
+    await tester.pump();
+
+    expect(selectedFromSchedule, same(entry));
+  });
+
+  testWidgets(
+    'switching back from My Schedule tab to Search tab shows ScheduleSearchBar',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        wrap(
+          ScheduleOverlay(
+            onClose: () {},
+            onRoomSelected: (_) {},
+            lookupService: mockLookup,
+          ),
+        ),
+      );
+
+      // Go to My Schedule first.
+      await tester.tap(find.text('My Schedule'));
+      await tester.pump();
+      expect(find.byType(ScheduleDisplay), findsOneWidget);
+
+      // Now tap Search to switch back.
+      await tester.tap(find.text('Search'));
+      await tester.pump();
+
+      expect(find.byType(ScheduleDisplay), findsNothing);
+    },
+  );
+
+  testWidgets(
+    '_persistSchedule is a no-op when uid is null — profileService is never written',
+    (WidgetTester tester) async {
+      final profile = _FakeProfileService();
+      final entry = buildEntry();
+      when(
+        mockLookup.searchCourse('SOEN 363'),
+      ).thenAnswer((_) async => [entry]);
+
+      // uid is intentionally omitted (null).
+      await tester.pumpWidget(
+        wrap(
+          ScheduleOverlay(
+            onClose: () {},
+            onRoomSelected: (_) {},
+            lookupService: mockLookup,
+            profileService: profile, // supplied so we can observe it
+            // uid: null  ← default
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'SOEN 363');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_circle_outline));
+      await tester.pump();
+
+      // Count incremented in UI…
+      expect(find.text('My Schedule (1)'), findsOneWidget);
+      // …but nothing written to persistent storage.
+      expect(profile.stored, isEmpty);
+    },
+  );
+
+  testWidgets(
+    '_persistSchedule is called when an entry is removed from the schedule',
+    (WidgetTester tester) async {
+      final profile = _FakeProfileService();
+      final entry = buildEntry();
+      when(
+        mockLookup.searchCourse('SOEN 363'),
+      ).thenAnswer((_) async => [entry]);
+
+      await tester.pumpWidget(
+        wrap(
+          ScheduleOverlay(
+            onClose: () {},
+            onRoomSelected: (_) {},
+            lookupService: mockLookup,
+            uid: 'user-abc',
+            profileService: profile,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Add the entry so there is something to remove.
+      await tester.enterText(find.byType(TextField), 'SOEN 363');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add_circle_outline));
+      await tester.pumpAndSettle();
+      expect(profile.stored.length, 1);
+
+      // Switch to My Schedule and remove.
+      await tester.tap(find.text('My Schedule (1)'));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.remove_circle_outline));
+      await tester.pumpAndSettle();
+
+      // profileService.saveSchedule should have been called with an empty list.
+      expect(profile.stored, isEmpty);
+      expect(find.text('My Schedule'), findsOneWidget); // count badge gone
+    },
+  );
+
+  testWidgets(
+    'error message is replaced by loading spinner on subsequent search',
+    (WidgetTester tester) async {
+      final completer = Completer<List<CourseScheduleEntry>>();
+
+      // First call throws; second call suspends so we can inspect loading state.
+      var callCount = 0;
+      when(mockLookup.searchCourse(any)).thenAnswer((_) {
+        callCount++;
+        if (callCount == 1) throw Exception('boom');
+        return completer.future;
+      });
+
+      await tester.pumpWidget(
+        wrap(
+          ScheduleOverlay(
+            onClose: () {},
+            onRoomSelected: (_) {},
+            lookupService: mockLookup,
+          ),
+        ),
+      );
+
+      // First search → error.
+      await tester.enterText(find.byType(TextField), 'SOEN 363');
+      await tester.pumpAndSettle();
+      expect(find.text('Could not load course schedule.'), findsOneWidget);
+
+      // Second search → loading spinner (error must be gone).
+      await tester.enterText(find.byType(TextField), 'COMP 101');
+      await tester.pump(); // start loading; completer not yet resolved
+
+      expect(find.text('Could not load course schedule.'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // Clean up the pending future.
+      completer.complete([]);
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('_loadSchedule does not populate schedule when uid is null', (
+    WidgetTester tester,
+  ) async {
+    final profile = _FakeProfileService()
+      ..stored = [buildEntry()]; // pre-load with data that must NOT be shown
+
+    await tester.pumpWidget(
+      wrap(
+        ScheduleOverlay(
+          onClose: () {},
+          onRoomSelected: (_) {},
+          lookupService: mockLookup,
+          profileService: profile,
+          // uid: null ← default
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Despite the profile having a stored entry, My Schedule should show no
+    // count badge — meaning _loadSchedule returned early.
+    expect(find.text('My Schedule (1)'), findsNothing);
+    expect(find.text('My Schedule'), findsOneWidget);
   });
 }
