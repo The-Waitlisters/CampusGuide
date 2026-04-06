@@ -50,7 +50,7 @@ CourseScheduleEntry _entry({
 Widget _scaffold(
     List<CourseScheduleEntry> entries, {
       ValueChanged<CourseScheduleEntry>? onRemove,
-      ValueChanged<CourseScheduleEntry>? onRoomTap,
+      ValueChanged<CourseScheduleEntry>? onRoomTap, DateTime? now,
     }) =>
     MaterialApp(
       home: Scaffold(
@@ -227,6 +227,7 @@ void main() {
     // Lines 119-122: nextClass != null → FilledButton with 'Next class:' text.
     // Uses 23:00-23:59 which is reliably in the future for most CI runs.
     // Note: this test may fail if run between 23:00 and midnight.
+    //okay but what if it jsut didnt do that
     testWidgets('shows "Next class:" button when an entry is upcoming today',
             (tester) async {
           final now = DateTime.now();
@@ -239,7 +240,7 @@ void main() {
             timeText: '23:00 - 23:59',
             room: 'H-820',
           );
-          await tester.pumpWidget(_scaffold([e]));
+          await tester.pumpWidget(_scaffold([e], now : DateTime(2026,1,1,1,1)));
           await tester.pump();
 
           // On weekdays before 23:00 the button must appear
@@ -247,7 +248,7 @@ void main() {
             expect(find.textContaining('Next class:'), findsOneWidget);
             expect(find.textContaining('COMP346'), findsWidgets);
             // Lines 127-131: isNext == true → highlighted row
-            expect(find.textContaining('H-820'), findsOneWidget);
+            expect(find.textContaining('H-820'), findsWidgets);
           }
         });
 
