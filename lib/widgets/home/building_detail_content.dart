@@ -100,7 +100,7 @@ class BuildingDetailContent extends StatelessWidget {
           building!.openingHours,
           itemStyle: const TextStyle(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF8B0000),
+            color: Color(0xFF8B0000), //Dark Red
           ),
         ),        _buildSection('Departments:', building.departments),
         _buildSection('Services:', building.services),
