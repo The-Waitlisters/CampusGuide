@@ -1,28 +1,42 @@
+// ignore_for_file: deprecated_member_use, prefer_typing_uninitialized_variables
+
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
 import 'package:proj/data/data_parser.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus.dart';
-import 'package:proj/services/markerIconLoader.dart';
+import 'package:proj/models/location.dart';
+import 'package:proj/widgets/home/poi_option_menu.dart';
+import 'package:proj/services/marker_icon_loader.dart';
 import 'package:proj/widgets/campus_toggle.dart';
 import 'package:proj/models/campus_building.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:proj/services/building_locator.dart';
 import 'package:proj/widgets/home/campus_map.dart';
+import 'package:proj/widgets/home/results.dart';
 import '../config/secrets.dart';
 import '../main.dart';
 import '../services/directions/directions_controller.dart';
 import '../services/directions/transport_mode_strategy.dart';
+import '../services/directions/web_directions_client_stub.dart'
+if (dart.library.html) '../services/directions/web_directions_client.dart';
 import '../services/route_logic.dart';
 import '../utilities/polygon_helper.dart';
 import '../widgets/home/building_detail_sheet.dart';
 import '../widgets/home/directions_card.dart';
 import '../widgets/home/map_layer.dart';
+import '../widgets/home/route_polyline_overlay.dart';
 import '../widgets/home/search_overlay.dart';
+import '../data/indoor_map_data.dart';
+import '../models/indoor_map.dart';
 import 'indoor_map_screen.dart';
+import 'multi_building_route_screen.dart';
 import '../widgets/use_as_start.dart';
 import '../models/poi.dart';
 import '../widgets/schedule/schedule_overlay.dart';
@@ -35,6 +49,19 @@ import 'auth/auth_gate.dart';
 
 typedef MarkerImageLoader = Future<Uint8List> Function(String path, int width);
 
+extension StringExtension on String {
+  String capitalize() {
+    List<String> current =
+    "${this[0].toUpperCase()}${substring(1).toLowerCase()}".split(' ');
+    String newOne = "";
+    for (final b in current) {
+      newOne += "${b[0].toUpperCase()}${b.substring(1).toLowerCase()} ";
+    }
+
+    return newOne;
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   final UserRole role;
   final String? displayName;
@@ -42,12 +69,19 @@ class HomeScreen extends StatefulWidget {
 
   final DataParser? dataParser;
   final BuildingLocator? buildingLocator;
+
   /// For tests: when non-null, used instead of the map's controller future
   /// so [ _goToCampus ] can complete without a real map.
   final Completer<GoogleMapController>? testMapControllerCompleter;
 
   final DirectionsController? testDirectionsController;
 
+  /// For tests: injectable HTTP client so [_searchNearbyPlaces] can be mocked.
+  final http.Client? testHttpClient;
+
+  /// For tests: when non-null, used instead of [loadIndoorMapForBuilding] when
+  /// loading indoor maps for room-to-room navigation.
+  final Future<IndoorMap?> Function(CampusBuilding)? testIndoorMapLoader;
 
   const HomeScreen({
     super.key,
@@ -58,6 +92,8 @@ class HomeScreen extends StatefulWidget {
     this.buildingLocator,
     this.testMapControllerCompleter,
     this.testDirectionsController,
+    this.testHttpClient,
+    this.testIndoorMapLoader,
     MarkerImageLoader? markerImageLoader,
   }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
 
@@ -69,13 +105,12 @@ class HomeScreen extends StatefulWidget {
 
 /// Public state type so tests can call [handleMapTap] to cover map-tap logic.
 abstract class HomeScreenState extends State<HomeScreen> {
-  get markers => []; // coverage:ignore-line
+  List<dynamic> get markers => []; // coverage:ignore-line
 
   /// Called when the map is tapped. Exposed for tests; production code calls
   /// this from [GoogleMap.onTap]. [sheetContext] should have a [Scaffold]
   /// ancestor (e.g. from LayoutBuilder in build); if null, [context] is used.
   void handleMapTap(LatLng point, [BuildContext? sheetContext]);
-
 }
 
 class _HomeScreenState extends HomeScreenState {
@@ -89,6 +124,9 @@ class _HomeScreenState extends HomeScreenState {
   CampusBuilding? _cursorBuilding;
   CampusBuilding? _startBuilding;
   CampusBuilding? _endBuilding;
+  String? _uid;
+  Poi? _startPoi;
+  Poi? _endPoi;
 
   bool get _isGuest => widget.role == UserRole.guest;
 
@@ -120,15 +158,25 @@ class _HomeScreenState extends HomeScreenState {
   final Map<PolygonId, CampusBuilding> _polygonToBuilding = {};
   bool campusChange = false;
   final GlobalKey _mapKey = GlobalKey();
-  final List<CampusBuilding> _searchResults = <CampusBuilding>[];
+  final List<MapLocation> _searchResults = <MapLocation>[];
   bool _showSearchResults = false;
   late final DirectionsController _directions;
+
+  /// Last known camera position — passed to RoutePolylineOverlay so it can
+  /// reproject LatLng points to screen coordinates on every camera move.
+  CameraPosition? _lastCamera;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController? _sheetController;
   static const double _sheetLiftMax = 210.0;
   static const double _sheetLiftSmall = 100.0;
   double _currentSheetLift = _sheetLiftMax;
+
+  /// On Flutter web, clicking a button that overlays the Google Maps platform
+  /// view causes the click to propagate to the map's onTap handler.  Setting
+  /// this flag before programmatically closing the sheet lets handleMapTap
+  /// absorb that spurious tap instead of showing "Not part of campus".
+  bool _suppressNextMapTap = false;
 
   late BuildingLocator _buildingLocator;
 
@@ -143,8 +191,40 @@ class _HomeScreenState extends HomeScreenState {
 
   final List<Marker> _markers = <Marker>[];
 
+  LatLng locationPoint = const LatLng(0, 0);
+
+  bool firstRun = false;
+
+  // ignore: unused_field
+  bool _loading = false;
+
+  bool showPoiSettings = false;
+  bool restaurants = false;
+  bool cafes = false;
+  bool parks = false;
+  bool parking = false;
+  bool fastFood = false;
+  bool nightClub = false;
+  double nearbyPois = 0;
+  String type = "";
+  double distance = 0;
+  bool notCampus = false;
+
+  bool showResults = false;
+
+  @override
   @visibleForTesting
   List<Marker> get markers => _markers;
+
+  // Room-to-room state
+  bool _roomToRoomEnabled = false;
+  bool _indoorMapsLoading = false;
+  IndoorMap? _startIndoorMap;
+  IndoorMap? _endIndoorMap;
+  int? _startFloorFilter;
+  int? _endFloorFilter;
+  String? _startRoomId;
+  String? _endRoomId;
 
   @override
   void initState() {
@@ -153,8 +233,39 @@ class _HomeScreenState extends HomeScreenState {
     _initDependencies();
     _initDirections();
     _tryInitLocationTracking();
-    _initMarkers();
+    _initUid();
   }
+
+  // coverage:ignore-start
+  void resetFilters() {
+    setState(() {
+      restaurants = false;
+      cafes = false;
+      parks = false;
+      parking = false;
+      fastFood = false;
+      nightClub = false;
+      nearbyPois = 0;
+      distance = 0;
+      _markers.clear();
+      poiPresent.clear();
+    });
+  }
+
+  void applyFilters() {
+    _loadNearbyPois(
+      restaurants,
+      cafes,
+      parks,
+      parking,
+      fastFood,
+      nightClub,
+      nearbyPois,
+      type,
+      distance * 1000,
+    );
+  }
+  // coverage:ignore-end
 
   double _iconSizeForZoom(double zoom) {
     const double minZoom = 13.0;
@@ -163,42 +274,6 @@ class _HomeScreenState extends HomeScreenState {
     const double maxSize = 56.0;
     final t = ((zoom - minZoom) / (maxZoom - minZoom)).clamp(0.0, 1.0);
     return minSize + t * (maxSize - minSize);
-  }
-
-  Future<void> _rebuildMarkers() async {
-    final double zoom = _mapController != null
-        ? await _mapController!.getZoomLevel()
-        : 15.0;
-    final double logicalSize = _iconSizeForZoom(zoom);
-    final List<Marker> newMarkers = [];
-
-    for (int i = 0; i < poiPresent.length; i++) {
-      final Uint8List markIcons = await widget.markerImageLoader(
-        poiPresent.elementAt(i).poiType,
-        logicalSize.round(),
-      );
-      newMarkers.add(Marker(
-        markerId: MarkerId(i.toString()),
-        icon: BytesMapBitmap(markIcons, width: logicalSize, height: logicalSize),
-        position: poiPresent.elementAt(i).boundary,
-        infoWindow: InfoWindow(title: 'Location: $i'),
-      ));
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _markers..clear()..addAll(newMarkers);
-    });
-  }
-
-  void _onCameraMove(CameraPosition _) {
-    _markerRebuildDebounce?.cancel();
-    _markerRebuildDebounce = Timer(const Duration(milliseconds: 300), _rebuildMarkers);
-    if (!_programmaticCameraMove && !_mapMoved) {
-      setState(() {
-        _mapMoved = true;
-      });
-    }
   }
 
   @visibleForTesting
@@ -220,21 +295,26 @@ class _HomeScreenState extends HomeScreenState {
 
   void _initDependencies() {
     data = widget.dataParser ?? DataParser();
-    _buildingLocator = widget.buildingLocator ?? BuildingLocator(
-      enterThresholdMeters: 15,
-      exitThresholdMeters: 25,
-    );
+    _buildingLocator =
+        widget.buildingLocator ??
+            BuildingLocator(enterThresholdMeters: 15, exitThresholdMeters: 25);
 
     _refreshBuildingsFromParser();
   }
 
   void _initDirections() {
-    _directions = widget.testDirectionsController ?? DirectionsController(
-      client: GoogleDirectionsClient(apiKey: Secrets.directionsApiKey),
-    );
+    // On web the REST Directions API is blocked by CORS; use the JS SDK client.
+    // On mobile/desktop use the standard HTTP client.
+    final client = kIsWeb
+        ? WebDirectionsClient() // coverage:ignore-line
+        : GoogleDirectionsClient(apiKey: Secrets.directionsApiKey);
+
+    _directions = widget.testDirectionsController ??
+        DirectionsController(client: client);
+    // coverage:ignore-line
     assert(() {
-      if (Secrets.directionsApiKey.isEmpty) {
-        debugPrint( // coverage:ignore-line
+      if (!kIsWeb && Secrets.directionsApiKey.isEmpty) {
+        debugPrint(
             'Directions API key is missing (DIRECTIONS_API_KEY not set).');
       }
       return true;
@@ -288,6 +368,7 @@ class _HomeScreenState extends HomeScreenState {
           ),
         ).listen((Position pos) {
           final userPoint = LatLng(pos.latitude, pos.longitude);
+          locationPoint = userPoint;
           if (mounted) {
             setState(() {
               _lastKnownPosition = userPoint;
@@ -329,22 +410,292 @@ class _HomeScreenState extends HomeScreenState {
       });
 
       return list;
-    }); 
+    });
   }
 
-  void _initMarkers() {
-    data.getMarkersFromJSON().then((list) {
-      if(!mounted) {
-        return list;
+  Future<void> _loadNearbyPois(
+      bool restaurant,
+      bool cafe,
+      bool park,
+      bool parking,
+      bool fastFood,
+      bool nightClub,
+      double nearbyPois,
+      String type,
+      double distance,
+      ) async {
+    if (_mapController == null) return;
+
+    setState(() {
+      _loading = true;
+      _markers.clear();
+      poiPresent.clear();
+    });
+
+    try {
+      type = type.toUpperCase();
+
+      final double zoom = _mapController != null
+          ? await _mapController!.getZoomLevel()
+          : 15.0;
+      final double logicalSize = _iconSizeForZoom(zoom);
+
+      final Uint8List markIconResto = await widget.markerImageLoader(
+        "assets/restaurant.png",
+        logicalSize.round(),
+      );
+
+      final Uint8List markIconCoffee = await widget.markerImageLoader(
+        "assets/coffee.png",
+        logicalSize.round(),
+      );
+
+      final Uint8List markIconPark = await widget.markerImageLoader(
+        "assets/park.png",
+        logicalSize.round(),
+      );
+
+      final Uint8List markIconParking = await widget.markerImageLoader(
+        "assets/parking.png",
+        logicalSize.round(),
+      );
+
+      final Uint8List markIconFastFood = await widget.markerImageLoader(
+        "assets/hamburger.png",
+        logicalSize.round(),
+      );
+
+      final Uint8List markIconNightClub = await widget.markerImageLoader(
+        "assets/night-club.png",
+        logicalSize.round(),
+      );
+
+      final places;
+      final places2;
+      final places3;
+      final places4;
+      final places5;
+      final places6;
+
+      if (restaurant) {
+        places = await _searchNearbyPlaces(
+          latitude: locationPoint.latitude,
+          longitude: locationPoint.longitude,
+          radiusMeters: distance,
+          maxResultCount: nearbyPois,
+          includedTypes: ['restaurant'],
+          rankPreference: type,
+        );
+        _finishLoadingPois(places, markIconResto, logicalSize); // coverage:ignore-line
       }
 
-      setState(() {
-        poiPresent = list;
-      });
-      _rebuildMarkers();
+      if (cafe) {
+        places2 = await _searchNearbyPlaces(
+          latitude: locationPoint.latitude,
+          longitude: locationPoint.longitude,
+          radiusMeters: distance,
+          maxResultCount: nearbyPois,
+          includedTypes: ['cafe'],
+          rankPreference: type,
+        );
+        _finishLoadingPois(places2, markIconCoffee, logicalSize);
+      }
 
-      return list;
+      if (park) {
+        places3 = await _searchNearbyPlaces(
+          latitude: locationPoint.latitude,
+          longitude: locationPoint.longitude,
+          radiusMeters: distance,
+          maxResultCount: nearbyPois,
+          includedTypes: ['park'],
+          rankPreference: type,
+        );
+        _finishLoadingPois(places3, markIconPark, logicalSize); // coverage:ignore-line
+      }
+
+      if (parking) {
+        places4 = await _searchNearbyPlaces(
+          latitude: locationPoint.latitude,
+          longitude: locationPoint.longitude,
+          radiusMeters: distance,
+          maxResultCount: nearbyPois,
+          includedTypes: ['parking'],
+          rankPreference: type,
+        );
+        _finishLoadingPois(places4, markIconParking, logicalSize); // coverage:ignore-line
+      }
+
+      if (fastFood) {
+        places5 = await _searchNearbyPlaces(
+          latitude: locationPoint.latitude,
+          longitude: locationPoint.longitude,
+          radiusMeters: distance,
+          maxResultCount: nearbyPois,
+          includedTypes: ['fast_food_restaurant'],
+          rankPreference: type,
+        );
+        _finishLoadingPois(places5, markIconFastFood, logicalSize); // coverage:ignore-line
+      }
+
+      if (nightClub) {
+        places6 = await _searchNearbyPlaces(
+          latitude: locationPoint.latitude,
+          longitude: locationPoint.longitude,
+          radiusMeters: distance,
+          maxResultCount: nearbyPois,
+          includedTypes: ['night_club'],
+          rankPreference: type,
+        );
+        _finishLoadingPois(places6, markIconNightClub, logicalSize); // coverage:ignore-line
+      }
+    } catch (e) {
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(
+        // ignore: use_build_context_synchronously
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load places: $e')));
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  void _finishLoadingPois(
+      List<dynamic> places,
+      Uint8List markIcon,
+      double logicalSize,
+      ) {
+    final Set<Marker> newMarkers = places.map((place) {
+      final placeId = place['id'] as String? ?? UniqueKey().toString();
+      final displayName =
+          (place['displayName']?['text'] as String?) ?? 'Unknown place';
+      final location = place['location'] as Map<String, dynamic>? ?? {};
+      final lat = (location['latitude'] as num).toDouble();
+      final lng = (location['longitude'] as num).toDouble();
+
+      String? primaryType = place['primaryType'] as String?;
+      primaryType = primaryType!.replaceAll('_', ' ').capitalize();
+      final rating = place['rating'].toDouble() ?? 0;
+      final address = place['shortFormattedAddress'];
+
+      final photos = (place['photos'] as List?) ?? [];
+
+      List<String?> photoName = [];
+      if (photos.isNotEmpty) {
+        for (Map<String, dynamic> photo in photos) {
+          photoName.add(
+            buildPhotoUrl(
+              photoName: photo['name'],
+              apiKey: Secrets.directionsApiKey,
+            ),
+          );
+        }
+      }
+
+      final regularOpeningHours =
+      place['regularOpeningHours'] as Map<String, dynamic>?;
+      final weekdayDescriptions =
+          (regularOpeningHours?['weekdayDescriptions'] as List?)
+              ?.cast<String>() ??
+              const [];
+
+      final openNow = regularOpeningHours?['openNow'] as bool?;
+
+      Poi newPoi = Poi(
+        id: placeId,
+        name: displayName,
+        boundary: LatLng(lat, lng),
+        description: primaryType,
+        openingHours: weekdayDescriptions,
+        openNow: openNow,
+        rating: rating,
+        address: address,
+        photoName: photoName,
+        campus: _currentBuildingFromGPS?.campus ?? _campus,
+      ); //set current building as campus, otherwise, set currently toggled campus
+
+      poiPresent.add(newPoi);
+      return Marker(
+        markerId: MarkerId(placeId),
+        position: LatLng(lat, lng),
+        icon: BitmapDescriptor.fromBytes(
+          markIcon,
+          size: Size(logicalSize, logicalSize),
+        ),
+        onTap: () => setState(() {
+          _showPoiDetailSheet(newPoi);
+        }),
+      );
+    }).toSet();
+
+    setState(() {
+      _markers.addAll(newMarkers);
     });
+  }
+
+  Future<void> _initUid() async {
+    try {
+      final user = await (widget.authService ?? AuthService())
+          .getCurrentAppUser();
+      if (mounted) setState(() => _uid = user?.uid);
+    } catch (_) {
+      // Firebase not initialized in test environment
+    }
+  }
+
+  String buildPhotoUrl({
+    //Helper function to build photo url to be able to fetch with Places API
+    required String photoName,
+    required String apiKey,
+    int maxWidthPx = 400,
+  }) {
+    return 'https://places.googleapis.com/v1/$photoName/media'
+        '?key=$apiKey&maxWidthPx=$maxWidthPx';
+  }
+
+  Future<List<dynamic>> _searchNearbyPlaces({
+    required double latitude,
+    required double longitude,
+    required double radiusMeters,
+    required double maxResultCount,
+    required String rankPreference,
+    required List<String> includedTypes,
+  }) async {
+    final uri = Uri.parse(
+      'https://places.googleapis.com/v1/places:searchNearby',
+    );
+
+    final client = widget.testHttpClient ?? http.Client();
+    final response = await client.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': Secrets.directionsApiKey,
+        'X-Goog-FieldMask':
+        'places.id,places.displayName,places.location,places.primaryType,places.rating,places.regularOpeningHours,places.priceRange,places.userRatingCount,places.shortFormattedAddress,places.photos',
+      },
+      body: jsonEncode({
+        'includedPrimaryTypes': includedTypes,
+        'maxResultCount': maxResultCount,
+        'rankPreference': rankPreference.toUpperCase(),
+        'locationRestriction': {
+          'circle': {
+            'center': {'latitude': latitude, 'longitude': longitude},
+            'radius': radiusMeters,
+          },
+        },
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Places API error ${response.statusCode}: ${response.body}',
+      );
+    }
+
+    final Map<String, dynamic> jsonBody = jsonDecode(response.body);
+    return (jsonBody['places'] as List<dynamic>?) ?? [];
   }
 
   CameraPosition get _initialCamera {
@@ -366,8 +717,10 @@ class _HomeScreenState extends HomeScreenState {
       String address = '';
 
       if (placemarks.isNotEmpty) {
-        address = '${placemarks[0].street ?? ''}, ' '${placemarks[0].locality ??
-            ''}, ' '${placemarks[0].postalCode ?? ''}';
+        address =
+        '${placemarks[0].street ?? ''}, '
+            '${placemarks[0].locality ?? ''}, '
+            '${placemarks[0].postalCode ?? ''}';
       }
 
       return address;
@@ -382,7 +735,6 @@ class _HomeScreenState extends HomeScreenState {
 
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       final String q = value.trim().toLowerCase();
-
       if (q.isEmpty) {
         setState(() {
           _searchResults.clear();
@@ -391,17 +743,34 @@ class _HomeScreenState extends HomeScreenState {
         return;
       }
 
-      final results = buildingsPresent.where((b) =>
-      b.name.toLowerCase().contains(q) ||
-          (b.fullName ?? "").toLowerCase().contains(q))
+      final List<MapLocation> totalResults = [];
+
+      List<MapLocation> results = buildingsPresent
+          .where(
+            (b) =>
+        b.name.toLowerCase().contains(q) ||
+            (b.fullName ?? "").toLowerCase().contains(q),
+      )
           .take(8)
           .toList();
+
+      List<MapLocation> results2 = poiPresent
+          .where(
+            (b) =>
+        b.name.toLowerCase().contains(q) ||
+            (b.description ?? "").toLowerCase().contains(q),
+      )
+          .take(120)
+          .toList();
+
+      totalResults.addAll(results);
+      totalResults.addAll(results2);
 
       setState(() {
         _searchResults
           ..clear()
-          ..addAll(results);
-        _showSearchResults = results.isNotEmpty;
+          ..addAll(totalResults);
+        _showSearchResults = totalResults.isNotEmpty;
       });
     });
   }
@@ -409,7 +778,6 @@ class _HomeScreenState extends HomeScreenState {
   /// Returns which campus (if any) contains [point] using building boundaries.
   Campus? _campusAtPoint(LatLng point) =>
       RouteLogic.campusAtPoint(point, buildingsPresent);
-
 
   /// Applies default transport mode. No-op if user changed mode or no destination.
   /// - Building-to-building: same campus → Walk, different campuses → Shuttle.
@@ -431,7 +799,6 @@ class _HomeScreenState extends HomeScreenState {
     );
     if (mode != null) _directions.setMode(mode);
   }
-
 
   /// Resolves the route start point: from selected building or from current GPS when destination-first.
   Future<LatLng?> _getRouteStartPoint() async {
@@ -457,17 +824,30 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _updateDirectionsIfReady() async {
-    debugPrint('_updateDirectionsIfReady start=${_startBuilding
-        ?.name} end=${_endBuilding?.name}');
+    debugPrint(
+      '_updateDirectionsIfReady start=${_startBuilding?.name ?? _startPoi?.name} end=${_endBuilding?.name ?? _endPoi?.name}',
+    );
 
-    if (_endBuilding == null) {
+    if (_endBuilding == null && _endPoi == null) {
       setState(() => _locationRequiredMessage = null);
       await _directions.updateRoute(start: null, end: null);
       return;
     }
 
-    final start = await _getRouteStartPoint();
-    final end = polygonCenter(_endBuilding!.boundary);
+    var start;
+    var end;
+
+    if (_startPoi == null) {
+      start = await _getRouteStartPoint();
+    } else {
+      start = _startPoi!.boundary;
+    }
+
+    if (_endPoi == null) {
+      end = polygonCenter(_endBuilding!.boundary);
+    } else {
+      end = _endPoi!.boundary;
+    }
 
     if (_startFromCurrentLocation && start == null) {
       setState(() {
@@ -480,9 +860,15 @@ class _HomeScreenState extends HomeScreenState {
 
     setState(() => _locationRequiredMessage = null);
 
-    final startCampus = _startBuilding?.campus ??
-        (start != null ? _campusAtPoint(start) : null);
-    final endCampus = _endBuilding!.campus;
+    final startCampus =
+        _startBuilding?.campus ??
+            (start != null ? _campusAtPoint(start) : null);
+    var endCampus;
+    if (_endPoi == null) {
+      endCampus = _endBuilding!.campus;
+    } else {
+      endCampus = _endPoi!.campus;
+    }
     _applyDefaultTransportMode(
       endCampus: endCampus,
       startCampus: startCampus,
@@ -498,11 +884,13 @@ class _HomeScreenState extends HomeScreenState {
       endCampus: endCampus,
     );
 
-    debugPrint('Directions done: err=${_directions.state.errorMessage} '
-        'points=${_directions.state.polyline?.points.length}');
+    debugPrint(
+      'Directions done: err=${_directions.state.errorMessage} '
+          'points=${_directions.state.polyline?.points.length}',
+    );
 
-    if (start != null && _directions.state.polyline != null) {
-      await _zoomToRoute(start, end); // coverage:ignore-line
+    if (start != null && _directions.state.hasRoute) {
+      await _zoomToRoute(start, end);
     }
   }
 
@@ -521,7 +909,31 @@ class _HomeScreenState extends HomeScreenState {
     debugPrint('Set as Destination: ${building.name}');
     setState(() {
       _endBuilding = building;
-      if (_startBuilding == null) _startFromCurrentLocation = true;
+      if (_startBuilding == null && _startPoi == null) {
+        _startFromCurrentLocation = true;
+      }
+    });
+    await _updateDirectionsIfReady();
+  }
+
+  Future<void> _handlePoiAsStart(Poi poi) async {
+    debugPrint('Set as Start: ${poi.name}');
+    setState(() {
+      _startPoi = poi;
+      _endPoi = null;
+      _startFromCurrentLocation = false;
+      _locationRequiredMessage = null;
+    });
+    await _updateDirectionsIfReady();
+  }
+
+  Future<void> _handlePoiAsDestination(Poi poi) async {
+    debugPrint('Set as Destination: ${poi.name}');
+    setState(() {
+      _endPoi = poi;
+      if (_startPoi == null && _startBuilding == null) {
+        _startFromCurrentLocation = true;
+      }
     });
     await _updateDirectionsIfReady();
   }
@@ -533,9 +945,7 @@ class _HomeScreenState extends HomeScreenState {
     if (controller == null) return;
     final bounds = boundsForRoute(a, b);
 
-    await controller.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 80),
-    );
+    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
   }
 
   void _onBuildingTapped(CampusBuilding? building) {
@@ -642,6 +1052,81 @@ class _HomeScreenState extends HomeScreenState {
     });
   }
 
+  void _onRoomToRoomToggled(bool enabled) {
+    setState(() {
+      _roomToRoomEnabled = enabled;
+      if (enabled) {
+        _loadIndoorMapsForRoute();
+      } else {
+        _startIndoorMap = null;
+        _endIndoorMap = null;
+        _startRoomId = null;
+        _endRoomId = null;
+        _startFloorFilter = null;
+        _endFloorFilter = null;
+      }
+    });
+  }
+
+  Future<void> _loadIndoorMapsForRoute() async {
+    if (_startBuilding == null || _endBuilding == null) return;
+    setState(() => _indoorMapsLoading = true);
+    try {
+      final loader = widget.testIndoorMapLoader ?? loadIndoorMapForBuilding;
+      final results = await Future.wait([
+        loader(_startBuilding!),
+        loader(_endBuilding!),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _startIndoorMap = results[0];
+        _endIndoorMap = results[1];
+        _startFloorFilter = _startIndoorMap?.floorLevels.first;
+        _endFloorFilter = _endIndoorMap?.floorLevels.first;
+        _indoorMapsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _indoorMapsLoading = false);
+    }
+  }
+
+  void _launchRoomToRoomNavigation() { // coverage:ignore-start
+    if (_startBuilding == null ||
+        _endBuilding == null ||
+        _startRoomId == null ||
+        _endRoomId == null ||
+        _startIndoorMap == null ||
+        _endIndoorMap == null) {
+      return;
+    }
+
+    // Determine transport mode label from current selection
+    final modeLabel = kTransportModes
+        .firstWhere(
+          (m) => m.modeParam == _directions.mode.modeParam,
+      orElse: () => kTransportModes.first,
+    )
+        .label;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MultiBuildingRouteScreen(
+          startBuilding: _startBuilding!,
+          endBuilding: _endBuilding!,
+          startRoomId: _startRoomId!,
+          endRoomId: _endRoomId!,
+          startIndoorMap: _startIndoorMap!,
+          endIndoorMap: _endIndoorMap!,
+          transportModeLabel: modeLabel,
+          outdoorPolyline: _directions.state.polyline?.points,
+          outdoorDuration: _directions.state.durationText,
+          outdoorDistance: _directions.state.distanceText,
+        ),
+      ),
+    );
+  } // coverage:ignore-end
+
   Set<Polygon> _buildPolygons(List<CampusBuilding> buildings) {
     _polygonToBuilding.clear();
 
@@ -670,6 +1155,41 @@ class _HomeScreenState extends HomeScreenState {
     }).toSet();
   }
 
+  void _showPoiDetailSheet(Poi poi) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scaffoldState = _scaffoldKey.currentState;
+      if (scaffoldState == null) return;
+      notCampus = false;
+      _sheetController?.close();
+      _sheetController = null;
+
+      _sheetController = scaffoldState.showBottomSheet((context) {
+        return BuildingDetailSheet(
+          poi: poi,
+          isPoi: true,
+          isAnnex: false,
+          startBuilding: _startBuilding,
+          endBuilding: _endBuilding,
+          startPoi: _startPoi,
+          endPoi: _endPoi,
+          // coverage:ignore-start
+          onSetStart: () async {
+            await _handlePoiAsStart(poi);
+            _sheetController?.close();
+            _sheetController = null;
+          },
+          onSetDestination: () async {
+            await _handlePoiAsDestination(poi);
+            _sheetController?.close();
+            _sheetController = null;
+          },
+          // coverage:ignore-end
+        );
+      });
+      _attachSheetAnimation(_sheetController);
+    });
+  }
+
   void _handleMapTap(LatLng point) {
     setState(() {
       _cursorPoint = point;
@@ -679,14 +1199,21 @@ class _HomeScreenState extends HomeScreenState {
 
   @override
   void handleMapTap(LatLng point, [BuildContext? sheetContext]) {
+    if (_suppressNextMapTap) {
+      _suppressNextMapTap = false;
+      return;
+    }
     if (_sheetController != null) {
       _sheetController?.close();
       setState(() { _sheetController = null; });
       return;
     }
 
-    final CampusBuilding? building =
-    findBuildingAtPoint(point, buildingsPresent, _campus);
+    final CampusBuilding? building = findBuildingAtPoint(
+      point,
+      buildingsPresent,
+      _campus,
+    );
 
     lastTap = point;
 
@@ -708,12 +1235,11 @@ class _HomeScreenState extends HomeScreenState {
     if (scaffoldState == null) {
       return;
     }
-
+    notCampus = true;
     _sheetController?.close();
     _currentSheetLift = _sheetLiftSmall;
     _sheetController = scaffoldState.showBottomSheet(
-          (_) =>
-      const Padding(
+          (_) => const Padding(
         padding: EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -738,12 +1264,10 @@ class _HomeScreenState extends HomeScreenState {
     }
   }
 
-
   void _updateOnTap(PolygonId id) {
     final building = _polygonToBuilding[id];
     if (building == null) return;
-    final bool isAnnex =
-        building.fullName?.contains("Annex") ?? false;
+    final bool isAnnex = building.fullName?.contains("Annex") ?? false;
     final tap = lastTap;
     if (tap == null) return;
 
@@ -762,8 +1286,9 @@ class _HomeScreenState extends HomeScreenState {
 
   Polygon _recolorPolygon(Polygon p) {
     final isSelected = p.polygonId == _selectedId;
-    final isGps = _currentBuildingFromGPS != null &&
-        p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
+    final isGps =
+        _currentBuildingFromGPS != null &&
+            p.polygonId == PolygonId(_currentBuildingFromGPS!.id);
 
     const Color selectedFill = Color.fromARGB(255, 124, 115, 29);
     const Color gpsFill = Color(0x803197F6);
@@ -791,17 +1316,14 @@ class _HomeScreenState extends HomeScreenState {
       strokeColor = defaultStroke;
     }
 
-    return p.copyWith(
-      fillColorParam: fillColor,
-      strokeColorParam: strokeColor,
-    );
+    return p.copyWith(fillColorParam: fillColor, strokeColorParam: strokeColor);
   }
 
   void _showBuildingDetailSheet(CampusBuilding building, bool isAnnex) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final scaffoldState = _scaffoldKey.currentState;
       if (scaffoldState == null) return;
-
+      notCampus = false;
       _sheetController?.close();
       _sheetController = null;
       _currentSheetLift = _sheetLiftMax;
@@ -812,25 +1334,10 @@ class _HomeScreenState extends HomeScreenState {
           isAnnex: isAnnex,
           startBuilding: _startBuilding,
           endBuilding: _endBuilding,
-          onSetStart: () async {
-            await _handleSetAsStart(building);
-            _sheetController?.close();
-            _sheetController = null;
-          },
-          onSetDestination: () async {
-            await _handleSetAsDestination(building);
-            _sheetController?.close();
-            _sheetController = null;
-          },
-          onViewIndoorMap: () {
-            _sheetController?.close();
-            _sheetController = null;
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => IndoorMapScreen(building: building),
-              ),
-            );
-          },
+          onSetStart:       () => _sheetSetStart(building),
+          onSetDestination: () => _sheetSetDestination(building),
+          onViewIndoorMap:  () => _sheetViewIndoorMap(context, building),
+          isPoi: false,
         );
       });
       _attachSheetAnimation(_sheetController);
@@ -842,6 +1349,42 @@ class _HomeScreenState extends HomeScreenState {
         }
       });
     });
+  }
+
+  // On non-web platforms the propagated tap never arrives, so reset the flag
+  // after the current event loop to avoid eating a real tap.
+  // 200 ms is long enough for any delayed propagated web tap event to arrive
+  // and be suppressed, but short enough to be invisible to the user.
+  void _resetSuppressTapSoon() {
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _suppressNextMapTap = false;
+    });
+  }
+
+  Future<void> _sheetSetStart(CampusBuilding building) async {
+    _suppressNextMapTap = true;
+    await _handleSetAsStart(building);
+    _sheetController?.close();
+    _sheetController = null;
+    _resetSuppressTapSoon();
+  }
+
+  Future<void> _sheetSetDestination(CampusBuilding building) async {
+    _suppressNextMapTap = true;
+    await _handleSetAsDestination(building);
+    _sheetController?.close();
+    _sheetController = null;
+    _resetSuppressTapSoon();
+  }
+
+  void _sheetViewIndoorMap(BuildContext context, CampusBuilding building) {
+    _sheetController?.close();
+    _sheetController = null;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => IndoorMapScreen(building: building),
+      ),
+    );
   }
 
   @override
@@ -885,17 +1428,98 @@ class _HomeScreenState extends HomeScreenState {
       body: Stack(
         children: [
           if (!isE2EMode) _buildMapLayer(),
+          // On Flutter Web, google_maps_flutter_web silently drops all
+          // polylines. RoutePolylineOverlay draws them with CustomPaint
+          // using synchronous Mercator projection — no platform channel.
+          // The GoogleMap `polylines:` param remains for iOS / Android.
+          // coverage:ignore-start
+          if (kIsWeb)
+            RoutePolylineOverlay(
+              legs:           _directions.state.legs,
+              cameraPosition: _lastCamera ?? _initialCamera,
+            ),
+          // coverage:ignore-end
           _buildGpsStatusCard(),
           _buildCampusToggleCard(),
-          _buildDirectionsCard(),
+
           _buildSearchOverlay(),
           if (_mapMoved && _lastKnownPosition != null) _buildRecenterButton(),
           if (_currentBuildingFromGPS != null &&
-              _startBuilding == null) _buildSetCurrentAsStartCard(),
+              (_startBuilding == null && _startPoi == null))
+            _buildSetCurrentAsStartCard(),
           if (isE2EMode) _buildE2ECampusLabel(),
-
+          if (showPoiSettings)
+            PoiOptionMenu(
+              restaurants: restaurants,
+              cafes: cafes,
+              parks: parks,
+              currentSliderValue: nearbyPois,
+              sortBy: type,
+              parking: parking,
+              fastFood: fastFood,
+              nightClub: nightClub,
+              onRestaurantsChanged: (value) {
+                setState(() {
+                  restaurants = value ?? false;
+                });
+              },
+              onCafesChanged: (value) {
+                setState(() {
+                  cafes = value ?? false;
+                });
+              },
+              onParksChanged: (value) {
+                setState(() {
+                  parks = value ?? false;
+                });
+              },
+              onNearbyChanged: (value) {
+                setState(() {
+                  nearbyPois = value ?? 0;
+                });
+              },
+              onSortByChanged: (value) {
+                setState(() {
+                  type = value ?? '';
+                });
+              },
+              onReset: resetFilters,
+              onApply: applyFilters,
+              onClose: () {
+                setState(() {
+                  showPoiSettings = false;
+                });
+              },
+              onParkingChanged: (value) {
+                setState(() {
+                  parking = value ?? false;
+                });
+              },
+              onFastFoodChanged: (value) {
+                setState(() {
+                  fastFood = value ?? false;
+                });
+              },
+              onNightClubChanged: (value) {
+                setState(() {
+                  nightClub = value ?? false;
+                });
+              },
+              onShow: () {
+                setState(() {
+                  showPoiSettings = false;
+                  showResults = true;
+                });
+              }, distanceSliderValue: distance,
+              onDistanceChanged: (value) {
+                setState(() {
+                  distance = value ?? 0;
+                });
+              },
+            ),
           if (_showScheduleOverlay)
             ScheduleOverlay(
+              uid: _uid,
               onClose: () {
                 setState(() {
                   _showScheduleOverlay = false;
@@ -907,6 +1531,24 @@ class _HomeScreenState extends HomeScreenState {
                 setState(() {
                   _showScheduleOverlay = false;
                 });
+                final destination = buildingsPresent
+                    .cast<CampusBuilding?>()
+                    .firstWhere(
+                      (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
+                  orElse: () => null,
+                );
+
+                if (destination != null) {
+                  _handleSetAsDestination(destination);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => IndoorMapScreen(
+                        building: destination,
+                        initialDestinationRoomId: entry.room,
+                      ),
+                    ),
+                  );
+                }
               },
               lookupService: ScheduleLookupService(
                 api: ConcordiaApiService(
@@ -915,8 +1557,37 @@ class _HomeScreenState extends HomeScreenState {
                 ),
               ),
             ),
+
+          if (showResults)
+            Results(
+              poiPresent: poiPresent,
+              locationPoint: locationPoint,
+              onSelect: (b) {
+                setState(() {
+                  _showPoiDetailSheet(b);
+                });
+              }, onClose: () { setState(() {
+              showResults = false;
+            }); },
+            ),
+
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton.extended(
+              onPressed: () {
+                setState(() {
+                  showPoiSettings = true;
+                });
+              },
+              label: const Text('Points of Interest'),
+              icon: const Icon(Icons.place),
+            ),
+          )
+          , _buildDirectionsCard(),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
     );
   }
 
@@ -940,9 +1611,7 @@ class _HomeScreenState extends HomeScreenState {
     return CampusMap(
       initialCamera: _initialCamera,
       polygons: _polygons,
-      polylines: _directions.state.polyline == null
-          ? <Polyline>{}
-          : <Polyline>{_directions.state.polyline!}, // coverage:ignore-line
+      polylines: _directions.state.polylines,
       markers: Set<Marker>.of(_markers),
       myLocationEnabled: !isE2EMode,
       myLocationButtonEnabled: false,
@@ -964,14 +1633,16 @@ class _HomeScreenState extends HomeScreenState {
         FocusScope.of(context).unfocus();
         // coverage:ignore-end
       },
-      onCameraMove: _onCameraMove,
 
+      // onCameraMove: _onCameraMove,
     );
   }
 
   Widget _buildGpsStatusCard() {
-    final text = _currentBuildingFromGPS?.fullName ??
-        _currentBuildingFromGPS?.name ?? 'Not in a building';
+    final text =
+        _currentBuildingFromGPS?.fullName ??
+            _currentBuildingFromGPS?.name ??
+            'Not in a building';
     return _topCard(
       top: 12,
       elevation: 4,
@@ -987,17 +1658,20 @@ class _HomeScreenState extends HomeScreenState {
     return _topCard(
       top: 70,
       padding: const EdgeInsets.all(8),
-      child: CampusToggle(
-        selected: _campus,
-        onChanged: _goToCampus,
-      ),
+      child: CampusToggle(selected: _campus, onChanged: _goToCampus),
     );
   }
 
   Widget _buildSetCurrentAsStartCard() {
-    final building = _currentBuildingFromGPS; // capture locally
+    final building = _currentBuildingFromGPS;
+    if (building == null ||
+        !isInBuilding ||
+        _startBuilding != null ||
+        _startPoi != null) {
+      return const SizedBox.shrink();
+    }
 
-    if (building == null || !isInBuilding || _startBuilding != null) {
+    if (_endBuilding != null || _endPoi != null) {
       return const SizedBox.shrink();
     }
 
@@ -1005,13 +1679,14 @@ class _HomeScreenState extends HomeScreenState {
 
     return Positioned(
       left: 12,
-      right: 12,
-      bottom: sheetOpen ? _currentSheetLift : 12, // coverage:ignore-line
+      width: 200,
+      bottom: sheetOpen ? _currentSheetLift : 20, // coverage:ignore-line
       child: UseAsStart(
         selected: building,
         onSetStart: () {
           debugPrint(
-              'Set as Start pressed for ${_currentBuildingFromGPS?.name}');
+            'Set as Start pressed for ${_currentBuildingFromGPS?.name}',
+          );
 
           setState(() {
             _startBuilding = _currentBuildingFromGPS;
@@ -1031,9 +1706,12 @@ class _HomeScreenState extends HomeScreenState {
     );
   }
 
-  Widget _topCard(
-      {required double top, required Widget child, EdgeInsetsGeometry padding = const EdgeInsets
-          .all(12), double? elevation,}) {
+  Widget _topCard({
+    required double top,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(12),
+    double? elevation,
+  }) {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(12, top, 12, 0),
@@ -1041,10 +1719,7 @@ class _HomeScreenState extends HomeScreenState {
           alignment: Alignment.topCenter,
           child: Card(
             elevation: elevation,
-            child: Padding(
-              padding: padding,
-              child: child,
-            ),
+            child: Padding(padding: padding, child: child),
           ),
         ),
       ),
@@ -1054,9 +1729,11 @@ class _HomeScreenState extends HomeScreenState {
   Widget _buildDirectionsCard() {
     return DirectionsCard(
       startBuilding: _startBuilding,
+      startPoi: _startPoi,
       endBuilding: _endBuilding,
-      useCurrentLocationAsStart: _startFromCurrentLocation &&
-          _startBuilding == null,
+      endPoi: _endPoi,
+      useCurrentLocationAsStart:
+      _startFromCurrentLocation && _startBuilding == null,
       locationRequiredMessage: _locationRequiredMessage,
       isLoading: _directions.state.isLoading,
       errorMessage: _directions.state.errorMessage,
@@ -1065,23 +1742,54 @@ class _HomeScreenState extends HomeScreenState {
       distanceText: _directions.state.distanceText,
       onCancel: () {
         setState(() {
+          _startPoi = null;
           _startBuilding = null;
           _endBuilding = null;
+          _endPoi = null;
           _startFromCurrentLocation = false;
           _locationRequiredMessage = null;
           _modeChangedByUser = false;
+          _roomToRoomEnabled = false;
+          _startIndoorMap = null;
+          _endIndoorMap = null;
+          _startRoomId = null;
+          _endRoomId = null;
         });
         _directions.updateRoute(start: null, end: null);
         debugPrint('Directions cancelled');
       },
       onRetry: _updateDirectionsIfReady,
       placeholderMessage: _directions.state.placeholderMessage,
+      etaType: _directions.state.etaType,
+      legs: _directions.state.legs,
       selectedModeParam: _directions.mode.modeParam,
       onModeChanged: (modeParam) {
         setState(() => _modeChangedByUser = true);
         _directions.setMode(strategyForModeParam(modeParam));
         _updateDirectionsIfReady();
       },
+      roomToRoomEnabled: _roomToRoomEnabled,
+      onRoomToRoomToggled: _onRoomToRoomToggled,
+      startIndoorMap: _startIndoorMap,
+      endIndoorMap: _endIndoorMap,
+      startFloorFilter: _startFloorFilter,
+      endFloorFilter: _endFloorFilter,
+      startRoomId: _startRoomId,
+      endRoomId: _endRoomId,
+      indoorMapsLoading: _indoorMapsLoading,
+      onStartFloorChanged: (v) => setState(() {
+        _startFloorFilter = v;
+        _startRoomId = null;
+      }),
+      onEndFloorChanged: (v) => setState(() {
+        _endFloorFilter = v;
+        _endRoomId = null;
+      }),
+      onStartRoomChanged: (v) => setState(() => _startRoomId = v),
+      onEndRoomChanged: (v) => setState(() => _endRoomId = v),
+      onStartNavigation: (_startRoomId != null && _endRoomId != null)
+          ? _launchRoomToRoomNavigation
+          : null,
     );
   }
 
@@ -1132,8 +1840,11 @@ class _HomeScreenState extends HomeScreenState {
           _showSearchResults = false;
           _searchResults.clear();
         });
-
-        _onBuildingTapped(b);
+        if (b is CampusBuilding) {
+          _onBuildingTapped(b);
+        } else if (b is Poi) {
+          _showPoiDetailSheet(b);
+        }
       },
     );
   }
@@ -1155,8 +1866,8 @@ class _HomeScreenState extends HomeScreenState {
       bottom: bottom,
       child: FloatingActionButton.small(
         heroTag: 'recenter',
+        // coverage:ignore-start
         onPressed: () async {
-          // coverage:ignore-start
           final pos = _lastKnownPosition;
           if (pos == null) return;
           final controller = _mapController;
@@ -1171,8 +1882,8 @@ class _HomeScreenState extends HomeScreenState {
             _mapMoved = false;
             _programmaticCameraMove = false;
           });
-          // coverage:ignore-end
         },
+        // coverage:ignore-end
         tooltip: 'Recenter to my location',
         child: const Icon(Icons.my_location),
       ),
@@ -1209,7 +1920,7 @@ class _HomeScreenState extends HomeScreenState {
   void triggerPolygonOnTap(PolygonId id) {
     final Polygon? poly = _polygons.cast<Polygon?>().firstWhere(
           (p) => p != null && p.polygonId == id,
-      orElse: () => null, // coverage:ignore-line
+      orElse: () => null,
     );
     poly?.onTap?.call();
   }
@@ -1231,10 +1942,9 @@ class _HomeScreenState extends HomeScreenState {
 
   //test sheet render and bypass calling the tap methods.
   @visibleForTesting
-  void simulateBuildingSelection(CampusBuilding building, LatLng tapPoint,) {
+  void simulateBuildingSelection(CampusBuilding building, LatLng tapPoint) {
     lastTap = tapPoint;
-    final bool isAnnex =
-        building.fullName?.contains("Annex") ?? false;
+    final bool isAnnex = building.fullName?.contains("Annex") ?? false;
 
     _showBuildingDetailSheet(building, isAnnex);
 
@@ -1259,6 +1969,41 @@ class _HomeScreenState extends HomeScreenState {
       _currentBuildingFromGPS = null;
       _polygons = _buildPolygons(buildingsPresent);
     });
+  }
+
+  @visibleForTesting
+  void simulateCameraMove(CameraPosition position) {
+    setState(() {
+      _mapMoved = true;
+      _lastKnownPosition ??= position.target;
+    });
+  }
+
+  @visibleForTesting
+  void simulatePoi(Poi poi, {bool isStart = false}) {
+    if (isStart) {
+      _handlePoiAsStart(poi);
+    } else {
+      _handlePoiAsDestination(poi);
+    }
+  }
+
+  @visibleForTesting
+  void simulateRoomSelected(CourseScheduleEntry entry) {
+    setState(() => _showScheduleOverlay = false);
+    final destination = buildingsPresent.cast<CampusBuilding?>().firstWhere(
+          (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
+      orElse: () => null,
+    );
+    if (destination != null) {
+      _handleSetAsDestination(destination);
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => IndoorMapScreen(
+          building: destination,
+          initialDestinationRoomId: entry.room,
+        ),
+      ));
+    }
   }
 
   @visibleForTesting
@@ -1308,10 +2053,62 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   @visibleForTesting
-  void simulateCameraMove(CameraPosition position) {
-    _onCameraMove(position);
+  void setShowPoiSettingsForTest(bool value) {
+    setState(() {
+      showPoiSettings = value;
+    });
   }
 
+  @visibleForTesting
+  void setLastKnownPositionForTest(LatLng point) {
+    setState(() {
+      _lastKnownPosition = point;
+    });
+  }
+
+  @visibleForTesting
+  void setShowResultsForTest(bool value) {
+    setState(() {
+      showResults = value;
+    });
+  }
+
+  @visibleForTesting
+  void setSuppressNextMapTapForTest(bool value) {
+    _suppressNextMapTap = value;
+  }
+
+  @visibleForTesting
+  void simulateShowPoiDetailSheet(Poi poi) {
+    _showPoiDetailSheet(poi);
+    setState(() {}); // schedules a frame so the post-frame callback fires
+  }
+
+
+  @visibleForTesting
+  void simulatePoiSelection(Poi poi) {
+    _showPoiDetailSheet(poi);
+  }
+
+  @visibleForTesting
+  Future<void> simulatePoiAsStart(Poi poi) => _handlePoiAsStart(poi);
+
+  @visibleForTesting
+  Future<void> simulatePoiAsDestination(Poi poi) => _handlePoiAsDestination(poi);
+
+  @visibleForTesting
+  Future<void> loadNearbyPoisForTest() => _loadNearbyPois(
+      restaurants, cafes, parks, parking, fastFood, nightClub, nearbyPois,
+      type, distance * 1000);
+
+  @visibleForTesting
+  void finishLoadingPoisForTest(
+      List<dynamic> places, Uint8List markIcon, double size) {
+    _finishLoadingPois(places, markIcon, size);
+  }
+
+  @visibleForTesting
+  List<Marker> get testMarkers => _markers;
 }
 
 // For tests: Make sure we cover route-zoom math without a real map

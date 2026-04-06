@@ -1,104 +1,105 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:proj/models/campus.dart';
+import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/location.dart';
+import 'package:proj/models/poi.dart';
 import 'package:proj/widgets/home/search_overlay.dart';
 
-Widget _wrap({
-  required TextEditingController controller,
-  VoidCallback? onSearch,
-  VoidCallback? onClear,
-}) {
+Widget _wrapResults(List<MapLocation> results, ValueChanged<MapLocation> onSelect) {
   return MaterialApp(
     home: Scaffold(
-      body: Stack(
-        children: [
-          SearchOverlay(
-            controller: controller,
-            showResults: false,
-            results: const [],
-            onChanged: (_) {},
-            onClear: onClear ?? () {},
-            onSearch: onSearch ?? () {},
-            onMenuSelected: (_) {},
-            onTapField: () {},
-            onSelectResult: (_) {},
-          ),
-        ],
-      ),
+      body: SearchResultsCard(results: results, onSelect: onSelect),
     ),
   );
 }
 
+Poi _poi({String id = 'p1', String name = 'Test POI', String? description}) =>
+    Poi(
+      id: id,
+      name: name,
+      campus: Campus.sgw,
+      description: description,
+      boundary: const LatLng(45.497, -73.578),
+      openNow: true,
+      openingHours: const [],
+      photoName: const [],
+      rating: 4.0,
+      address: '1 Test St',
+    );
+
+CampusBuilding _building({String name = 'Hall', String? fullName}) =>
+    CampusBuilding(
+      id: 'b1',
+      name: name,
+      campus: Campus.sgw,
+      boundary: const [LatLng(0, 0), LatLng(0, 1), LatLng(1, 1)],
+      fullName: fullName,
+      description: null,
+    );
+
 void main() {
-  group('SearchOverlay search button', () {
-    testWidgets('search icon is always present', (tester) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(_wrap(controller: controller));
-
-      expect(find.byIcon(Icons.search), findsOneWidget);
+  group('SearchResultsCard', () {
+    testWidgets('renders Poi name as list tile title', (tester) async {
+      final poi = _poi(name: 'Nearby Cafe', description: 'Good coffee');
+      await tester.pumpWidget(_wrapResults([poi], (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.text('Nearby Cafe'), findsOneWidget);
     });
 
-    testWidgets('search button calls onSearch when text is non-empty',
+    testWidgets('renders Poi description as subtitle when non-empty',
         (tester) async {
-      final controller = TextEditingController(text: 'Hall');
-      addTearDown(controller.dispose);
-
-      var called = false;
-      await tester.pumpWidget(
-        _wrap(controller: controller, onSearch: () => called = true),
-      );
-
-      await tester.tap(find.byIcon(Icons.search));
-      await tester.pump();
-
-      expect(called, isTrue);
+      final poi = _poi(name: 'Nearby Cafe', description: 'Good coffee');
+      await tester.pumpWidget(_wrapResults([poi], (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.text('Good coffee'), findsOneWidget);
     });
 
-    testWidgets('search button does nothing when text is empty', (tester) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      var called = false;
-      await tester.pumpWidget(
-        _wrap(controller: controller, onSearch: () => called = true),
-      );
-
-      // The button has onPressed: null when empty — tap is a no-op
-      await tester.tap(find.byIcon(Icons.search), warnIfMissed: false);
-      await tester.pump();
-
-      expect(called, isFalse);
+    testWidgets('Poi subtitle absent when description is empty', (tester) async {
+      final poi = _poi(name: 'Silent Cafe', description: '');
+      await tester.pumpWidget(_wrapResults([poi], (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.text(''), findsNothing);
     });
 
-    testWidgets('clear button only appears when text is non-empty',
+    testWidgets('onSelect called with Poi when Poi tile tapped', (tester) async {
+      MapLocation? selected;
+      final poi = _poi(name: 'Nearby Cafe', description: 'Desc');
+      await tester.pumpWidget(_wrapResults([poi], (loc) => selected = loc));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nearby Cafe'));
+      await tester.pump();
+      expect(selected, equals(poi));
+    });
+
+    testWidgets('renders CampusBuilding name and fullName', (tester) async {
+      final b = _building(name: 'Hall', fullName: 'Hall Building');
+      await tester.pumpWidget(_wrapResults([b], (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.text('Hall'), findsOneWidget);
+      expect(find.text('Hall Building'), findsOneWidget);
+    });
+
+    testWidgets('onSelect called with CampusBuilding when building tile tapped',
         (tester) async {
-      // Empty controller → no clear button
-      final empty = TextEditingController();
-      addTearDown(empty.dispose);
-      await tester.pumpWidget(_wrap(controller: empty));
-      expect(find.byIcon(Icons.clear), findsNothing);
-
-      // Pre-filled controller → clear button shown
-      final filled = TextEditingController(text: 'something');
-      addTearDown(filled.dispose);
-      await tester.pumpWidget(_wrap(controller: filled));
-      expect(find.byIcon(Icons.clear), findsOneWidget);
+      MapLocation? selected;
+      final b = _building(name: 'Hall', fullName: 'Hall Building');
+      await tester.pumpWidget(_wrapResults([b], (loc) => selected = loc));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hall'));
+      await tester.pump();
+      expect(selected, equals(b));
     });
 
-    testWidgets('clear button calls onClear', (tester) async {
-      final controller = TextEditingController(text: 'Hall');
-      addTearDown(controller.dispose);
-
-      var cleared = false;
-      await tester.pumpWidget(
-        _wrap(controller: controller, onClear: () => cleared = true),
-      );
-
-      await tester.tap(find.byIcon(Icons.clear));
-      await tester.pump();
-
-      expect(cleared, isTrue);
+    testWidgets('renders both Poi and CampusBuilding in same list',
+        (tester) async {
+      final poi = _poi(name: 'My Cafe');
+      final b = _building(name: 'MB', fullName: 'MB Building');
+      await tester.pumpWidget(_wrapResults([poi, b], (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.text('My Cafe'), findsOneWidget);
+      expect(find.text('MB'), findsOneWidget);
     });
   });
 }

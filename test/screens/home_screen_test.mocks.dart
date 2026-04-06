@@ -3,14 +3,18 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i6;
+import 'dart:async' as _i7;
 
-import 'package:google_maps_flutter/google_maps_flutter.dart' as _i7;
+import 'package:firebase_auth/firebase_auth.dart' as _i11;
+import 'package:google_maps_flutter/google_maps_flutter.dart' as _i8;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:proj/data/data_parser.dart' as _i3;
-import 'package:proj/models/campus.dart' as _i8;
-import 'package:proj/models/campus_building.dart' as _i4;
-import 'package:proj/models/poi.dart' as _i5;
+import 'package:proj/data/data_parser.dart' as _i4;
+import 'package:proj/models/app_user.dart' as _i3;
+import 'package:proj/models/campus.dart' as _i9;
+import 'package:proj/models/campus_building.dart' as _i5;
+import 'package:proj/models/poi.dart' as _i6;
+import 'package:proj/models/user_role.dart' as _i12;
+import 'package:proj/services/auth/auth_service.dart' as _i10;
 import 'package:proj/services/building_locator.dart' as _i2;
 
 // ignore_for_file: type=lint
@@ -31,78 +35,67 @@ import 'package:proj/services/building_locator.dart' as _i2;
 class _FakeBuildingStatus_0 extends _i1.SmartFake
     implements _i2.BuildingStatus {
   _FakeBuildingStatus_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+      : super(parent, parentInvocation);
+}
+
+class _FakeAppUser_1 extends _i1.SmartFake implements _i3.AppUser {
+  _FakeAppUser_1(Object parent, Invocation parentInvocation)
+      : super(parent, parentInvocation);
 }
 
 /// A class which mocks [DataParser].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockDataParser extends _i1.Mock implements _i3.DataParser {
+class MockDataParser extends _i1.Mock implements _i4.DataParser {
   MockDataParser() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  List<_i4.CampusBuilding> get buildingsPresent =>
+  List<_i5.CampusBuilding> get buildingsPresent =>
       (super.noSuchMethod(
-            Invocation.getter(#buildingsPresent),
-            returnValue: <_i4.CampusBuilding>[],
-          )
-          as List<_i4.CampusBuilding>);
+        Invocation.getter(#buildingsPresent),
+        returnValue: <_i5.CampusBuilding>[],
+      )
+      as List<_i5.CampusBuilding>);
 
   @override
-  List<_i5.Poi> get poiPresent =>
+  List<_i6.Poi> get poiPresent =>
       (super.noSuchMethod(
-            Invocation.getter(#poiPresent),
-            returnValue: <_i5.Poi>[],
-          )
-          as List<_i5.Poi>);
+        Invocation.getter(#poiPresent),
+        returnValue: <_i6.Poi>[],
+      )
+      as List<_i6.Poi>);
 
   @override
-  set buildingsPresent(List<_i4.CampusBuilding>? value) => super.noSuchMethod(
+  set buildingsPresent(List<_i5.CampusBuilding>? value) => super.noSuchMethod(
     Invocation.setter(#buildingsPresent, value),
     returnValueForMissingStub: null,
   );
 
   @override
-  set poiPresent(List<_i5.Poi>? value) => super.noSuchMethod(
+  set poiPresent(List<_i6.Poi>? value) => super.noSuchMethod(
     Invocation.setter(#poiPresent, value),
     returnValueForMissingStub: null,
   );
 
   @override
-  _i6.Future<List<_i4.CampusBuilding>> getBuildingInfoFromJSON() =>
+  _i7.Future<List<_i5.CampusBuilding>> getBuildingInfoFromJSON() =>
       (super.noSuchMethod(
-            Invocation.method(#getBuildingInfoFromJSON, []),
-            returnValue: _i6.Future<List<_i4.CampusBuilding>>.value(
-              <_i4.CampusBuilding>[],
-            ),
-          )
-          as _i6.Future<List<_i4.CampusBuilding>>);
+        Invocation.method(#getBuildingInfoFromJSON, []),
+        returnValue: _i7.Future<List<_i5.CampusBuilding>>.value(
+          <_i5.CampusBuilding>[],
+        ),
+      )
+      as _i7.Future<List<_i5.CampusBuilding>>);
 
   @override
-  List<_i4.CampusBuilding> parseBuildings(Map<String, dynamic>? jsonFile) =>
+  List<_i5.CampusBuilding> parseBuildings(Map<String, dynamic>? jsonFile) =>
       (super.noSuchMethod(
-            Invocation.method(#parseBuildings, [jsonFile]),
-            returnValue: <_i4.CampusBuilding>[],
-          )
-          as List<_i4.CampusBuilding>);
-
-  @override
-  _i6.Future<List<_i5.Poi>> getMarkersFromJSON() =>
-      (super.noSuchMethod(
-            Invocation.method(#getMarkersFromJSON, []),
-            returnValue: _i6.Future<List<_i5.Poi>>.value(<_i5.Poi>[]),
-          )
-          as _i6.Future<List<_i5.Poi>>);
-
-  @override
-  List<_i5.Poi> parsePoi(Map<String, dynamic>? jsonFile) =>
-      (super.noSuchMethod(
-            Invocation.method(#parsePoi, [jsonFile]),
-            returnValue: <_i5.Poi>[],
-          )
-          as List<_i5.Poi>);
+        Invocation.method(#parseBuildings, [jsonFile]),
+        returnValue: <_i5.CampusBuilding>[],
+      )
+      as List<_i5.CampusBuilding>);
 }
 
 /// A class which mocks [BuildingLocator].
@@ -116,18 +109,18 @@ class MockBuildingLocator extends _i1.Mock implements _i2.BuildingLocator {
   @override
   double get enterThresholdMeters =>
       (super.noSuchMethod(
-            Invocation.getter(#enterThresholdMeters),
-            returnValue: 0.0,
-          )
-          as double);
+        Invocation.getter(#enterThresholdMeters),
+        returnValue: 0.0,
+      )
+      as double);
 
   @override
   double get exitThresholdMeters =>
       (super.noSuchMethod(
-            Invocation.getter(#exitThresholdMeters),
-            returnValue: 0.0,
-          )
-          as double);
+        Invocation.getter(#exitThresholdMeters),
+        returnValue: 0.0,
+      )
+      as double);
 
   @override
   void reset() => super.noSuchMethod(
@@ -137,24 +130,120 @@ class MockBuildingLocator extends _i1.Mock implements _i2.BuildingLocator {
 
   @override
   _i2.BuildingStatus update({
-    required _i7.LatLng? userPoint,
-    required _i8.Campus? campus,
-    required List<_i4.CampusBuilding>? buildings,
+    required _i8.LatLng? userPoint,
+    required _i9.Campus? campus,
+    required List<_i5.CampusBuilding>? buildings,
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#update, [], {
-              #userPoint: userPoint,
-              #campus: campus,
-              #buildings: buildings,
+        Invocation.method(#update, [], {
+          #userPoint: userPoint,
+          #campus: campus,
+          #buildings: buildings,
+        }),
+        returnValue: _FakeBuildingStatus_0(
+          this,
+          Invocation.method(#update, [], {
+            #userPoint: userPoint,
+            #campus: campus,
+            #buildings: buildings,
+          }),
+        ),
+      )
+      as _i2.BuildingStatus);
+}
+
+/// A class which mocks [AuthService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockAuthService extends _i1.Mock implements _i10.AuthService {
+  MockAuthService() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i7.Stream<_i11.User?> get authStateChanges =>
+      (super.noSuchMethod(
+        Invocation.getter(#authStateChanges),
+        returnValue: _i7.Stream<_i11.User?>.empty(),
+      )
+      as _i7.Stream<_i11.User?>);
+
+  @override
+  bool get isGuestMode =>
+      (super.noSuchMethod(Invocation.getter(#isGuestMode), returnValue: false)
+      as bool);
+
+  @override
+  _i7.Future<_i3.AppUser> continueAsGuest() =>
+      (super.noSuchMethod(
+        Invocation.method(#continueAsGuest, []),
+        returnValue: _i7.Future<_i3.AppUser>.value(
+          _FakeAppUser_1(this, Invocation.method(#continueAsGuest, [])),
+        ),
+      )
+      as _i7.Future<_i3.AppUser>);
+
+  @override
+  _i7.Future<void> signOut() =>
+      (super.noSuchMethod(
+        Invocation.method(#signOut, []),
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      )
+      as _i7.Future<void>);
+
+  @override
+  _i7.Future<_i3.AppUser> signUpStudentOrTeacher({
+    required String? email,
+    required String? password,
+    required _i12.UserRole? role,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(#signUpStudentOrTeacher, [], {
+          #email: email,
+          #password: password,
+          #role: role,
+        }),
+        returnValue: _i7.Future<_i3.AppUser>.value(
+          _FakeAppUser_1(
+            this,
+            Invocation.method(#signUpStudentOrTeacher, [], {
+              #email: email,
+              #password: password,
+              #role: role,
             }),
-            returnValue: _FakeBuildingStatus_0(
-              this,
-              Invocation.method(#update, [], {
-                #userPoint: userPoint,
-                #campus: campus,
-                #buildings: buildings,
-              }),
-            ),
-          )
-          as _i2.BuildingStatus);
+          ),
+        ),
+      )
+      as _i7.Future<_i3.AppUser>);
+
+  @override
+  _i7.Future<_i3.AppUser> signInStudentOrTeacher({
+    required String? email,
+    required String? password,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(#signInStudentOrTeacher, [], {
+          #email: email,
+          #password: password,
+        }),
+        returnValue: _i7.Future<_i3.AppUser>.value(
+          _FakeAppUser_1(
+            this,
+            Invocation.method(#signInStudentOrTeacher, [], {
+              #email: email,
+              #password: password,
+            }),
+          ),
+        ),
+      )
+      as _i7.Future<_i3.AppUser>);
+
+  @override
+  _i7.Future<_i3.AppUser?> getCurrentAppUser() =>
+      (super.noSuchMethod(
+        Invocation.method(#getCurrentAppUser, []),
+        returnValue: _i7.Future<_i3.AppUser?>.value(),
+      )
+      as _i7.Future<_i3.AppUser?>);
 }

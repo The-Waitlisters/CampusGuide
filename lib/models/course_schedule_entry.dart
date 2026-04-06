@@ -34,4 +34,29 @@ class CourseScheduleEntry {
   bool get hasRoom {
     return room.trim().isNotEmpty;
   }
+
+  Map<String, dynamic> toJson() => {
+    'courseCode': courseCode,
+    'section': section,
+    'dayText': dayText,
+    'timeText': timeText,
+    'room': room,
+    'campus': campus,
+    'buildingCode': buildingCode,
+    if (rawSource != null) 'rawSource': rawSource,
+  };
+
+  factory CourseScheduleEntry.fromJson(Map<String, dynamic> json) {
+    return CourseScheduleEntry(
+      courseCode: json['courseCode'] as String,
+      section: json['section'] as String,
+      dayText: json['dayText'] as String,
+      timeText: json['timeText'] as String,
+      room: json['room'] as String,
+      campus: json['campus'] as String,
+      buildingCode: json['buildingCode'] as String,
+      rawSource: json['rawSource'] as String?,
+    );
+  }
 }
+
