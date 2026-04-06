@@ -21,40 +21,98 @@
         );
     </script>
 
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
+    <!-- Thin wrapper around google.maps.DirectionsService used by the Flutter app
+         on web to avoid the CORS restrictions of the REST Directions API.
+         The function body references google.maps only when called (after the Maps
+         SDK above has fully loaded), so it is safe to define it here.
 
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
+         NOTE: In the JS SDK, route.overview_polyline and step.polyline are
+         already encoded strings — NOT objects with a .points property.
+         Accessing .points returns undefined, which JSON.stringify silently drops,
+         leaving Dart with no polyline data to decode. -->
+    <script>
+        window.getRoute = function (
+          originLat, originLng, destLat, destLng, travelMode, callback
+        ) {
+          var service = new google.maps.DirectionsService();
+          service.route(
+            {
+              origin:      { lat: originLat, lng: originLng },
+              destination: { lat: destLat,   lng: destLng   },
+              travelMode:  travelMode
+            },
+            function (result, status) {
+              if (status !== 'OK') {
+                callback(JSON.stringify({ error: status }));
+                return;
+              }
+              var route = result.routes[0];
+              var leg   = route.legs[0];
+              var payload = {
+                duration_text:     leg.duration ? leg.duration.text : '',
+                duration_value:    leg.duration ? leg.duration.value : 0,
+                distance_text:     leg.distance ? leg.distance.text : '',
+                // overview_polyline is already the encoded string in the JS SDK —
+                // do NOT append .points (that returns undefined on a string).
+                overview_polyline: route.overview_polyline,
+                steps: leg.steps.map(function (step) {
+                  var td   = step.transit_details || {};
+                  var line = td.line || {};
+                  return {
+                    travel_mode:    step.travel_mode,
+                    duration_text:  step.duration ? step.duration.text : '',
+                    duration_value: step.duration ? step.duration.value : 0,
+                    distance_text:  step.distance ? step.distance.text : '',
+                    // step.polyline is also already the encoded string in the JS SDK.
+                    polyline:       step.polyline,
+                    transit_color:  line.color || null,
+                    line_name:      line.short_name || line.name || null
+                  };
+                })
+              };
+              console.log('[getRoute] payload overview_polyline type:', typeof payload.overview_polyline,
+                '| value (first 80 chars):', String(payload.overview_polyline).substring(0, 80),
+                '| steps count:', payload.steps.length);
+              callback(JSON.stringify(payload));
+            }
+          );
+        };
+    </script>
 
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+    <!--
+      If you are serving your web app in a path other than the root, change the
+      href value below to reflect the base path you are serving from.
 
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="$FLUTTER_BASE_HREF">
+      The path provided below has to start and end with a slash "/" in order for
+      it to work correctly.
 
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+      For more details:
+      * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
 
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="proj">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+      This is a placeholder for base href that will be replaced by the value of
+      the `--base-href` argument provided to `flutter build`.
+    -->
+    <base href="$FLUTTER_BASE_HREF">
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+    <meta charset="UTF-8">
+    <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+    <meta name="description" content="A new Flutter project.">
 
-  <title>proj</title>
-  <link rel="manifest" href="manifest.json">
+    <!-- iOS meta tags & icons -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="proj">
+    <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon.png"/>
+
+    <title>proj</title>
+    <link rel="manifest" href="manifest.json">
 
 
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+<script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

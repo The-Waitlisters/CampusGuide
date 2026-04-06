@@ -1,13 +1,16 @@
 import 'campus_building.dart';
 import 'floor.dart';
+import 'vertical_link.dart';
 
 class IndoorMap {
   final CampusBuilding building;
   final List<Floor> floors;
+  final List<VerticalLink> verticalLinks;
 
   const IndoorMap({
     required this.building,
     required this.floors,
+    this.verticalLinks = const [],
   });
 
   Floor? getFloorByLevel(int level) {

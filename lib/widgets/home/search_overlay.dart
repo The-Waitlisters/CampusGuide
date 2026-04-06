@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/location.dart';
+import 'package:proj/models/poi.dart';
 
 class SearchOverlay extends StatelessWidget {
   final TextEditingController controller;
   final bool showResults;
-  final List<CampusBuilding> results;
+  final List<MapLocation> results;
 
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
   final ValueChanged<String> onMenuSelected;
   final VoidCallback onTapField;
-  final ValueChanged<CampusBuilding> onSelectResult;
+  final ValueChanged<MapLocation> onSelectResult;
 
   const SearchOverlay({
     super.key,
@@ -45,25 +47,23 @@ class SearchOverlay extends StatelessWidget {
                     icon: const Icon(Icons.menu),
                     onSelected: onMenuSelected,
                     itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'schedule',
-                        child: Text('Schedule'),
-                      ),
+                      PopupMenuItem(value: 'schedule', child: Text('Schedule')),
                     ],
                   ),
                   suffixIcon: controller.text.isEmpty
                       ? null
                       : IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: onClear,
-                  ),
+                          icon: const Icon(Icons.clear),
+                          onPressed: onClear,
+                        ),
                 ),
                 onChanged: onChanged,
                 onTap: onTapField,
               ),
             ),
           ),
-          if (showResults) SearchResultsCard(results: results, onSelect: onSelectResult),
+          if (showResults)
+            SearchResultsCard(results: results, onSelect: onSelectResult),
         ],
       ),
     );
@@ -71,8 +71,8 @@ class SearchOverlay extends StatelessWidget {
 }
 
 class SearchResultsCard extends StatelessWidget {
-  final List<CampusBuilding> results;
-  final ValueChanged<CampusBuilding> onSelect;
+  final List<MapLocation> results;
+  final ValueChanged<MapLocation> onSelect;
 
   const SearchResultsCard({
     super.key,
@@ -88,17 +88,29 @@ class SearchResultsCard extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: results.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
+        // ignore: body_might_complete_normally_nullable
         itemBuilder: (context, i) {
           final b = results[i];
-
-          return ListTile(
-            dense: true,
-            title: Text(b.name),
-            subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
-                ? Text(b.fullName!)
-                : null,
-            onTap: () => onSelect(b),
-          );
+          if (b is CampusBuilding) {
+            return ListTile(
+              dense: true,
+              title: Text(b.name),
+              subtitle: (b.fullName != null && b.fullName!.trim().isNotEmpty)
+                  ? Text(b.fullName!)
+                  : null,
+              onTap: () => onSelect(b),
+            );
+          } else if (b is Poi) {
+            return ListTile(
+              dense: true,
+              title: Text(b.name),
+              subtitle:
+                  (b.description != null && b.description!.trim().isNotEmpty)
+                  ? Text(b.description!)
+                  : null,
+              onTap: () => onSelect(b),
+            );
+          }
         },
       ),
     );
