@@ -115,19 +115,46 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
 
   void _applyInitialDestinationRoom(IndoorMap map) {
     final String? destId = widget.initialDestinationRoomId;
-    if (destId == null) {
-      return;
-    }
+    if (destId == null) return;
 
     final _MatchedRoom? matched = _findInitialDestinationRoom(map, destId);
-    if (matched == null) {
-      return;
-    }
+    if (matched == null) return;
 
     _destinationRoom = matched.room;
+    _destinationFloorLevel = matched.floor.level;
     _selectedFloorLevel = matched.floor.level;
     _navGraph = matched.floor.navGraph;
+
+    final _MatchedRoom? entrance = _findEntranceRoom(map);
+    if (entrance != null) {
+      _startRoom = entrance.room;
+      _startFloorLevel = entrance.floor.level;
+    }
+
     _computePath();
+  }
+
+  _MatchedRoom? _findEntranceRoom(IndoorMap map) {
+    for (final floor in map.floors) {
+      final graph = floor.navGraph;
+      if (graph == null) continue;
+      for (final node in graph.nodes) {
+        final id = node.id.toLowerCase();
+        final name = node.name.toLowerCase();
+        if (id.contains('entry') || id.contains('entrance') ||
+            name.contains('entry') || name.contains('entrance')) {
+          // Check if it's also a proper Room (preferred)
+          final room = floor.roomById(node.id);
+          if (room != null) return _MatchedRoom(floor: floor, room: room);
+          // Otherwise wrap the nav node as a minimal Room
+          return _MatchedRoom(
+            floor: floor,
+            room: Room(id: node.id, name: node.name.isNotEmpty ? node.name : 'Entrance', boundary: []),
+          );
+        }
+      }
+    }
+    return null;
   }
 
   _MatchedRoom? _findInitialDestinationRoom(IndoorMap map, String destId) {
