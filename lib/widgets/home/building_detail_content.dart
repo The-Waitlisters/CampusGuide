@@ -48,14 +48,17 @@ class BuildingDetailContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(String title, List<String> items) {
+    Widget _buildSection(
+        String title,
+        List<String> items, {
+          TextStyle? itemStyle,
+        }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        ...items.map((e) => Text(e == '-' ? 'None' : e)),
-        const SizedBox(height: 12),
+        ...items.map((e) => Text(e == '-' ? 'None' : e, style: itemStyle)),        const SizedBox(height: 12),
       ],
     );
   }
@@ -92,8 +95,14 @@ class BuildingDetailContent extends StatelessWidget {
         const SizedBox(height: 12),
         Text(building.description ?? ''),
         const SizedBox(height: 12),
-        _buildSection('Opening Hours:', building.openingHours),
-        _buildSection('Departments:', building.departments),
+        _buildSection(
+          'Opening Hours:',
+          building!.openingHours,
+          itemStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF8B0000),
+          ),
+        ),        _buildSection('Departments:', building.departments),
         _buildSection('Services:', building.services),
         if (onViewIndoorMap != null) ...[
           const SizedBox(height: 16),
