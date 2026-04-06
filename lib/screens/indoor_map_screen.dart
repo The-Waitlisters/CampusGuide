@@ -418,197 +418,199 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.building.fullName ?? widget.building.name),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (_error != null || _indoorMap == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.building.fullName ?? widget.building.name),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _error ?? 'No indoor map available',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Back'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    if (_loading) return _buildLoadingScaffold();
+    if (_error != null || _indoorMap == null) return _buildErrorScaffold(context);
+    return _buildMainScaffold(context);
+  }
 
-    final floorLevels = _indoorMap!.floorLevels;
-
+  Widget _buildLoadingScaffold() {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.building.fullName ?? widget.building.name),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(44),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                const Text('Floor:', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 8),
-                DropdownButton<int>(
-                  value: _selectedFloorLevel,
-                  items: floorLevels.map((l) {
-                    final f = _indoorMap!.getFloorByLevel(l);
-                    return DropdownMenuItem(
-                      value: l,
-                      child: Text(f?.label ?? 'Floor $l'),
-                    );
-                  }).toList(),
-                  onChanged: (v) {
-                    if (v != null) _onFloorChanged(v);
-                  },
-                ),
-              ],
-            ),
+      appBar: _buildAppBar(),
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildErrorScaffold(BuildContext context) {
+    return Scaffold(
+      appBar: _buildAppBar(),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error ?? 'No indoor map available', textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Back'),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMainScaffold(BuildContext context) {
+    return Scaffold(
+      appBar: _buildAppBar(bottom: _buildFloorSelector()),
       body: Column(
         children: [
-          // Search
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                hintText: 'Search room by name or number',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ),
-          // Map (Flexible so body doesn't overflow on small viewports)
-          if (_currentFloor != null)
-            Flexible(
-              child: _MapView(
-                floor: _currentFloor!,
-                navGraph: _navGraph,
-                selectedRoom: _selectedRoom,
-                startRoom: _startRoom,
-                destinationRoom: _destinationRoom,
-                path: _path,
-                currentNodeId: _currentMarkerNodeId,
-                onRoomTap: _onRoomSelected,
-              ),
-            ),
-          // Route controls
-          _RouteControls(
-            selectedRoom: _selectedRoom,
-            startRoom: _startRoom,
-            destinationRoom: _destinationRoom,
-            path: _path,
-            directions: _route?.directions ?? const <String>[],
-            currentStepText: _currentStepText,
-            hasNext: _canGoNext,
-            verticalPreference: _verticalPreference,
-            onSetStart: _setStart,
-            onSetDestination: _setDestination,
-            onClear: _clearRoute,
-            onNextStep: _goToNextStep,
-            onVerticalPreferenceChanged: _setVerticalPreference,
-          ),
-          // Room list
-          Expanded(
-            child: _currentFloor == null
-                ? const Center(child: Text('No floor data'))
-                : ListView.builder(
-                    itemCount: _filteredRooms.length,
-                    itemBuilder: (context, index) {
-                      final room = _filteredRooms[index];
-                      final isSelected = _selectedRoom?.id == room.id;
-                      final isStart = _startRoom?.id == room.id;
-                      final isDest = _destinationRoom?.id == room.id;
-                      final displayName = room.name.isNotEmpty
-                          ? room.name
-                          : room.id;
-                      return ListTile(
-                        leading: Icon(
-                          isStart
-                              ? Icons.play_circle
-                              : isDest
-                              ? Icons.flag
-                              : Icons.meeting_room_outlined,
-                          color: isStart
-                              ? Colors.green
-                              : isDest
-                              ? Colors.blue
-                              : isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                        ),
-                        title: Text(
-                          displayName,
-                          style: isSelected
-                              ? TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                )
-                              : null,
-                        ),
-                        subtitle: room.accessible
-                            ? null
-                            : const Text('Not accessible'),
-                        selected: isSelected,
-                        onTap: () => _onRoomSelected(room, fromSearch: true),
-                        onLongPress: () => _showRoomActions(context, room),
-                        trailing: isSelected
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.play_circle,
-                                      color: Colors.green,
-                                      size: 20,
-                                    ),
-                                    tooltip: 'Set as Start',
-                                    onPressed: _setStart,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.flag,
-                                      color: Colors.blue,
-                                      size: 20,
-                                    ),
-                                    tooltip: 'Set as Destination',
-                                    onPressed: _setDestination,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                ],
-                              )
-                            : null,
-                      );
-                    },
-                  ),
-          ),
+          _buildSearchBar(),
+          if (_currentFloor != null) _buildMapView(),
+          _buildRouteControls(),
+          Expanded(child: _buildRoomList(context)),
         ],
       ),
+    );
+  }
+
+  AppBar _buildAppBar({PreferredSizeWidget? bottom}) {
+    return AppBar(
+      title: Text(widget.building.fullName ?? widget.building.name),
+      bottom: bottom,
+    );
+  }
+
+  PreferredSizeWidget _buildFloorSelector() {
+    final floorLevels = _indoorMap!.floorLevels;
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(44),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Row(
+          children: [
+            const Text('Floor:', style: TextStyle(fontSize: 14)),
+            const SizedBox(width: 8),
+            DropdownButton<int>(
+              value: _selectedFloorLevel,
+              items: floorLevels.map((l) {
+                final f = _indoorMap!.getFloorByLevel(l);
+                return DropdownMenuItem(value: l, child: Text(f?.label ?? 'Floor $l'));
+              }).toList(),
+              onChanged: (v) { if (v != null) _onFloorChanged(v); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: TextField(
+        controller: _searchController,
+        decoration: const InputDecoration(
+          hintText: 'Search room by name or number',
+          prefixIcon: Icon(Icons.search),
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapView() {
+    return Flexible(
+      child: _MapView(
+        floor: _currentFloor!,
+        navGraph: _navGraph,
+        selectedRoom: _selectedRoom,
+        startRoom: _startRoom,
+        destinationRoom: _destinationRoom,
+        path: _path,
+        currentNodeId: _currentMarkerNodeId,
+        onRoomTap: _onRoomSelected,
+      ),
+    );
+  }
+
+  Widget _buildRouteControls() {
+    return _RouteControls(
+      selectedRoom: _selectedRoom,
+      startRoom: _startRoom,
+      destinationRoom: _destinationRoom,
+      path: _path,
+      directions: _route?.directions ?? const <String>[],
+      currentStepText: _currentStepText,
+      hasNext: _canGoNext,
+      verticalPreference: _verticalPreference,
+      onSetStart: _setStart,
+      onSetDestination: _setDestination,
+      onClear: _clearRoute,
+      onNextStep: _goToNextStep,
+      onVerticalPreferenceChanged: _setVerticalPreference,
+    );
+  }
+
+  Widget _buildRoomList(BuildContext context) {
+    if (_currentFloor == null) return const Center(child: Text('No floor data'));
+    return ListView.builder(
+      itemCount: _filteredRooms.length,
+      itemBuilder: (context, index) => _buildRoomTile(context, _filteredRooms[index]),
+    );
+  }
+
+  Widget _buildRoomTile(BuildContext context, Room room) {
+    final isSelected = _selectedRoom?.id == room.id;
+    final isStart    = _startRoom?.id == room.id;
+    final isDest     = _destinationRoom?.id == room.id;
+    final displayName = room.name.isNotEmpty ? room.name : room.id;
+
+    return ListTile(
+      leading: _buildRoomIcon(context, isStart: isStart, isDest: isDest, isSelected: isSelected),
+      title: Text(
+        displayName,
+        style: isSelected
+            ? TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)
+            : null,
+      ),
+      subtitle: room.accessible ? null : const Text('Not accessible'),
+      selected: isSelected,
+      onTap: () => _onRoomSelected(room, fromSearch: true),
+      onLongPress: () => _showRoomActions(context, room),
+      trailing: isSelected ? _buildRoomTileTrailing() : null,
+    );
+  }
+
+  Widget _buildRoomIcon(
+      BuildContext context, {
+        required bool isStart,
+        required bool isDest,
+        required bool isSelected,
+      }) {
+    final icon = isStart ? Icons.play_circle
+        : isDest ? Icons.flag
+        : Icons.meeting_room_outlined;
+    final color = isStart ? Colors.green
+        : isDest ? Colors.blue
+        : isSelected ? Theme.of(context).colorScheme.primary
+        : null;
+    return Icon(icon, color: color);
+  }
+
+  Widget _buildRoomTileTrailing() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.play_circle, color: Colors.green, size: 20),
+          tooltip: 'Set as Start',
+          onPressed: _setStart,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.flag, color: Colors.blue, size: 20),
+          tooltip: 'Set as Destination',
+          onPressed: _setDestination,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ],
     );
   }
 }
@@ -753,133 +755,106 @@ class _FloorOverlayPainter extends CustomPainter {
     final graph = navGraph;
     if (graph == null) return;
 
-    final sw = size.width;
-    final sh = size.height;
+    if (path != null && path!.length > 1) _drawPath(canvas, size, graph);
+    _drawRoomIndicators(canvas, size, graph);
+    _drawCurrentNode(canvas, size, graph);
+  }
 
-    // --- Draw path corridor highlight ---
-    final hasPath = path != null && path!.length > 1;
-    if (hasPath) {
-      final pathGlow = Paint()
-        ..color = const Color(0x80FF9500)
-        ..strokeWidth = size.shortestSide * 0.016
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
+  void _drawPath(Canvas canvas, Size size, NavGraph graph) {
+    final pathObj = _buildPathObject(size, graph);
+    canvas.drawPath(pathObj, _pathGlowPaint(size));
+    canvas.drawPath(pathObj, _pathLinePaint(size));
+    _drawStepDots(canvas, size, graph);
+  }
 
-      final pathLine = Paint()
-        ..color = const Color(0xFFFF9500)
-        ..strokeWidth = size.shortestSide * 0.007
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
-
-      final pathObj = Path();
-      bool first = true;
-      for (final id in path!) {
-        final n = graph.nodeById(id);
-        if (n == null) continue;
-        final p = Offset(n.x * sw, n.y * sh);
-        if (first) {
-          pathObj.moveTo(p.dx, p.dy);
-          first = false;
-        } else {
-          pathObj.lineTo(p.dx, p.dy);
-        }
+  Path _buildPathObject(Size size, NavGraph graph) {
+    final pathObj = Path();
+    bool first = true;
+    for (final id in path!) {
+      final n = graph.nodeById(id);
+      if (n == null) continue;
+      final p = Offset(n.x * size.width, n.y * size.height);
+      if (first) {
+        pathObj.moveTo(p.dx, p.dy);
+        first = false;
+      } else {
+        pathObj.lineTo(p.dx, p.dy);
       }
-      canvas.drawPath(pathObj, pathGlow);
-      canvas.drawPath(pathObj, pathLine);
-
-      // Draw step dots along path
-      final dotPaint = Paint()..color = const Color(0xFFFF9500);
-      // coverage:ignore-start
-      for (final id in path!) {
-        final n = graph.nodeById(id);
-        if (n == null) {
-          debugPrint(
-            'Path drawing: nodeById("$id") returned null — ID missing from graph',
-          );
-          continue;
-        }
-        if (!n.isWaypoint) {
-          continue; // rooms are drawn separately, skip silently
-        }
-        canvas.drawCircle(
-          Offset(n.x * sw, n.y * sh),
-          size.shortestSide * 0.005,
-          dotPaint,
-        );
-      }
-      // coverage:ignore-end
     }
+    return pathObj;
+  }
 
-    // --- Draw room indicators ---
-    final pathIds = path != null ? path!.toSet() : <String>{};
+  void _drawStepDots(Canvas canvas, Size size, NavGraph graph) {
+    final dotPaint = Paint()..color = const Color(0xFFFF9500);
+    // coverage:ignore-start
+    for (final id in path!) {
+      final n = graph.nodeById(id);
+      if (n == null) {
+        debugPrint('Path drawing: nodeById("$id") returned null — ID missing from graph');
+        continue;
+      }
+      if (!n.isWaypoint) continue;
+      canvas.drawCircle(
+        Offset(n.x * size.width, n.y * size.height),
+        size.shortestSide * 0.005,
+        dotPaint,
+      );
+    }
+    // coverage:ignore-end
+  }
 
+  void _drawRoomIndicators(Canvas canvas, Size size, NavGraph graph) {
+    final pathIds = path?.toSet() ?? <String>{};
     for (final n in graph.nodes.where((n) => n.isRoom)) {
-      final cx = n.x * sw;
-      final cy = n.y * sh;
-      final r = size.shortestSide * 0.016;
-
-      if (n.id == startRoomId) {
-        _drawRoomDot(
-          canvas,
-          cx,
-          cy,
-          r * 1.4,
-          const Color(0xFF27AE60),
-          const Color(0xFFFFFFFF),
-          label: 'A',
-        );
-      } else if (n.id == destinationRoomId) {
-        _drawRoomDot(
-          canvas,
-          cx,
-          cy,
-          r * 1.4,
-          const Color(0xFF2980B9),
-          const Color(0xFFFFFFFF),
-          label: 'B',
-        );
-      } else if (n.id == selectedRoomId) {
-        _drawRoomDot(
-          canvas,
-          cx,
-          cy,
-          r * 1.2,
-          const Color(0xFFE67E22),
-          const Color(0xFFFFFFFF),
-        );
-      } else if (pathIds.contains(n.id)) {
-        _drawRoomDot(
-          canvas,
-          cx,
-          cy,
-          r * 0.9,
-          const Color(0xCCFF9500),
-          Colors.white,
-        );
-      }
-      // Unselected rooms: no indicator drawn — the floor plan image shows them
-    }
-
-    if (currentNodeId != null) {
-      final current = graph.nodeById(currentNodeId!);
-      if (current != null) {
-        final cx = current.x * sw;
-        final cy = current.y * sh;
-        final r = size.shortestSide * 0.018;
-        _drawRoomDot(
-          canvas,
-          cx,
-          cy,
-          r * 1.2,
-          const Color(0xFFFF2D55),
-          Colors.white,
-          label: '•',
-        );
-      }
+      _drawRoomNode(canvas, size, n, pathIds);
     }
   }
+
+  void _drawRoomNode(Canvas canvas, Size size, NavNode n, Set<String> pathIds) {
+    final cx = n.x * size.width;
+    final cy = n.y * size.height;
+    final r = size.shortestSide * 0.016;
+
+    if (n.id == startRoomId) {
+      _drawRoomDot(canvas, cx, cy, r * 1.4, const Color(0xFF27AE60), Colors.white, label: 'A');
+    } else if (n.id == destinationRoomId) {
+      _drawRoomDot(canvas, cx, cy, r * 1.4, const Color(0xFF2980B9), Colors.white, label: 'B');
+    } else if (n.id == selectedRoomId) {
+      _drawRoomDot(canvas, cx, cy, r * 1.2, const Color(0xFFE67E22), Colors.white);
+    } else if (pathIds.contains(n.id)) {
+      _drawRoomDot(canvas, cx, cy, r * 0.9, const Color(0xCCFF9500), Colors.white);
+    }
+  }
+
+  void _drawCurrentNode(Canvas canvas, Size size, NavGraph graph) {
+    if (currentNodeId == null) return;
+    final current = graph.nodeById(currentNodeId!);
+    if (current == null) return;
+    final r = size.shortestSide * 0.018;
+    _drawRoomDot(
+      canvas,
+      current.x * size.width,
+      current.y * size.height,
+      r * 1.2,
+      const Color(0xFFFF2D55),
+      Colors.white,
+      label: '•',
+    );
+  }
+
+  Paint _pathGlowPaint(Size size) => Paint()
+    ..color = const Color(0x80FF9500)
+    ..strokeWidth = size.shortestSide * 0.016
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..style = PaintingStyle.stroke;
+
+  Paint _pathLinePaint(Size size) => Paint()
+    ..color = const Color(0xFFFF9500)
+    ..strokeWidth = size.shortestSide * 0.007
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..style = PaintingStyle.stroke;
 
   void _drawRoomDot(
     Canvas canvas,
@@ -975,159 +950,167 @@ class _RouteControls extends StatelessWidget {
     final hasSelection = selectedRoom != null;
     final hasRoute = startRoom != null || destinationRoom != null;
 
-    if (!hasSelection && !hasRoute) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Text(
-          'Tap a room on the map or in the list to select it',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      );
-    }
+    if (!hasSelection && !hasRoute) return _buildEmptyState(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (hasSelection)
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Selected: ${selectedRoom!.name.isNotEmpty ? selectedRoom!.name : selectedRoom!.id}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.tonal(
-                  onPressed: onSetStart,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.green.shade100,
-                  ),
-                  child: const Text('Set Start'),
-                ),
-                const SizedBox(width: 6),
-                FilledButton.tonal(
-                  onPressed: onSetDestination,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.blue.shade100,
-                  ),
-                  child: const Text('Set Dest'),
-                ),
-              ],
-            ),
-          if (hasRoute) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (startRoom != null)
-                  _Chip(
-                    icon: Icons.play_circle,
-                    color: Colors.green,
-                    label: startRoom!.name.isNotEmpty
-                        ? startRoom!.name
-                        : startRoom!.id,
-                  ),
-                if (startRoom != null && destinationRoom != null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(Icons.arrow_forward, size: 16),
-                  ),
-                if (destinationRoom != null)
-                  _Chip(
-                    icon: Icons.flag,
-                    color: Colors.blue,
-                    label: destinationRoom!.name.isNotEmpty
-                        ? destinationRoom!.name
-                        : destinationRoom!.id,
-                  ),
-                const Spacer(),
-                if (path == null &&
-                    startRoom != null &&
-                    destinationRoom != null)
-                  const Text(
-                    'No route found',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                if (path != null)
-                  Text(
-                    '${path!.length} steps',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  tooltip: 'Clear route',
-                  onPressed: onClear,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('Any'),
-                  selected: verticalPreference == VerticalPreference.either,
-                  onSelected: (_) =>
-                      onVerticalPreferenceChanged(VerticalPreference.either),
-                ),
-                ChoiceChip(
-                  label: const Text('Elevator'),
-                  selected:
-                      verticalPreference == VerticalPreference.elevatorOnly,
-                  onSelected: (_) => onVerticalPreferenceChanged(
-                    VerticalPreference.elevatorOnly,
-                  ),
-                ),
-                ChoiceChip(
-                  label: const Text('Stairs'),
-                  selected: verticalPreference == VerticalPreference.stairsOnly,
-                  onSelected: (_) => onVerticalPreferenceChanged(
-                    VerticalPreference.stairsOnly,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    currentStepText,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                FilledButton(
-                  onPressed: hasNext ? onNextStep : null,
-                  child: const Text('Next Step'),
-                ),
-              ],
-            ),
-            if (directions.isNotEmpty)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 120),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: directions.length,
-                  itemBuilder: (context, index) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(
-                      '${index + 1}. ${directions[index]}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+          if (hasSelection) _buildSelectionRow(),
+          if (hasRoute) ..._buildRouteSection(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Text(
+        'Tap a room on the map or in the list to select it',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+  }
+
+  Widget _buildSelectionRow() {
+    final name = selectedRoom!.name.isNotEmpty ? selectedRoom!.name : selectedRoom!.id;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Selected: $name',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.tonal(
+          onPressed: onSetStart,
+          style: FilledButton.styleFrom(backgroundColor: Colors.green.shade100),
+          child: const Text('Set Start'),
+        ),
+        const SizedBox(width: 6),
+        FilledButton.tonal(
+          onPressed: onSetDestination,
+          style: FilledButton.styleFrom(backgroundColor: Colors.blue.shade100),
+          child: const Text('Set Dest'),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildRouteSection() => [
+    const SizedBox(height: 4),
+    _buildRouteRow(),
+    const SizedBox(height: 6),
+    _buildVerticalPreferenceChips(),
+    const SizedBox(height: 4),
+    _buildNextStepRow(),
+    if (directions.isNotEmpty) _buildDirectionsList(),
+  ];
+
+  Widget _buildRouteRow() {
+    return Row(
+      children: [
+        if (startRoom != null)
+          _Chip(
+            icon: Icons.play_circle,
+            color: Colors.green,
+            label: startRoom!.name.isNotEmpty ? startRoom!.name : startRoom!.id,
+          ),
+        if (startRoom != null && destinationRoom != null)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(Icons.arrow_forward, size: 16),
+          ),
+        if (destinationRoom != null)
+          _Chip(
+            icon: Icons.flag,
+            color: Colors.blue,
+            label: destinationRoom!.name.isNotEmpty ? destinationRoom!.name : destinationRoom!.id,
+          ),
+        const Spacer(),
+        _buildRouteStatus(),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.close, size: 18),
+          tooltip: 'Clear route',
+          onPressed: onClear,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRouteStatus() {
+    if (path != null) {
+      return Text(
+        '${path!.length} steps',
+        style: const TextStyle(fontSize: 12, color: Colors.grey),
+      );
+    }
+    if (startRoom != null && destinationRoom != null) {
+      return const Text(
+        'No route found',
+        style: TextStyle(color: Colors.red, fontSize: 12),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildVerticalPreferenceChips() {
+    return Wrap(
+      spacing: 8,
+      children: [
+        for (final pref in VerticalPreference.values)
+          ChoiceChip(
+            label: Text(_verticalPreferenceLabel(pref)),
+            selected: verticalPreference == pref,
+            onSelected: (_) => onVerticalPreferenceChanged(pref),
+          ),
+      ],
+    );
+  }
+
+  String _verticalPreferenceLabel(VerticalPreference pref) => switch (pref) {
+    VerticalPreference.either       => 'Any',
+    VerticalPreference.elevatorOnly => 'Elevator',
+    VerticalPreference.stairsOnly   => 'Stairs',
+  };
+
+  Widget _buildNextStepRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            currentStepText,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+        FilledButton(
+          onPressed: hasNext ? onNextStep : null,
+          child: const Text('Next Step'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDirectionsList() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 120),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: directions.length,
+        itemBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Text(
+            '${index + 1}. ${directions[index]}',
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
       ),
     );
   }

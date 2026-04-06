@@ -45,29 +45,31 @@ class MultiBuildingRoute {
     required this.isCrossCampus,
   });
 
-  List<String> get allDirections {
-    final dirs = <String>[];
-    for (var i = 0; i < segments.length; i++) {
-      final seg = segments[i];
-      switch (seg.type) {
-        case MultiBuildingSegmentType.indoor:
-          final bldg = seg.building?.name ?? '?';
-          dirs.add('In $bldg: ${seg.instruction}');
-          if (seg.indoorRoute != null) {
-            dirs.addAll(seg.indoorRoute!.directions);
-          }
-        case MultiBuildingSegmentType.outdoor:
-          dirs.add(seg.instruction);
-          if (seg.durationText != null || seg.distanceText != null) {
-            final parts = <String>[];
-            if (seg.durationText != null) parts.add(seg.durationText!);
-            if (seg.distanceText != null) parts.add(seg.distanceText!);
-            dirs.add(parts.join(' - '));
-          }
-        case MultiBuildingSegmentType.transition:
-          dirs.add(seg.instruction);
-      }
-    }
-    return dirs;
+  List<String> get allDirections => segments.expand(_segmentDirections).toList();
+
+  List<String> _segmentDirections(MultiBuildingSegment seg) {
+    return switch (seg.type) {
+      MultiBuildingSegmentType.indoor    => _indoorDirections(seg),
+      MultiBuildingSegmentType.outdoor   => _outdoorDirections(seg),
+      MultiBuildingSegmentType.transition => [seg.instruction],
+    };
+  }
+
+  List<String> _indoorDirections(MultiBuildingSegment seg) {
+    final bldg = seg.building?.name ?? '?';
+    return [
+      'In $bldg: ${seg.instruction}',
+      ...?seg.indoorRoute?.directions,
+    ];
+  }
+
+  List<String> _outdoorDirections(MultiBuildingSegment seg) {
+    final summary = [seg.durationText, seg.distanceText]
+        .nonNulls
+        .join(' - ');
+    return [
+      seg.instruction,
+      if (summary.isNotEmpty) summary,
+    ];
   }
 }
