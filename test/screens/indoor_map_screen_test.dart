@@ -11,6 +11,7 @@ import 'package:proj/models/indoor_map.dart';
 import 'package:proj/models/room.dart';
 import 'package:proj/models/vertical_link.dart';
 import 'package:proj/screens/indoor_map_screen.dart';
+import 'package:proj/models/nav_graph.dart';
 
 CampusBuilding _building({String name = 'NOOP', String? fullName}) =>
     CampusBuilding(
@@ -959,6 +960,83 @@ void main() {
           find.text('Tap a room on the map or in the list to select it'),
           findsOneWidget,
         );
+      },
+    );
+  });
+
+  group('additional coverage — uncovered branches', () {
+    testWidgets(
+      'entrance found as nav-only node (not in floor.rooms) still auto-sets start',
+          (tester) async {
+        final b = _building(name: 'H');
+        // Entrance is in navGraph but deliberately NOT in floor.rooms
+        // — hits the Room-wrapping fallback in _findEntranceRoom (lines 149-152)
+        final nodes = [
+          const NavNode(id: 'building_entry_exit', type: 'building_entry_exit', x: 10, y: 100, name: 'Main Entrance'),
+          const NavNode(id: 'wp1', type: 'hallway_waypoint', x: 60, y: 100, name: ''),
+          const NavNode(id: 'H-801', type: 'room', x: 150, y: 100, name: 'H-801'),
+        ];
+        final edges = [
+          const NavEdge(from: 'building_entry_exit', to: 'wp1', weight: 50),
+          const NavEdge(from: 'wp1', to: 'H-801', weight: 60),
+        ];
+        final floor = Floor(
+          level: 1,
+          label: 'Floor 1',
+          rooms: [const Room(id: 'H-801', name: 'H-801', boundary: [])],
+          navGraph: NavGraph(nodes: nodes, edges: edges),
+        );
+        final map = IndoorMap(building: b, floors: [floor]);
+        await tester.pumpWidget(_wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.play_circle), findsWidgets);
+        expect(find.textContaining('steps'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'destination chip renders with blue flag when only destination is set',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withoutEntranceJson);
+        await tester.pumpWidget(_wrapWithDest(b, 'H-802', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        // Covers the _Chip(icon: Icons.flag ...) branch in _RouteControls
+        expect(find.byIcon(Icons.flag), findsWidgets);
+        expect(find.byIcon(Icons.play_circle), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'No route found shown when start and destination both set but graph disconnected',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _disconnectedJson);
+        await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+        await _settle(tester);
+        await tester.tap(find.text('H-801').last);
+        await tester.pump();
+        await tester.tap(find.text('Set Start'));
+        await tester.pump();
+        await tester.tap(find.text('H-802').last);
+        await tester.pump();
+        await tester.tap(find.text('Set Dest'));
+        await tester.pump();
+        // Covers path==null && startRoom!=null && destinationRoom!=null branch
+        expect(find.text('No route found'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'path dots painted on canvas when route is active (covers pathIds.contains branch)',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntranceJson);
+        await tester.pumpWidget(_wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        // Route is active — CustomPainter renders path dots on the canvas
+        expect(find.byType(CustomPaint), findsWidgets);
+        expect(find.textContaining('steps'), findsOneWidget);
       },
     );
   });
