@@ -117,7 +117,6 @@ class ScheduleDisplay extends StatelessWidget {
   final ValueChanged<CourseScheduleEntry> onRemove;
   final ValueChanged<CourseScheduleEntry> onRoomTap;
   final DateTime? now;
-  DateTime get _now => now ?? DateTime.now();
   const ScheduleDisplay({
     super.key,
     required this.entries,
