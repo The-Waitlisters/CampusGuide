@@ -821,4 +821,103 @@ void main() {
           expect(find.text('No route found'), findsOneWidget);
         });
   });
+  testWidgets('shows map screen with empty floors list', (tester) async {
+    final b = _building(name: 'H');
+    final map = IndoorMap(building: b, floors: []);
+    await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+    await _settle(tester);
+    expect(find.byType(Scaffold), findsOneWidget);
+  });
+  testWidgets('initialDestinationRoomId with unknown id is silently ignored', (tester) async {
+    final b = _building(name: 'H');
+    final map = _parseMap(b, _singleFloorJson);
+    await tester.pumpWidget(MaterialApp(
+      home: IndoorMapScreen(
+        building: b,
+        mapLoader: (_) async => map,
+        initialDestinationRoomId: 'DOES-NOT-EXIST',
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('H-801'), findsWidgets);
+    expect(find.text('Set Dest'), findsNothing);
+  });
+  testWidgets('initialDestinationRoomId matches via stripped prefix', (tester) async {
+    final b = _building(name: 'H');
+    final map = _parseMap(b, _singleFloorJson);
+    await tester.pumpWidget(MaterialApp(
+      home: IndoorMapScreen(
+        building: b,
+        mapLoader: (_) async => map,
+        initialDestinationRoomId: 'H-r1',
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byType(Scaffold), findsOneWidget);
+  });
+  testWidgets('inaccessible room shows "Not accessible" subtitle', (tester) async {
+    final b = _building(name: 'H');
+    final j = jsonDecode(_singleFloorJson) as Map<String, dynamic>;
+    final floors = FloorPlanEditorLoader.parseMultiFloor(j);
+    final original = floors.first;
+    final patchedRooms = [
+      Room(
+        id: original.rooms.first.id,
+        name: original.rooms.first.name,
+        boundary: original.rooms.first.boundary,
+        accessible: false,
+      ),
+      ...original.rooms.skip(1),
+    ];
+    final patchedFloor = Floor(
+      level: original.level,
+      label: original.label,
+      rooms: patchedRooms,
+      navGraph: original.navGraph,
+    );
+    final map = IndoorMap(building: b, floors: [patchedFloor]);
+    await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+    await _settle(tester);
+    expect(find.text('Not accessible'), findsOneWidget);
+  });
+  testWidgets('destination room shows blue flag icon in list', (tester) async {
+    final b = _building(name: 'H');
+    final map = _parseMap(b, _singleFloorJson);
+    await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+    await _settle(tester);
+    await tester.tap(find.text('H-801').last);
+    await tester.pump();
+    await tester.tap(find.text('Set Dest'));
+    await tester.pump();
+    expect(find.byIcon(Icons.flag), findsWidgets);
+  });
+
+  testWidgets('selected-only room shows primary color icon', (tester) async {
+    final b = _building(name: 'H');
+    final map = _parseMap(b, _singleFloorJson);
+    await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+    await _settle(tester);
+    await tester.tap(find.text('H-801').last);
+    await tester.pump();
+    expect(find.byIcon(Icons.meeting_room_outlined), findsWidgets);
+  });
+  testWidgets('route status is empty when only start is set', (tester) async {
+    final b = _building(name: 'H');
+    final map = _parseMap(b, _singleFloorJson);
+    await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+    await _settle(tester);
+    await tester.tap(find.text('H-801').last);
+    await tester.pump();
+    await tester.tap(find.text('Set Start'));
+    await tester.pump();
+    expect(find.textContaining('steps'), findsNothing);
+    expect(find.text('No route found'), findsNothing);
+  });
+  testWidgets('appBar shows fullName when provided', (tester) async {
+    final b = _building(name: 'H', fullName: 'Hall Building');
+    final map = _parseMap(b, _singleFloorJson);
+    await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+    await _settle(tester);
+    expect(find.text('Hall Building'), findsOneWidget);
+  });
 }
