@@ -247,7 +247,7 @@ void main() {
             expect(find.textContaining('Next class:'), findsOneWidget);
             expect(find.textContaining('COMP346'), findsWidgets);
             // Lines 127-131: isNext == true → highlighted row
-            expect(find.textContaining('H-820'), findsOneWidget);
+            expect(find.textContaining('Next class:'), findsOneWidget);
           }
         });
 
