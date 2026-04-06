@@ -10,6 +10,7 @@ class SearchOverlay extends StatelessWidget {
 
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final VoidCallback onSearch;
   final ValueChanged<String> onMenuSelected;
   final VoidCallback onTapField;
   final ValueChanged<MapLocation> onSelectResult;
@@ -21,6 +22,7 @@ class SearchOverlay extends StatelessWidget {
     required this.results,
     required this.onChanged,
     required this.onClear,
+    required this.onSearch,
     required this.onMenuSelected,
     required this.onTapField,
     required this.onSelectResult,
@@ -50,11 +52,19 @@ class SearchOverlay extends StatelessWidget {
                       PopupMenuItem(value: 'schedule', child: Text('Schedule')),
                     ],
                   ),
-                  suffixIcon: controller.text.isEmpty
-                      ? null
-                      : IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: onClear,
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (controller.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: onClear,
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: controller.text.isEmpty ? null : onSearch,
+                      ),
+                    ],
                   ),
                 ),
                 onChanged: onChanged,

@@ -58,7 +58,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
     super.initState();
     _loadIndoorMap();
     _searchController.addListener(
-      () => setState(() => _searchQuery = _searchController.text),
+          () => setState(() => _searchQuery = _searchController.text),
     );
   }
 
@@ -272,7 +272,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
     if (startGraph == null || startGraph.nodeById(_startRoom!.id) == null) {
       debugPrint(
         'Route error: start room "${_startRoom!.id}" not found '
-        'in navGraph for floor $_startFloorLevel',
+            'in navGraph for floor $_startFloorLevel',
       );
       setState(() {
         _route = null;
@@ -283,7 +283,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
     if (destGraph == null || destGraph.nodeById(_destinationRoom!.id) == null) {
       debugPrint(
         'Route error: destination room "${_destinationRoom!.id}" not found '
-        'in navGraph for floor $_destinationFloorLevel',
+            'in navGraph for floor $_destinationFloorLevel',
       );
       setState(() {
         _route = null;
@@ -560,78 +560,78 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
             child: _currentFloor == null
                 ? const Center(child: Text('No floor data'))
                 : ListView.builder(
-                    itemCount: _filteredRooms.length,
-                    itemBuilder: (context, index) {
-                      final room = _filteredRooms[index];
-                      final isSelected = _selectedRoom?.id == room.id;
-                      final isStart = _startRoom?.id == room.id;
-                      final isDest = _destinationRoom?.id == room.id;
-                      final displayName = room.name.isNotEmpty
-                          ? room.name
-                          : room.id;
-                      return ListTile(
-                        leading: Icon(
-                          isStart
-                              ? Icons.play_circle
-                              : isDest
-                              ? Icons.flag
-                              : Icons.meeting_room_outlined,
-                          color: isStart
-                              ? Colors.green
-                              : isDest
-                              ? Colors.blue
-                              : isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                        ),
-                        title: Text(
-                          displayName,
-                          style: isSelected
-                              ? TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                )
-                              : null,
-                        ),
-                        subtitle: room.accessible
-                            ? null
-                            : const Text('Not accessible'),
-                        selected: isSelected,
-                        onTap: () => _onRoomSelected(room, fromSearch: true),
-                        onLongPress: () => _showRoomActions(context, room),
-                        trailing: isSelected
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.play_circle,
-                                      color: Colors.green,
-                                      size: 20,
-                                    ),
-                                    tooltip: 'Set as Start',
-                                    onPressed: _setStart,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.flag,
-                                      color: Colors.blue,
-                                      size: 20,
-                                    ),
-                                    tooltip: 'Set as Destination',
-                                    onPressed: _setDestination,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                ],
-                              )
-                            : null,
-                      );
-                    },
+              itemCount: _filteredRooms.length,
+              itemBuilder: (context, index) {
+                final room = _filteredRooms[index];
+                final isSelected = _selectedRoom?.id == room.id;
+                final isStart = _startRoom?.id == room.id;
+                final isDest = _destinationRoom?.id == room.id;
+                final displayName = room.name.isNotEmpty
+                    ? room.name
+                    : room.id;
+                return ListTile(
+                  leading: Icon(
+                    isStart
+                        ? Icons.play_circle
+                        : isDest
+                        ? Icons.flag
+                        : Icons.meeting_room_outlined,
+                    color: isStart
+                        ? Colors.green
+                        : isDest
+                        ? Colors.blue
+                        : isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
                   ),
+                  title: Text(
+                    displayName,
+                    style: isSelected
+                        ? TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                        : null,
+                  ),
+                  subtitle: room.accessible
+                      ? null
+                      : const Text('Not accessible'),
+                  selected: isSelected,
+                  onTap: () => _onRoomSelected(room, fromSearch: true),
+                  onLongPress: () => _showRoomActions(context, room),
+                  trailing: isSelected
+                      ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.play_circle,
+                          color: Colors.green,
+                          size: 20,
+                        ),
+                        tooltip: 'Set as Start',
+                        onPressed: _setStart,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.flag,
+                          color: Colors.blue,
+                          size: 20,
+                        ),
+                        tooltip: 'Set as Destination',
+                        onPressed: _setDestination,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  )
+                      : null,
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -908,14 +908,14 @@ class _FloorOverlayPainter extends CustomPainter {
   }
 
   void _drawRoomDot(
-    Canvas canvas,
-    double cx,
-    double cy,
-    double r,
-    Color fill,
-    Color border, {
-    String? label,
-  }) {
+      Canvas canvas,
+      double cx,
+      double cy,
+      double r,
+      Color fill,
+      Color border, {
+        String? label,
+      }) {
     // Shadow
     canvas.drawCircle(
       Offset(cx + 1, cy + 2),
@@ -1105,7 +1105,7 @@ class _RouteControls extends StatelessWidget {
                 ChoiceChip(
                   label: const Text('Elevator'),
                   selected:
-                      verticalPreference == VerticalPreference.elevatorOnly,
+                  verticalPreference == VerticalPreference.elevatorOnly,
                   onSelected: (_) => onVerticalPreferenceChanged(
                     VerticalPreference.elevatorOnly,
                   ),
