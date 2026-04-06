@@ -11,6 +11,7 @@ import 'package:proj/models/indoor_map.dart';
 import 'package:proj/models/room.dart';
 import 'package:proj/models/vertical_link.dart';
 import 'package:proj/screens/indoor_map_screen.dart';
+import 'package:proj/models/nav_graph.dart';
 
 CampusBuilding _building({String name = 'NOOP', String? fullName}) =>
     CampusBuilding(
@@ -53,6 +54,7 @@ const _multiFloorJson = '''
    "nodes": [{"id": "r2", "type": "room", "x": 50, "y": 50, "label": "H-901"}], "edges": []}
 ]}
 ''';
+
 // Two floors connected by an explicit elevator link for multi-floor route
 const _multiFloorRoutableJson = '''
 {
@@ -78,6 +80,7 @@ const _multiFloorRoutableJson = '''
   ]
 }
 ''';
+
 // A floor whose node id is NOT in its navGraph
 const _missingNodeJson = '''
 {
@@ -87,6 +90,54 @@ const _missingNodeJson = '''
     {"id": "r2", "type": "room", "x": 150, "y": 50, "label": "Room 2", "floor": 1}
   ],
   "edges": [{"source": "r1", "target": "r2", "weight": 100}]
+}
+''';
+
+// Single floor WITH a building_entry_exit entrance node connected to rooms.
+// Used to test the auto-start-from-entrance feature.
+const _withEntranceJson = '''
+{
+  "imageWidth": 200, "imageHeight": 200,
+  "nodes": [
+    {"id": "building_entry_exit", "type": "building_entry_exit", "x": 10,  "y": 100, "label": "Main Entrance"},
+    {"id": "wp1",                 "type": "hallway_waypoint",    "x": 60,  "y": 100, "label": ""},
+    {"id": "H-801",               "type": "room",                "x": 120, "y": 100, "label": "H-801"},
+    {"id": "H-802",               "type": "room",                "x": 180, "y": 100, "label": "H-802"}
+  ],
+  "edges": [
+    {"source": "building_entry_exit", "target": "wp1",   "weight": 50},
+    {"source": "wp1",                 "target": "H-801", "weight": 60},
+    {"source": "H-801",               "target": "H-802", "weight": 60}
+  ]
+}
+''';
+
+// Same layout but WITHOUT any entrance node — tests the no-entrance fallback.
+const _withoutEntranceJson = '''
+{
+  "imageWidth": 200, "imageHeight": 200,
+  "nodes": [
+    {"id": "H-801", "type": "room", "x": 50,  "y": 100, "label": "H-801"},
+    {"id": "H-802", "type": "room", "x": 150, "y": 100, "label": "H-802"}
+  ],
+  "edges": [{"source": "H-801", "target": "H-802", "weight": 100}]
+}
+''';
+
+// Entrance map where the room is stored as bare "801" but schedule passes "H-801".
+// Tests the building-prefix stripping in _findInitialDestinationRoom.
+const _withEntrancePrefixJson = '''
+{
+  "imageWidth": 200, "imageHeight": 200,
+  "nodes": [
+    {"id": "building_entry_exit", "type": "building_entry_exit", "x": 10,  "y": 100, "label": "Main Entrance"},
+    {"id": "wp1",                 "type": "hallway_waypoint",    "x": 60,  "y": 100, "label": ""},
+    {"id": "801",                 "type": "room",                "x": 150, "y": 100, "label": "801"}
+  ],
+  "edges": [
+    {"source": "building_entry_exit", "target": "wp1", "weight": 50},
+    {"source": "wp1",                 "target": "801", "weight": 90}
+  ]
 }
 ''';
 
@@ -127,6 +178,19 @@ Widget _wrap(CampusBuilding b,
       home: IndoorMapScreen(
         building: b,
         mapLoader: mapLoader ?? (_) async => null,
+      ),
+    );
+
+Widget _wrapWithDest(
+    CampusBuilding b,
+    String destId, {
+      Future<IndoorMap?> Function(CampusBuilding)? mapLoader,
+    }) =>
+    MaterialApp(
+      home: IndoorMapScreen(
+        building: b,
+        mapLoader: mapLoader ?? (_) async => null,
+        initialDestinationRoomId: destId,
       ),
     );
 
@@ -419,11 +483,9 @@ void main() {
         expect(find.text('H-901'), findsWidgets);
       },
     );
-
   });
-  group('_onFloorChanged — with active route', () {
-    // Sets up a two-floor route then switches floors
 
+  group('_onFloorChanged — with active route', () {
     testWidgets('switching to a floor that has a route segment updates _path',
             (tester) async {
           final b = _building();
@@ -431,12 +493,10 @@ void main() {
           await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
           await _settle(tester);
 
-          // Set Room 1 (floor 1) as start.
           await _selectRoom(tester, 'Room 1');
           await tester.tap(find.text('Set Start'));
           await tester.pump();
 
-          // Switch to floor 2 and set Room 2 as destination.
           await tester.tap(find.byType(DropdownButton<int>));
           await tester.pump();
           await tester.tap(find.text('Floor 2').last);
@@ -445,10 +505,8 @@ void main() {
           await tester.tap(find.text('Set Dest'));
           await tester.pump();
 
-          // A route should exist now.
           expect(find.textContaining('steps'), findsOneWidget);
 
-          // Switch back to floor 1
           await tester.tap(find.byType(DropdownButton<int>));
           await tester.pump();
           await tester.tap(find.text('Floor 1').last);
@@ -460,7 +518,6 @@ void main() {
         'switching to a floor with no route segment sets _path to null',
             (tester) async {
           final b = _building();
-          // Three-floor map: route only spans floors 1–2, floor 3 has no segment.
           const threeFloorJson = '''
 {
   "floors": [
@@ -523,15 +580,11 @@ void main() {
           await tester.tap(find.text('Set Dest'));
           await tester.pump();
 
-          // Route spans floors 1 and 2 only. Switch to floor 3 — no segment →
-          // _path becomes null, so "No route found" should not appear (the route
-          // object still exists) but the step count chip disappears.
           await tester.tap(find.byType(DropdownButton<int>));
           await tester.pump();
           await tester.tap(find.text('Floor 3').last);
           await tester.pump();
 
-          // _path is null on floor 3 so the steps chip is gone.
           expect(find.textContaining('steps'), findsNothing);
         });
   });
@@ -539,16 +592,11 @@ void main() {
   // ── _computePath error branches ───────────────────────────────────────────
 
   group('_computePath — node missing from navGraph', () {
-    // To hit these branches we need a Room whose id exists in the Room list
-    // but NOT as a NavNode in the floor's navGraph.  We do this by building
-    // an IndoorMap manually with a room that has a different id from the node.
-
     testWidgets('start room id not in navGraph clears route', (tester) async {
       final b = _building();
       final j = jsonDecode(_missingNodeJson) as Map<String, dynamic>;
       final floors = FloorPlanEditorLoader.parseMultiFloor(j);
 
-      // Replace r1's Room id with something the navGraph does not know about.
       final originalFloor = floors.first;
       final patchedRooms = [
         Room(id: 'ghost_r1', name: 'Ghost Room', boundary: originalFloor.rooms.first.boundary),
@@ -565,17 +613,14 @@ void main() {
       await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
       await _settle(tester);
 
-      // Select the ghost room (it appears in the list) and set as start.
       await _selectRoom(tester, 'Ghost Room');
       await tester.tap(find.text('Set Start'));
       await tester.pump();
 
-      // Select r2 as destination — this triggers _computePath where startGraph does not contain 'ghost_r1'
       await _selectRoom(tester, 'Room 2');
       await tester.tap(find.text('Set Dest'));
       await tester.pump();
 
-      // _route and _path are null, so "No route found" is shown.
       expect(find.text('No route found'), findsOneWidget);
     });
 
@@ -605,7 +650,6 @@ void main() {
           await tester.tap(find.text('Set Start'));
           await tester.pump();
 
-          // Set the ghost room as destination → destGraph.nodeById returns null.
           await _selectRoom(tester, 'Ghost Dest');
           await tester.tap(find.text('Set Dest'));
           await tester.pump();
@@ -637,8 +681,6 @@ void main() {
           await tester.tap(find.text('Set Dest'));
           await tester.pump();
 
-          // Advance through all nodes in segment 0 until we reach the transition.
-          // Tap "Next Step" repeatedly until the transition instruction appears.
           var found = false;
           for (var i = 0; i < 10; i++) {
             final nextBtn = find.widgetWithText(FilledButton, 'Next Step');
@@ -673,7 +715,6 @@ void main() {
           await tester.tap(find.text('Set Dest'));
           await tester.pump();
 
-          // Advance until Next Step is disabled (we've arrived).
           for (var i = 0; i < 20; i++) {
             final nextBtn = find.widgetWithText(FilledButton, 'Next Step');
             if (tester.widget<FilledButton>(nextBtn).onPressed == null) break;
@@ -727,8 +768,6 @@ void main() {
           await tester.tap(find.text('Set Dest'));
           await tester.pump();
 
-          // Advance until the floor label in the step text changes to floor 2,
-          // which means _activeSegmentIndex incremented and _syncUiToActiveSegment ran.
           var onFloor2 = false;
           for (var i = 0; i < 15; i++) {
             final nextBtn = find.widgetWithText(FilledButton, 'Next Step');
@@ -795,10 +834,8 @@ void main() {
           final map = _multiFloorMap(_building());
           await setupRoute(tester, map);
 
-          // First switch to Elevator.
           await tester.tap(find.widgetWithText(ChoiceChip, 'Elevator'));
           await tester.pump();
-          // Then back to Any.
           await tester.tap(find.widgetWithText(ChoiceChip, 'Any'));
           await tester.pump();
 
@@ -820,5 +857,187 @@ void main() {
 
           expect(find.text('No route found'), findsOneWidget);
         });
+  });
+
+  // ── initialDestinationRoomId — schedule tap auto-route ────────────────────
+
+  group('initialDestinationRoomId — auto-entrance start (schedule tap fix)', () {
+    testWidgets(
+      'destination chip shown when room found by exact id',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntranceJson);
+        await tester.pumpWidget(
+            _wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.flag), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'start chip auto-set to entrance when entrance node exists',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntranceJson);
+        await tester.pumpWidget(
+            _wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.play_circle), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'route is computed (step count shown) when entrance and dest both found',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntranceJson);
+        await tester.pumpWidget(
+            _wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('steps'), findsOneWidget);
+        expect(find.text('No route found'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'no crash and idle prompt shown when room id not found',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntranceJson);
+        await tester.pumpWidget(
+            _wrapWithDest(b, 'NONEXISTENT-999', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Tap a room on the map or in the list to select it'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'destination set but no route when no entrance node in map',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withoutEntranceJson);
+        await tester.pumpWidget(
+            _wrapWithDest(b, 'H-802', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        // Destination chip is shown
+        expect(find.byIcon(Icons.flag), findsWidgets);
+        // But no start → no route computed → no step count
+        expect(find.textContaining('steps'), findsNothing);
+        // And "No route found" doesn't show either (needs both start+dest)
+        expect(find.text('No route found'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'building prefix stripped: "H-801" finds room stored as "801"',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntrancePrefixJson);
+        await tester.pumpWidget(
+            _wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('steps'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'clear button resets auto-set route back to idle state',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntranceJson);
+        await tester.pumpWidget(
+            _wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('steps'), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pump();
+
+        expect(
+          find.text('Tap a room on the map or in the list to select it'),
+          findsOneWidget,
+        );
+      },
+    );
+  });
+
+  group('additional coverage — uncovered branches', () {
+    testWidgets(
+      'entrance found as nav-only node (not in floor.rooms) still auto-sets start',
+          (tester) async {
+        final b = _building(name: 'H');
+        // Entrance is in navGraph but deliberately NOT in floor.rooms
+        // — hits the Room-wrapping fallback in _findEntranceRoom (lines 149-152)
+        final nodes = [
+          const NavNode(id: 'building_entry_exit', type: 'building_entry_exit', x: 10, y: 100, name: 'Main Entrance'),
+          const NavNode(id: 'wp1', type: 'hallway_waypoint', x: 60, y: 100, name: ''),
+          const NavNode(id: 'H-801', type: 'room', x: 150, y: 100, name: 'H-801'),
+        ];
+        final edges = [
+          const NavEdge(from: 'building_entry_exit', to: 'wp1', weight: 50),
+          const NavEdge(from: 'wp1', to: 'H-801', weight: 60),
+        ];
+        final floor = Floor(
+          level: 1,
+          label: 'Floor 1',
+          rooms: [const Room(id: 'H-801', name: 'H-801', boundary: [])],
+          navGraph: NavGraph(nodes: nodes, edges: edges),
+        );
+        final map = IndoorMap(building: b, floors: [floor]);
+        await tester.pumpWidget(_wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.play_circle), findsWidgets);
+        expect(find.textContaining('steps'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'destination chip renders with blue flag when only destination is set',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withoutEntranceJson);
+        await tester.pumpWidget(_wrapWithDest(b, 'H-802', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        // Covers the _Chip(icon: Icons.flag ...) branch in _RouteControls
+        expect(find.byIcon(Icons.flag), findsWidgets);
+        expect(find.byIcon(Icons.play_circle), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'No route found shown when start and destination both set but graph disconnected',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _disconnectedJson);
+        await tester.pumpWidget(_wrap(b, mapLoader: (_) async => map));
+        await _settle(tester);
+        await tester.tap(find.text('H-801').last);
+        await tester.pump();
+        await tester.tap(find.text('Set Start'));
+        await tester.pump();
+        await tester.tap(find.text('H-802').last);
+        await tester.pump();
+        await tester.tap(find.text('Set Dest'));
+        await tester.pump();
+        // Covers path==null && startRoom!=null && destinationRoom!=null branch
+        expect(find.text('No route found'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'path dots painted on canvas when route is active (covers pathIds.contains branch)',
+          (tester) async {
+        final b = _building(name: 'H');
+        final map = _parseMap(b, _withEntranceJson);
+        await tester.pumpWidget(_wrapWithDest(b, 'H-801', mapLoader: (_) async => map));
+        await tester.pumpAndSettle();
+        // Route is active — CustomPainter renders path dots on the canvas
+        expect(find.byType(CustomPaint), findsWidgets);
+        expect(find.textContaining('steps'), findsOneWidget);
+      },
+    );
   });
 }
