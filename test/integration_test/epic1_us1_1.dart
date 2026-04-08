@@ -20,14 +20,12 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
+    await pumpFor(tester, const Duration(seconds: 3));
 
     final dynamic state = tester.state(find.byType(HomeScreen));
 
-    // Wait for buildings future to resolve, then give the map time to render polygons
-    await state.testBuildingsFuture;
-    await tester.pumpAndSettle();
+    // Wait for buildings to load, then give the map time to render polygons
+    await pumpFor(tester, const Duration(seconds: 5));
     await pause(4); // let the Google Maps native view render the polygons
 
     // ─── AC: App loads with a valid default campus ──────────────────────────
@@ -55,14 +53,14 @@ void main() {
     // ─── AC: Switching campus updates the label ──────────────────────────────
 
     state.simulateCampusChange(Campus.loyola);
-    await tester.pumpAndSettle();
+    await pumpFor(tester, const Duration(milliseconds: 300));
     await pause(2); // observe the campus switch to Loyola
 
     expect(find.text('campus:loyola'), findsOneWidget);
     await pause(2);
 
     state.simulateCampusChange(Campus.sgw);
-    await tester.pumpAndSettle();
+    await pumpFor(tester, const Duration(milliseconds: 300));
     await pause(2); // observe switch back to SGW
 
     expect(find.text('campus:sgw'), findsOneWidget);
@@ -80,11 +78,11 @@ void main() {
     // ─── AC: Building polygons survive a round-trip campus switch ────────────
 
     state.simulateCampusChange(Campus.loyola);
-    await tester.pumpAndSettle();
+    await pumpFor(tester, const Duration(milliseconds: 300));
     await pause(2); // observe switch to Loyola
 
     state.simulateCampusChange(Campus.sgw);
-    await tester.pumpAndSettle();
+    await pumpFor(tester, const Duration(milliseconds: 300));
     await pause(2); // observe switch back to SGW
 
     expect(

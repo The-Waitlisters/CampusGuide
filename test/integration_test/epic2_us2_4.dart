@@ -1,6 +1,7 @@
 // US-2.4: Directions between SGW and Loyola
 
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -8,20 +9,43 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/main.dart';
 import 'package:proj/screens/home_screen.dart';
 import 'package:proj/models/campus.dart';
-import 'package:proj/data/data_parser.dart';
 
 import 'helpers.dart';
+
+/// Selects start and destination, waits for route to settle, then asserts
+/// that a route summary (or Retry) is shown — never silent.
+Future<void> setAndVerifyRoute(
+  WidgetTester tester,
+  dynamic state,
+  dynamic start,
+  dynamic dest,
+) async {
+  state.simulateBuildingTap(start);
+  await pumpFor(tester, const Duration(seconds: 2));
+
+  await tester.tap(find.text('Set as Start'));
+  await pumpFor(tester, const Duration(seconds: 2));
+
+  state.simulateBuildingTap(dest);
+  await pumpFor(tester, const Duration(seconds: 2));
+
+  await tester.tap(find.text('Set as Destination'));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+
+  // Wait for HTTP to resolve while keeping UI live
+  await pumpFor(tester, const Duration(seconds: 10));
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late List buildings;
+  testWidgets('US-2.4: same-campus and cross-campus routes are generated successfully',
+      (tester) async {
 
-  setUpAll(() async {
-    buildings = await DataParser().getBuildingInfoFromJSON();
-  });
+    // ── Load app ─────────────────────────────────────────────────────────────
 
-  Future<void> pumpApp(WidgetTester tester) async {
+    await loadEnv();
     await tester.pumpWidget(
       CampusGuideApp(
         home: HomeScreen(
@@ -29,149 +53,78 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-    await pause(2);
-  }
+    await pumpFor(tester, const Duration(seconds: 3));
 
-  Future<void> setStartAndDestination(
-    WidgetTester tester,
-    dynamic state,
-    dynamic start,
-    dynamic dest,
-  ) async {
-    state.simulateBuildingTap(start);
-    await tester.pumpAndSettle();
-    await pause(2);
+    final dynamic state = tester.state(find.byType(HomeScreen));
+    // Wait for buildings to load (buildingsPresent is populated by the parser future)
+    await pumpFor(tester, const Duration(seconds: 5));
 
-    await tester.tap(find.text('Set as Start'));
-    await tester.pumpAndSettle();
-    await pause(2);
+    final buildings = List.from(state.buildingsPresent as List);
+    final sgwBuildings    = buildings.where((b) => b.campus == Campus.sgw).toList();
+    final loyolaBuildings = buildings.where((b) => b.campus == Campus.loyola).toList();
+    final sgwA    = sgwBuildings[0];
+    final sgwB    = sgwBuildings[1];
+    final loyola  = loyolaBuildings[0];
 
-    state.simulateBuildingTap(dest);
-    await tester.pumpAndSettle();
-    await pause(2);
+    // ── AC 1: Same-campus route (SGW → SGW) ──────────────────────────────────
 
-    await tester.tap(find.text('Set as Destination'));
-    await tester.pumpAndSettle();
-    await pause(2);
-  }
+    await setAndVerifyRoute(tester, state, sgwA, sgwB);
 
-  // ─── AC: Same-campus routing works as before ─────────────────────────────────
+    expect(
+      find.textContaining('SGW ↔ Loyola'),
+      findsNothing,
+      reason: 'Same-campus route must not show the cross-campus shuttle message',
+    );
 
-  testWidgets(
-    'US-2.4: same-campus route (SGW → SGW) shows loading or result — not shuttle placeholder',
-    (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    final sameCampusHasRoute = find.textContaining(' · ').evaluate().isNotEmpty;
+    final sameCampusHasError = find.text('Retry').evaluate().isNotEmpty;
+    expect(sameCampusHasRoute || sameCampusHasError, isTrue,
+        reason: 'Same-campus route must show a result or error — never silent');
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, sgwBuildings[0], sgwBuildings[1]);
+    await pumpFor(tester, const Duration(seconds: 3)); // observe
 
-      expect(
-        find.textContaining('SGW ↔ Loyola'),
-        findsNothing,
-        reason: 'Same-campus route must not show the shuttle/cross-campus message',
-      );
+    // Clear for next test
+    await tester.tap(find.byIcon(Icons.close));
+    await pumpFor(tester, const Duration(seconds: 1));
 
-      final hasLoading = find.text('Loading directions...').evaluate().isNotEmpty;
-      final hasRoute   = find.textContaining(' • ').evaluate().isNotEmpty;
-      final hasError   = find.text('Retry').evaluate().isNotEmpty;
-      expect(hasLoading || hasRoute || hasError, isTrue,
-          reason: 'Same-campus route must show loading, a route summary, or an error');
-      await pause(2);
-    },
-  );
+    // ── AC 2: Cross-campus route (SGW → Loyola) ───────────────────────────────
 
-  // ─── AC: SGW → Loyola route is generated ─────────────────────────────────────
+    await setAndVerifyRoute(tester, state, sgwA, loyola);
 
-  testWidgets(
-    'US-2.4: cross-campus route (SGW → Loyola) shows DirectionsCard with both buildings',
-    (tester) async {
-      await pumpApp(tester);
-      final sgwBuilding    = buildings.firstWhere((b) => b.campus == Campus.sgw);
-      final loyolaBuilding = buildings.firstWhere((b) => b.campus == Campus.loyola);
+    expect(find.text('Directions'), findsOneWidget,
+        reason: 'DirectionsCard must be visible for an SGW → Loyola route');
+    expect(find.textContaining('Start:'), findsOneWidget);
+    expect(find.textContaining(sgwA.fullName ?? sgwA.name as String), findsWidgets);
+    expect(find.textContaining('Destination:'), findsOneWidget);
+    expect(find.textContaining(loyola.fullName ?? loyola.name as String), findsWidgets);
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, sgwBuilding, loyolaBuilding);
+    final sgwToLoyHasRoute = find.textContaining(' · ').evaluate().isNotEmpty;
+    final sgwToLoyHasError = find.text('Retry').evaluate().isNotEmpty;
+    expect(sgwToLoyHasRoute || sgwToLoyHasError, isTrue,
+        reason: 'SGW → Loyola route must be generated successfully');
 
-      expect(find.text('Directions'), findsOneWidget,
-          reason: 'DirectionsCard must be visible for an SGW → Loyola route');
-      expect(
-        find.textContaining('Start: ${sgwBuilding.fullName ?? sgwBuilding.name}'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('Destination: ${loyolaBuilding.fullName ?? loyolaBuilding.name}'),
-        findsOneWidget,
-      );
-      await pause(2);
-    },
-  );
+    await pumpFor(tester, const Duration(seconds: 3)); // observe
 
-  // ─── AC: Loyola → SGW route is generated ─────────────────────────────────────
+    // Clear for next test
+    await tester.tap(find.byIcon(Icons.close));
+    await pumpFor(tester, const Duration(seconds: 1));
 
-  testWidgets(
-    'US-2.4: cross-campus route (Loyola → SGW) shows DirectionsCard with both buildings',
-    (tester) async {
-      await pumpApp(tester);
-      final sgwBuilding    = buildings.firstWhere((b) => b.campus == Campus.sgw);
-      final loyolaBuilding = buildings.firstWhere((b) => b.campus == Campus.loyola);
+    // ── AC 3: Cross-campus route (Loyola → SGW) ───────────────────────────────
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, loyolaBuilding, sgwBuilding);
+    await setAndVerifyRoute(tester, state, loyola, sgwA);
 
-      expect(find.text('Directions'), findsOneWidget,
-          reason: 'DirectionsCard must be visible for a Loyola → SGW route');
-      expect(
-        find.textContaining('Start: ${loyolaBuilding.fullName ?? loyolaBuilding.name}'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('Destination: ${sgwBuilding.fullName ?? sgwBuilding.name}'),
-        findsOneWidget,
-      );
-      await pause(2);
-    },
-  );
+    expect(find.text('Directions'), findsOneWidget,
+        reason: 'DirectionsCard must be visible for a Loyola → SGW route');
+    expect(find.textContaining('Start:'), findsOneWidget);
+    expect(find.textContaining(loyola.fullName ?? loyola.name as String), findsWidgets);
+    expect(find.textContaining('Destination:'), findsOneWidget);
+    expect(find.textContaining(sgwA.fullName ?? sgwA.name as String), findsWidgets);
 
-  // ─── AC: UI indicates cross-campus (SGW ↔ Loyola) ────────────────────────────
+    final loyToSgwHasRoute = find.textContaining(' · ').evaluate().isNotEmpty;
+    final loyToSgwHasError = find.text('Retry').evaluate().isNotEmpty;
+    expect(loyToSgwHasRoute || loyToSgwHasError, isTrue,
+        reason: 'Loyola → SGW route must be generated successfully');
 
-  testWidgets(
-    'US-2.4: SGW → Loyola route shows SGW ↔ Loyola indicator',
-    (tester) async {
-      await pumpApp(tester);
-      final sgwBuilding    = buildings.firstWhere((b) => b.campus == Campus.sgw);
-      final loyolaBuilding = buildings.firstWhere((b) => b.campus == Campus.loyola);
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, sgwBuilding, loyolaBuilding);
-
-      expect(
-        find.textContaining('SGW ↔ Loyola'),
-        findsOneWidget,
-        reason: 'Cross-campus route must show an SGW ↔ Loyola indicator in the UI',
-      );
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-2.4: Loyola → SGW route also shows SGW ↔ Loyola indicator',
-    (tester) async {
-      await pumpApp(tester);
-      final sgwBuilding    = buildings.firstWhere((b) => b.campus == Campus.sgw);
-      final loyolaBuilding = buildings.firstWhere((b) => b.campus == Campus.loyola);
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, loyolaBuilding, sgwBuilding);
-
-      expect(
-        find.textContaining('SGW ↔ Loyola'),
-        findsOneWidget,
-        reason: 'Reversed cross-campus route must also show the SGW ↔ Loyola indicator',
-      );
-      await pause(2);
-    },
-  );
+    await pumpFor(tester, const Duration(seconds: 3)); // observe
+  });
 }

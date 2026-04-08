@@ -9,20 +9,18 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/main.dart';
 import 'package:proj/screens/home_screen.dart';
 import 'package:proj/models/campus.dart';
-import 'package:proj/data/data_parser.dart';
 
 import 'helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late List buildings;
+  testWidgets('US-2.2: directions generated automatically when start + destination are set',
+      (tester) async {
 
-  setUpAll(() async {
-    buildings = await DataParser().getBuildingInfoFromJSON();
-  });
+    // ── Load app ─────────────────────────────────────────────────────────────
 
-  Future<void> pumpApp(WidgetTester tester) async {
+    await loadEnv();
     await tester.pumpWidget(
       CampusGuideApp(
         home: HomeScreen(
@@ -30,291 +28,123 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-    await pause(2);
-  }
+    await pumpFor(tester, const Duration(seconds: 3));
 
-  Future<void> setStartAndDestination(
-      WidgetTester tester,
-      dynamic state,
-      dynamic start,
-      dynamic dest,
-      ) async {
-    state.simulateBuildingTap(start);
-    await tester.pumpAndSettle();
-    await pause(2);
+    final dynamic state = tester.state(find.byType(HomeScreen));
+    await pumpFor(tester, const Duration(seconds: 5));
+
+    final buildings = List.from(state.buildingsPresent as List);
+    final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    final buildingA = sgwBuildings[0];
+    final buildingB = sgwBuildings[1];
+    final buildingC = sgwBuildings[2];
+
+    // ── AC: No card shown when nothing is selected ────────────────────────────
+
+    expect(find.text('Directions'), findsNothing,
+        reason: 'DirectionsCard must be hidden until a start is set');
+
+    // ── AC: UI shows start building; prompts for destination ─────────────────
+
+    state.simulateBuildingTap(buildingA);
+    await pumpFor(tester, const Duration(seconds: 2));
 
     await tester.tap(find.text('Set as Start'));
-    await tester.pumpAndSettle();
-    await pause(2);
+    await pumpFor(tester, const Duration(seconds: 2));
 
-    state.simulateBuildingTap(dest);
-    await tester.pumpAndSettle();
-    await pause(2);
+    final buildingAName = buildingA.fullName ?? buildingA.name;
+    expect(find.textContaining('Start:'), findsOneWidget,
+        reason: 'DirectionsCard must display a start label');
+    expect(find.textContaining(buildingAName as String), findsWidgets,
+        reason: 'DirectionsCard must display the selected start building name');
+    expect(find.textContaining('Destination: Not set'), findsOneWidget,
+        reason: 'Destination label must read "Not set" until one is chosen');
+    expect(find.text('Select a destination to see a route.'), findsOneWidget,
+        reason: 'Card must prompt for a destination when only start is set');
+
+    // ── AC: Loading indicator appears automatically — no button needed ────────
+
+    state.simulateBuildingTap(buildingB);
+    await pumpFor(tester, const Duration(seconds: 2));
 
     await tester.tap(find.text('Set as Destination'));
-    await tester.pumpAndSettle();
-    await pause(2);
-  }
+    await tester.pump(); // one frame to capture loading state
+    await tester.pump(const Duration(milliseconds: 50));
 
-  // ─── AC: UI clearly shows the selected start and destination buildings ──────
+    expect(find.text('Loading directions...'), findsOneWidget,
+        reason: 'A loading indicator must appear automatically — no button press needed');
 
-  testWidgets(
-    'US-2.2: DirectionsCard shows the selected start building name',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
+    // ── AC: Route summary or error shown after request settles ────────────────
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateBuildingTap(building);
-      await tester.pumpAndSettle();
-      await pause(2);
+    await pumpFor(tester, const Duration(seconds: 10)); // keep UI live while HTTP resolves
 
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2);
+    final buildingBName = buildingB.fullName ?? buildingB.name;
+    expect(find.textContaining('Start:'), findsOneWidget,
+        reason: 'Start label must remain visible after route loads');
+    expect(find.textContaining(buildingAName as String), findsWidgets,
+        reason: 'Start building name must remain visible after route loads');
+    expect(find.textContaining('Destination:'), findsOneWidget,
+        reason: 'Destination label must be visible after route loads');
+    expect(find.textContaining(buildingBName as String), findsWidgets,
+        reason: 'Destination building name must be visible after route loads');
 
-      final startLabel = building.fullName ?? building.name;
-      expect(find.textContaining('Start: $startLabel'), findsOneWidget,
-          reason: 'DirectionsCard must display the name of the start building');
-      await pause(2);
-    },
-  );
+    final hasRoute = find.textContaining(' · ').evaluate().isNotEmpty;
+    final hasError = find.text('Retry').evaluate().isNotEmpty;
+    expect(hasRoute || hasError, isTrue,
+        reason: 'Card must show a route summary (valid key) or Retry (no key) — never silent');
 
-  testWidgets(
-    'US-2.2: DirectionsCard shows "Not set" when no destination is chosen',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
+    await pumpFor(tester, const Duration(seconds: 3)); // observe result
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateBuildingTap(building);
-      await tester.pumpAndSettle();
-      await pause(2);
+    // ── AC: Retry re-triggers the directions request ──────────────────────────
 
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      expect(find.textContaining('Destination: Not set'), findsOneWidget,
-          reason: 'Destination label must read "Not set" until one is chosen');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-2.2: DirectionsCard shows both start and destination names once both are set',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-      final start = sgwBuildings[0];
-      final dest  = sgwBuildings[1];
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, start, dest);
-
-      expect(find.textContaining('Start: ${start.fullName ?? start.name}'), findsOneWidget);
-      expect(find.textContaining('Destination: ${dest.fullName ?? dest.name}'), findsOneWidget);
-      await pause(2);
-    },
-  );
-
-  // ─── AC: If start or destination is missing, no route is shown ───────────────
-
-  testWidgets(
-    'US-2.2: DirectionsCard is not shown when no start building is selected',
-        (tester) async {
-      await pumpApp(tester);
-      expect(find.text('Directions'), findsNothing,
-          reason: 'DirectionsCard must be hidden until a start is set');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-2.2: when only start is set, card prompts to select a destination',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateBuildingTap(building);
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      expect(
-        find.text('Select a destination to see a route.'),
-        findsOneWidget,
-        reason: 'With only a start selected, card must prompt for a destination',
-      );
-      await pause(2);
-    },
-  );
-
-  // ─── AC: Directions generated automatically — UI indicates loading ───────────
-
-  testWidgets(
-    'US-2.2: loading indicator appears automatically after both buildings are set',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-      final start = sgwBuildings[0];
-      final dest  = sgwBuildings[1];
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-
-      state.simulateBuildingTap(start);
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      state.simulateBuildingTap(dest);
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      await tester.tap(find.text('Set as Destination'));
-      await tester.pump(); // one frame — loading starts, before it resolves
-      await pause(2); // observe loading indicator
-
-      expect(
-        find.text('Loading directions...'),
-        findsOneWidget,
-        reason: 'A loading indicator must appear immediately after destination is set',
-      );
-
-      await tester.pumpAndSettle();
-    },
-  );
-
-  // ─── AC: If route generation fails, a Retry option is shown ─────────────────
-  // NOTE: With a valid API key the request succeeds so we check for the route
-  // summary instead. With no key, Retry appears. Both are valid outcomes.
-
-  testWidgets(
-    'US-2.2: route summary or Retry is shown after directions request settles',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, sgwBuildings[0], sgwBuildings[1]);
-      await pause(2);
-
-      final hasRoute = find.textContaining(' • ').evaluate().isNotEmpty;
-      final hasError = find.text('Retry').evaluate().isNotEmpty;
-
-      expect(hasRoute || hasError, isTrue,
-          reason: 'Card must show a route summary (API key present) or Retry (no key)');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-2.2: tapping Retry re-triggers the directions request (loading reappears)',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, sgwBuildings[0], sgwBuildings[1]);
-
-      if (find.text('Retry').evaluate().isNotEmpty) {
-        // No API key — error state shown, test Retry interaction
-        await tester.tap(find.text('Retry'));
-        await tester.pump();
-        await pause(2);
-
-        expect(find.text('Loading directions...'), findsOneWidget,
-            reason: 'Tapping Retry must re-trigger the directions request');
-
-        await tester.pumpAndSettle();
-      } else {
-        // Valid API key — directions succeeded, Retry not shown. Pass.
-        expect(find.textContaining(' • ').evaluate().isNotEmpty, isTrue,
-            reason: 'With a valid API key a route summary must be shown');
-        await pause(2);
-      }
-    },
-  );
-
-  // ─── AC: Route updates automatically when start/destination changes ──────────
-
-  testWidgets(
-    'US-2.2: changing destination triggers a new directions request automatically',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-      final start = sgwBuildings[0];
-      final dest1 = sgwBuildings[1];
-      final dest2 = sgwBuildings[2];
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, start, dest1);
-
-      state.simulateBuildingTap(dest2);
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      await tester.tap(find.text('Set as Destination'));
-      await tester.pump(); // loading starts immediately
-      await pause(2);
+    if (hasError) {
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.text('Loading directions...'), findsOneWidget,
-          reason: 'Changing destination must automatically trigger a new route request');
+          reason: 'Tapping Retry must re-trigger the directions request');
 
-      await tester.pumpAndSettle();
-    },
-  );
+      await pumpFor(tester, const Duration(seconds: 10));
+    }
 
-  testWidgets(
-    'US-2.2: cancelling directions clears both buildings and hides the card',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    // ── AC: Changing destination triggers a new request automatically ─────────
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, sgwBuildings[0], sgwBuildings[1]);
+    state.simulateBuildingTap(buildingC);
+    await pumpFor(tester, const Duration(seconds: 2));
 
-      expect(find.text('Directions'), findsOneWidget);
+    await tester.tap(find.text('Set as Destination'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-      await tester.tap(find.byIcon(Icons.close));
-      await tester.pumpAndSettle();
-      await pause(2);
+    expect(find.text('Loading directions...'), findsOneWidget,
+        reason: 'Changing destination must automatically trigger a new route request');
 
-      expect(find.text('Directions'), findsNothing,
-          reason: 'Cancelling must hide the DirectionsCard entirely');
-      await pause(2);
-    },
-  );
+    await pumpFor(tester, const Duration(seconds: 10));
+    await pumpFor(tester, const Duration(seconds: 2)); // observe result
 
-  // ─── AC: Route displayed on map ──────────────────────────────────────────────
+    // ── AC: Changing start building triggers a new request automatically ──────
 
-  testWidgets(
-    'US-2.2: route polyline is rendered on the map after successful fetch',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    state.simulateBuildingTap(buildingB);
+    await pumpFor(tester, const Duration(seconds: 2));
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      await setStartAndDestination(tester, state, sgwBuildings[0], sgwBuildings[1]);
-      await pause(2);
+    await tester.tap(find.text('Set as Start'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-      final hasRoute = find.textContaining(' • ').evaluate().isNotEmpty ||
-          find.text('Loading directions...').evaluate().isNotEmpty;
-      final hasError = find.text('Retry').evaluate().isNotEmpty;
+    expect(find.text('Loading directions...'), findsOneWidget,
+        reason: 'Changing start building must automatically trigger a new route request');
 
-      expect(hasRoute || hasError, isTrue,
-          reason: 'After setting both buildings, the app must either show a '
-              'route or an error — it must never silently do nothing');
-      await pause(2);
-    },
-  );
+    await pumpFor(tester, const Duration(seconds: 10));
+    await pumpFor(tester, const Duration(seconds: 3)); // observe result
+
+    // ── AC: Cancelling hides the card entirely ────────────────────────────────
+
+    await tester.tap(find.byIcon(Icons.close));
+    await pumpFor(tester, const Duration(seconds: 2));
+
+    expect(find.text('Directions'), findsNothing,
+        reason: 'Cancelling must hide the DirectionsCard entirely');
+    await pumpFor(tester, const Duration(seconds: 2));
+  });
 }

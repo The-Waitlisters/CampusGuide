@@ -6,6 +6,7 @@ import '../data/indoor_map_data.dart';
 import '../models/campus_building.dart';
 import '../models/floor.dart';
 import '../models/indoor_map.dart';
+import '../models/indoor_poi.dart';
 import '../models/nav_graph.dart';
 import '../models/room.dart';
 import '../services/indoor_multifloor_route.dart';
@@ -272,6 +273,20 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
     });
   }
 
+  /// Returns the icon that best represents a room's type in the room list.
+  /// Regular rooms get [Icons.meeting_room_outlined]; navigation nodes such as
+  /// elevators and staircases get a dedicated icon so users can distinguish
+  /// points of interest from ordinary classrooms.
+  IconData _typeIcon(Room room) {
+    final node = _navGraph?.nodeById(room.id);
+    return switch (node?.type) {
+      'elevator_door'       => Icons.elevator,
+      'stair_landing'       => Icons.stairs,
+      'building_entry_exit' => Icons.door_sliding,
+      _                     => Icons.meeting_room_outlined,
+    };
+  }
+
   void _setVerticalPreference(VerticalPreference preference) {
     setState(() {
       _verticalPreference = preference;
@@ -459,7 +474,7 @@ class _IndoorMapScreenState extends State<IndoorMapScreen> {
                         ? Icons.play_circle
                         : isDest
                         ? Icons.flag
-                        : Icons.meeting_room_outlined,
+                        : _typeIcon(room),
                     color: isStart
                         ? Colors.green
                         : isDest
@@ -592,6 +607,23 @@ class _MapView extends StatelessWidget {
                         destinationRoomId: destinationRoom?.id,
                         path: path,
                         currentNodeId: currentNodeId,
+                      ),
+                    ),
+                  ),
+                  // POI icons — rendered as real widgets so they are
+                  // discoverable by accessibility tools and tests.
+                  ...floor.pois.map(
+                    (poi) => Positioned(
+                      left: poi.x * w - 12,
+                      top: poi.y * h - 12,
+                      child: Tooltip(
+                        message: '${poi.type.label}: ${poi.name}',
+                        child: Icon(
+                          poi.type.icon,
+                          size: 24,
+                          color: poi.type.color,
+                          semanticLabel: poi.name,
+                        ),
                       ),
                     ),
                   ),

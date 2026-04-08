@@ -70,13 +70,9 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
-
-    // Wait for the buildings future to fully resolve so polygons are on the map
+    // Wait for the buildings to fully load so polygons are on the map
     final dynamic state = tester.state(find.byType(HomeScreen));
-    await state.testBuildingsFuture;
-    await tester.pumpAndSettle();
+    await pumpFor(tester, const Duration(seconds: 5));
 
     await pause(4); // let the Google Maps native view render the polygons
   }

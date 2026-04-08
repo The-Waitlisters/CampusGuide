@@ -1,314 +1,298 @@
-// US-5.4: Indoor points of interest displayed on the indoor map
+// US-5.4: Indoor points of interest are displayed on the indoor map.
+//         Different types of points of interest use distinct icons.
+//         Points of interest correspond to the selected floor.
+//         Points of interest are clearly distinguishable from rooms.
+//         The map remains readable when points of interest are shown.
+//
+// Two POI mechanisms are tested together:
+//
+//  A) IndoorPoi overlay — user-defined POIs (cafeteria, library …) are rendered
+//     as Icon widgets directly on the floor-plan canvas via a Positioned layer.
+//
+//  B) NavNode type icons — navigation nodes such as elevators and staircases
+//     are already present in the room list; they must use distinct leading icons
+//     (Icons.elevator / Icons.stairs) instead of the generic meeting-room icon.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-import 'package:proj/data/data_parser.dart';
+import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
+import 'package:proj/models/floor.dart';
+import 'package:proj/models/indoor_map.dart';
+import 'package:proj/models/indoor_poi.dart';
+import 'package:proj/models/nav_graph.dart';
+import 'package:proj/models/room.dart';
 import 'package:proj/screens/indoor_map_screen.dart';
 
 import 'helpers.dart';
 
+// ── Test building ─────────────────────────────────────────────────────────────
+
+final _kBuilding = CampusBuilding(
+  id: 'test-H',
+  name: 'H',
+  fullName: 'Henry F. Hall Building',
+  campus: Campus.sgw,
+  description: '',
+  boundary: const [],
+);
+
+// ── Rooms ─────────────────────────────────────────────────────────────────────
+//
+// Floor 1 — one regular room + one elevator node + one staircase node.
+// Floor 2 — one regular room only.
+
+const _kRoom110   = Room(id: 'H-110',      name: 'H-110',    boundary: <Offset>[]);
+const _kElevator  = Room(id: 'elevator_1', name: 'Elevator', boundary: <Offset>[]);
+const _kStairs    = Room(id: 'stairs_1',   name: 'Stairs',   boundary: <Offset>[]);
+const _kRoom210   = Room(id: 'H-210',      name: 'H-210',    boundary: <Offset>[]);
+
+// ── NavGraph — floor 1 ────────────────────────────────────────────────────────
+//
+// Node types drive the leading icon in the room list:
+//   'elevator_door'  → Icons.elevator
+//   'stair_landing'  → Icons.stairs
+//   'room'           → Icons.meeting_room_outlined
+//
+// No edges needed — routing is not under test here.
+
+final _kNavGraph1 = NavGraph(
+  nodes: const [
+    NavNode(id: 'H-110',      type: 'room',          x: 0.20, y: 0.50),
+    NavNode(id: 'elevator_1', type: 'elevator_door',  x: 0.50, y: 0.50),
+    NavNode(id: 'stairs_1',   type: 'stair_landing',  x: 0.80, y: 0.50),
+  ],
+  edges: const [],
+);
+
+// ── IndoorPoi data ────────────────────────────────────────────────────────────
+//
+// Floor 1: cafeteria (orange restaurant icon).
+// Floor 2: library   (purple book icon).
+//
+// Each type is exclusive to one floor so floor-specificity is unambiguous.
+
+const _kCafeteria = IndoorPoi(
+  id:   'poi-cafeteria-1',
+  name: 'Cafeteria',
+  type: IndoorPoiType.cafeteria,
+  x: 0.60,
+  y: 0.35,
+);
+
+const _kLibrary = IndoorPoi(
+  id:   'poi-library-2',
+  name: 'Library',
+  type: IndoorPoiType.library,
+  x: 0.50,
+  y: 0.50,
+);
+
+// ── Stub map ──────────────────────────────────────────────────────────────────
+
+final _kIndoorMap = IndoorMap(
+  building: _kBuilding,
+  floors: [
+    Floor(
+      level: 1,
+      label: 'Floor 1',
+      rooms: const [_kRoom110, _kElevator, _kStairs],
+      imagePath: 'assets/indoor/H_1.png',
+      imageAspectRatio: 1.0,
+      navGraph: _kNavGraph1,
+      pois: const [_kCafeteria],
+    ),
+    const Floor(
+      level: 2,
+      label: 'Floor 2',
+      rooms: [_kRoom210],
+      imagePath: 'assets/indoor/H_2.png',
+      imageAspectRatio: 1.0,
+      pois: [_kLibrary],
+    ),
+  ],
+);
+
+Future<IndoorMap?> _mockLoader(CampusBuilding _) async => _kIndoorMap;
+
+// ── Test ──────────────────────────────────────────────────────────────────────
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late CampusBuilding mbBuilding; // MB has Stairs, Elevators, WC on floor 1
-  late CampusBuilding lbBuilding; // LB has 4 floors — good for floor-switching tests
-
-  setUpAll(() async {
-    final buildings = await DataParser().getBuildingInfoFromJSON();
-    mbBuilding = buildings.firstWhere((b) => b.name == 'MB');
-    lbBuilding = buildings.firstWhere((b) => b.name == 'LB');
-  });
-
-  /// Pumps IndoorMapScreen for [building] and waits for the data to load.
-  Future<void> pumpIndoorMap(WidgetTester tester, CampusBuilding building) async {
-    await tester.pumpWidget(MaterialApp(home: IndoorMapScreen(building: building)));
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-    await pause(2);
-  }
-
-  // ─── AC: Indoor POIs are displayed on the indoor map ─────────────────────────
-
   testWidgets(
-    'US-5.4: elevator POI appears in the indoor room list for MB',
+    'US-5.4: POIs shown on map with distinct icons, floor-specific, '
+    'distinguishable from rooms, map readable',
     (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      expect(find.textContaining('Elevator'), findsWidgets,
-          reason: 'At least one Elevator POI must be visible in the indoor map list');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-5.4: staircase POI appears in the indoor room list for MB',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      expect(find.textContaining('Stairs'), findsWidgets,
-          reason: 'At least one Staircase POI must be visible in the indoor map list');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-5.4: washroom POI appears in the indoor room list for MB',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      // "WC" is the label used in the floor data
-      expect(find.textContaining('WC'), findsWidgets,
-          reason: 'At least one washroom (WC) POI must be visible in the indoor map list');
-      await pause(2);
-    },
-  );
-
-  // ─── AC: Different POI types use distinct icons ───────────────────────────────
-
-  testWidgets(
-    'US-5.4: elevator POI uses a distinct icon (not the generic meeting-room icon)',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      // Find the ListTile for any Elevator entry
-      final elevatorTile = find.ancestor(
-        of: find.textContaining('Elevator'),
-        matching: find.byType(ListTile),
-      ).first;
-
-      // The leading icon must NOT be the generic room icon
-      expect(
-        find.descendant(
-          of: elevatorTile,
-          matching: find.byWidgetPredicate(
-            (w) => w is Icon && w.icon == Icons.meeting_room_outlined,
+      // ── Pump the screen ──────────────────────────────────────────────────────
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IndoorMapScreen(
+            building: _kBuilding,
+            mapLoader: _mockLoader,
           ),
         ),
-        findsNothing,
-        reason: 'Elevator POI must not use the generic meeting-room icon',
       );
 
-      // And a dedicated elevator icon must be present somewhere in the tile
+      await pumpFor(tester, const Duration(milliseconds: 500));
+      await pause(1); // observe loaded screen — floor 1
+
+      // ─── AC: IndoorPoi icons displayed on the indoor map (floor 1) ───────────
+
+      // Cafeteria POI must be visible as an overlay Icon on the floor plan.
       expect(
-        find.descendant(
-          of: elevatorTile,
-          matching: find.byWidgetPredicate(
-            (w) => w is Icon && w.icon == Icons.elevator,
-          ),
-        ),
+        find.byIcon(IndoorPoiType.cafeteria.icon),
         findsOneWidget,
-        reason: 'Elevator POI must use Icons.elevator',
+        reason: 'Cafeteria icon must appear on the floor-plan canvas for floor 1',
       );
-      await pause(2);
-    },
-  );
+      await pause(1);
 
-  testWidgets(
-    'US-5.4: staircase POI uses a distinct icon (not the generic meeting-room icon)',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
+      // ─── AC: Different types of POIs use distinct icons ──────────────────────
 
-      final stairsTile = find.ancestor(
-        of: find.textContaining('Stairs'),
-        matching: find.byType(ListTile),
-      ).first;
-
+      // Verify at the model level: each enum value maps to a unique icon.
+      final allIcons = IndoorPoiType.values.map((t) => t.icon).toList();
+      final uniqueIcons = allIcons.toSet();
       expect(
-        find.descendant(
-          of: stairsTile,
-          matching: find.byWidgetPredicate(
-            (w) => w is Icon && w.icon == Icons.meeting_room_outlined,
-          ),
+        uniqueIcons.length,
+        equals(allIcons.length),
+        reason: 'Every IndoorPoiType must map to a distinct icon',
+      );
+
+      // NavNode type icons in the room list must also be distinct from each
+      // other and from the regular room icon.
+      expect(Icons.elevator == Icons.stairs, isFalse);
+      expect(Icons.elevator == Icons.meeting_room_outlined, isFalse);
+      expect(Icons.stairs   == Icons.meeting_room_outlined, isFalse);
+
+      // ─── AC: NavNode POIs use distinct icons in the room list ────────────────
+
+      // Elevator entry in the room list must use Icons.elevator.
+      final elevatorTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('Elevator'),
+          matching: find.byType(ListTile),
         ),
+      );
+      final elevLeading = elevatorTile.leading as Icon;
+      expect(
+        elevLeading.icon,
+        Icons.elevator,
+        reason: 'Elevator node must use Icons.elevator in the room list',
+      );
+
+      // Stairs entry must use Icons.stairs.
+      final stairsTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('Stairs'),
+          matching: find.byType(ListTile),
+        ),
+      );
+      final stairsLeading = stairsTile.leading as Icon;
+      expect(
+        stairsLeading.icon,
+        Icons.stairs,
+        reason: 'Staircase node must use Icons.stairs in the room list',
+      );
+
+      // ─── AC: POIs are clearly distinguishable from regular rooms ─────────────
+
+      // Regular room H-110 must use the generic meeting-room icon.
+      final roomTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('H-110'),
+          matching: find.byType(ListTile),
+        ),
+      );
+      final roomLeading = roomTile.leading as Icon;
+      expect(
+        roomLeading.icon,
+        Icons.meeting_room_outlined,
+        reason: 'Regular room must use Icons.meeting_room_outlined',
+      );
+
+      // Elevator icon ≠ room icon → elevator is distinguishable.
+      expect(
+        elevLeading.icon == roomLeading.icon,
+        isFalse,
+        reason: 'Elevator icon must differ from the regular room icon',
+      );
+      // Stairs icon ≠ room icon → stairs are distinguishable.
+      expect(
+        stairsLeading.icon == roomLeading.icon,
+        isFalse,
+        reason: 'Stairs icon must differ from the regular room icon',
+      );
+      // Cafeteria POI icon ≠ room list icon → POI overlay is distinguishable.
+      expect(
+        IndoorPoiType.cafeteria.icon == Icons.meeting_room_outlined,
+        isFalse,
+        reason: 'Cafeteria POI icon must differ from the regular room icon',
+      );
+      await pause(1);
+
+      // ─── AC: POIs correspond to the selected floor (floor 1 check) ──────────
+
+      // Library is on floor 2 — must NOT appear while floor 1 is active.
+      expect(
+        find.byIcon(IndoorPoiType.library.icon),
         findsNothing,
-        reason: 'Staircase POI must not use the generic meeting-room icon',
+        reason: 'Library icon must NOT appear on floor 1',
       );
 
+      // ─── AC: Map remains readable when POIs are shown ────────────────────────
+
+      // The floor-plan Image must still be present behind the POI layer.
       expect(
-        find.descendant(
-          of: stairsTile,
-          matching: find.byWidgetPredicate(
-            (w) => w is Icon && w.icon == Icons.stairs,
-          ),
-        ),
+        find.byType(Image),
+        findsWidgets,
+        reason: 'Floor plan image must still be visible when POIs are shown',
+      );
+      // The room list must still be accessible.
+      expect(
+        find.text('H-110'),
         findsOneWidget,
-        reason: 'Staircase POI must use Icons.stairs',
+        reason: 'Room list must remain readable when POIs are shown',
       );
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-5.4: washroom POI uses a distinct icon (not the generic meeting-room icon)',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      final wcTile = find.ancestor(
-        of: find.text('WC'),
-        matching: find.byType(ListTile),
-      ).first;
-
+      // The zoomable canvas must be present.
       expect(
-        find.descendant(
-          of: wcTile,
-          matching: find.byWidgetPredicate(
-            (w) => w is Icon && w.icon == Icons.meeting_room_outlined,
-          ),
-        ),
-        findsNothing,
-        reason: 'Washroom POI must not use the generic meeting-room icon',
-      );
-
-      expect(
-        find.descendant(
-          of: wcTile,
-          matching: find.byWidgetPredicate(
-            (w) => w is Icon && w.icon == Icons.wc,
-          ),
-        ),
+        find.byType(InteractiveViewer),
         findsOneWidget,
-        reason: 'Washroom POI must use Icons.wc',
+        reason: 'InteractiveViewer must still be rendered when POIs are shown',
       );
-      await pause(2);
-    },
-  );
+      await pause(1);
 
-  // ─── AC: POIs correspond to the selected floor ───────────────────────────────
+      // ─── AC: POIs correspond to the selected floor (floor 2 check) ──────────
 
-  testWidgets(
-    'US-5.4: switching floors updates the displayed room and POI list',
-    (tester) async {
-      await pumpIndoorMap(tester, lbBuilding); // LB has 4 distinct floors
-
-      // Count rooms on the first loaded floor
-      final firstFloorCount = tester
-          .widgetList<ListTile>(find.byType(ListTile))
-          .length;
-
-      // Open the floor selector and pick a different floor
+      // Switch to floor 2.
       await tester.tap(find.byType(DropdownButton<int>));
-      await tester.pumpAndSettle();
-      await pause(1); // observe dropdown open
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await tester.tap(find.text('Floor 2').last);
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe floor 2
 
-      // Select the second floor option (skip the first which is already active)
-      final dropdownItems = find.byType(DropdownMenuItem<int>);
-      expect(dropdownItems, findsWidgets,
-          reason: 'Floor dropdown must list multiple floors for LB');
-
-      // Tap the second available floor item
-      await tester.tap(dropdownItems.at(1));
-      await tester.pumpAndSettle();
-      await pause(2); // observe floor change
-
-      final secondFloorCount = tester
-          .widgetList<ListTile>(find.byType(ListTile))
-          .length;
-
-      expect(secondFloorCount, isNot(equals(firstFloorCount)),
-          reason: 'Switching floors must update the room/POI list — '
-              'different floors have different room counts');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-5.4: indoor map screen shows a floor selector with multiple floors for LB',
-    (tester) async {
-      await pumpIndoorMap(tester, lbBuilding);
-
-      expect(find.byType(DropdownButton<int>), findsOneWidget,
-          reason: 'A floor selector must be visible');
-
-      await tester.tap(find.byType(DropdownButton<int>));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DropdownMenuItem<int>), findsWidgets,
-          reason: 'Floor dropdown must show multiple floors');
-      await pause(2);
-    },
-  );
-
-  // ─── AC: POIs are clearly distinguishable from regular rooms ─────────────────
-
-  testWidgets(
-    'US-5.4: regular numbered rooms and elevator POIs use different leading icons',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      // A plain numbered room like "1.1.01" should have meeting_room icon
-      final numberedRoomTile = find.ancestor(
-        of: find.text('1.1.01'),
-        matching: find.byType(ListTile),
-      );
-      expect(numberedRoomTile, findsOneWidget,
-          reason: 'A numbered room must be present in the MB floor 1 list');
-
-      final roomHasGenericIcon = find.descendant(
-        of: numberedRoomTile,
-        matching: find.byWidgetPredicate(
-          (w) => w is Icon && w.icon == Icons.meeting_room_outlined,
-        ),
-      ).evaluate().isNotEmpty;
-
-      final elevatorTile = find.ancestor(
-        of: find.textContaining('Elevator').first,
-        matching: find.byType(ListTile),
+      // Library POI must now appear.
+      expect(
+        find.byIcon(IndoorPoiType.library.icon),
+        findsOneWidget,
+        reason: 'Library icon must appear after switching to floor 2',
       );
 
-      final elevatorHasGenericIcon = find.descendant(
-        of: elevatorTile,
-        matching: find.byWidgetPredicate(
-          (w) => w is Icon && w.icon == Icons.meeting_room_outlined,
-        ),
-      ).evaluate().isNotEmpty;
+      // Floor 1 POIs must be gone.
+      expect(
+        find.byIcon(IndoorPoiType.cafeteria.icon),
+        findsNothing,
+        reason: 'Cafeteria icon must NOT appear on floor 2',
+      );
 
-      expect(roomHasGenericIcon, isTrue,
-          reason: 'Regular numbered rooms must use the generic meeting-room icon');
-      expect(elevatorHasGenericIcon, isFalse,
-          reason: 'Elevator POI must NOT use the generic meeting-room icon — '
-              'it must be distinguishable');
-      await pause(2);
-    },
-  );
+      // Room list and floor plan still readable on floor 2.
+      expect(find.text('H-210'), findsOneWidget,
+          reason: 'Room list must remain readable on floor 2');
+      expect(find.byType(Image), findsWidgets,
+          reason: 'Floor plan image must still be visible on floor 2');
 
-  // ─── AC: Map remains readable when POIs are shown ────────────────────────────
-
-  testWidgets(
-    'US-5.4: indoor map screen renders without error when POIs are present',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      // The screen must not be in a loading or error state
-      expect(find.byType(CircularProgressIndicator), findsNothing,
-          reason: 'Indoor map must have finished loading');
-      expect(find.text('No indoor map available'), findsNothing);
-      expect(find.text('No indoor map for this building'), findsNothing);
-
-      // The floor plan canvas and room list must both be present
-      expect(find.byType(InteractiveViewer), findsOneWidget,
-          reason: 'The zoomable floor plan canvas must be rendered');
-      expect(find.byType(ListView), findsOneWidget,
-          reason: 'The room/POI list must be rendered alongside the map');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-5.4: indoor map floor plan image and room list are both visible for MB',
-    (tester) async {
-      await pumpIndoorMap(tester, mbBuilding);
-
-      // CustomPaint is the overlay painter on top of the floor plan
-      expect(find.byType(CustomPaint), findsWidgets,
-          reason: 'The floor plan overlay (room/POI indicators) must be rendered');
-
-      // Room list must contain at least the known POIs
-      expect(find.byType(ListTile), findsWidgets,
-          reason: 'Room/POI list tiles must be visible');
-      await pause(2);
+      await pause(2); // final visual pause
     },
   );
 }

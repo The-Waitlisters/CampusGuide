@@ -23,6 +23,7 @@ class ScheduleSearchBar extends StatelessWidget {
         color: Colors.white,
       ),
       child: TextField(
+        key: const Key('schedule_search_field'),
         controller: controller,
         onChanged: onChanged,
         onSubmitted: onSubmitted,

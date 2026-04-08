@@ -1,3 +1,4 @@
+import 'indoor_poi.dart';
 import 'nav_graph.dart';
 import 'room.dart';
 
@@ -9,6 +10,8 @@ class Floor {
   final NavGraph? navGraph;
   /// Width / height of the source image (used to avoid stretching).
   final double imageAspectRatio;
+  /// Points of interest displayed on this floor's map.
+  final List<IndoorPoi> pois;
 
   const Floor({
     required this.level,
@@ -17,6 +20,7 @@ class Floor {
     this.imagePath,
     this.navGraph,
     this.imageAspectRatio = 1.0,
+    this.pois = const [],
   });
 
   Room? roomById(String id) {

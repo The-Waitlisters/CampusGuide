@@ -21,8 +21,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
+    await pumpFor(tester, const Duration(seconds: 3));
     await pause(2);
   }
 
@@ -35,7 +34,7 @@ void main() {
       final dynamic state = tester.state(find.byType(HomeScreen));
 
       state.simulateCampusChange(Campus.loyola);
-      await tester.pumpAndSettle();
+      await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(2); // observe switch to Loyola
 
       expect(find.text('campus:loyola'), findsOneWidget);
@@ -50,11 +49,11 @@ void main() {
       final dynamic state = tester.state(find.byType(HomeScreen));
 
       state.simulateCampusChange(Campus.loyola);
-      await tester.pumpAndSettle();
+      await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(2); // observe switch to Loyola
 
       state.simulateCampusChange(Campus.sgw);
-      await tester.pumpAndSettle();
+      await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(2); // observe switch back to SGW
 
       expect(find.text('campus:sgw'), findsOneWidget);
@@ -73,11 +72,11 @@ void main() {
 
       final dynamic state = tester.state(find.byType(HomeScreen));
       state.simulateCampusChange(Campus.loyola);
-      await tester.pumpAndSettle();
+      await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(2); // observe campus switch to Loyola
 
       (state as HomeScreenState).handleMapTap(polygonCenter(sgwBuilding.boundary));
-      await tester.pumpAndSettle();
+      await pumpFor(tester, const Duration(milliseconds: 500));
       await pause(2); // observe "Not part of campus" sheet
 
       expect(find.text('Not part of campus'), findsOneWidget);
@@ -94,11 +93,11 @@ void main() {
 
       final dynamic state = tester.state(find.byType(HomeScreen));
       state.simulateCampusChange(Campus.loyola);
-      await tester.pumpAndSettle();
+      await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(2); // observe campus switch to Loyola
 
       (state as HomeScreenState).handleMapTap(polygonCenter(loyolaBuilding.boundary));
-      await tester.pumpAndSettle();
+      await pumpFor(tester, const Duration(milliseconds: 500));
       await pause(2); // observe building detail sheet
 
       expect(find.textContaining(loyolaBuilding.name), findsOneWidget);

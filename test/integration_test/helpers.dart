@@ -1,5 +1,26 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/models/campus_building.dart';
+
+/// Pumps frames continuously for [duration] so the UI stays live.
+/// Use instead of pumpAndSettle() when Google Maps is rendering (avoids infinite loop).
+Future<void> pumpFor(WidgetTester tester, Duration duration) async {
+  final end = DateTime.now().add(duration);
+  while (DateTime.now().isBefore(end)) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// Call once at the top of each integration test file (before pumpWidget).
+/// Loads .env so that Secrets.directionsApiKey is available in tests.
+Future<void> loadEnv() async {
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Already loaded or file not present — ignore.
+  }
+}
 
 /// Returns the centroid of a polygon boundary.
 /// Used in tests to produce a point that is reliably inside a building shape.

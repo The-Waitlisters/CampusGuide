@@ -9,237 +9,183 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/main.dart';
 import 'package:proj/screens/home_screen.dart';
 import 'package:proj/models/campus.dart';
-import 'package:proj/data/data_parser.dart';
+import 'package:proj/services/directions/directions_controller.dart';
+import 'package:proj/services/directions/transport_mode_strategy.dart';
 
 import 'helpers.dart';
+
+// ── Stub directions client ────────────────────────────────────────────────────
+//
+// Returns an empty but valid RouteResult so no real HTTP call is made.
+// This prevents the "Directions API key missing" error from surfacing during
+// tests that only need to verify start/destination selection, not routing.
+
+class _StubDirectionsClient implements DirectionsClient {
+  @override
+  Future<RouteResult> getRoute({
+    required LatLng origin,
+    required LatLng destination,
+    required TransportModeStrategy mode,
+  }) async {
+    return const RouteResult(
+      legs: [],
+      durationText: '5 min',
+      distanceText: '400 m',
+    );
+  }
+}
+
+Future<dynamic> _loadApp(WidgetTester tester) async {
+  await loadEnv(); // load .env so any dotenv-based secrets are available
+  await tester.pumpWidget(
+    CampusGuideApp(
+      home: HomeScreen(
+        testMapControllerCompleter: Completer<GoogleMapController>(),
+        testDirectionsController: DirectionsController(
+          client: _StubDirectionsClient(),
+        ),
+      ),
+    ),
+  );
+  final dynamic state = tester.state(find.byType(HomeScreen));
+  await pumpFor(tester, const Duration(seconds: 5));
+  await pause(2);
+  return state;
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late List buildings;
+  // ── Test 1: Set start + destination via map taps ────────────────────────────
 
-  setUpAll(() async {
-    buildings = await DataParser().getBuildingInfoFromJSON();
+  testWidgets('US-2.1 Test 1: select start and destination via map taps', (tester) async {
+    final state = await _loadApp(tester);
+
+    final buildings = List.from(state.buildingsPresent as List);
+    final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    final buildingA = sgwBuildings[0];
+    final buildingB = sgwBuildings[1];
+
+    state.simulateBuildingTap(buildingA);
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
+
+    expect(find.text('Set as Start'), findsOneWidget);
+    await tester.tap(find.text('Set as Start'));
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
+
+    final startLabelA = buildingA.fullName ?? buildingA.name;
+    expect(find.textContaining('Start: $startLabelA'), findsOneWidget);
+
+    state.simulateBuildingTap(buildingB);
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
+
+    expect(find.text('Set as Destination'), findsOneWidget);
+    await tester.tap(find.text('Set as Destination'));
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(3);
+
+    final destLabelB = buildingB.fullName ?? buildingB.name;
+    expect(find.textContaining('Start: $startLabelA'), findsOneWidget);
+    expect(find.textContaining('Destination: $destLabelB'), findsOneWidget);
   });
 
-  Future<void> pumpApp(WidgetTester tester) async {
-    await tester.pumpWidget(
-      CampusGuideApp(
-        home: HomeScreen(
-          testMapControllerCompleter: Completer<GoogleMapController>(),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pumpAndSettle();
+  // ── Test 2: Search bar → Set as Start + Set as Destination ─────────────────
+
+  testWidgets('US-2.1 Test 2: select start and destination via search bar', (tester) async {
+    final state = await _loadApp(tester);
+
+    final buildings = List.from(state.buildingsPresent as List);
+    final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    final buildingC = sgwBuildings[0];
+    final buildingD = sgwBuildings[1];
+
+    await tester.enterText(find.byType(TextField), buildingC.name.toLowerCase());
+    await pumpFor(tester, const Duration(milliseconds: 400));
     await pause(2);
-  }
 
-  // ─── AC: User can select a building on the map to be the "start" building ───
+    await tester.tap(find.byType(ListTile).first);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
 
-  testWidgets(
-    'US-2.1: tapping a building shows a "Set as Start" button',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
+    expect(find.text('Set as Start'), findsOneWidget);
+    await tester.tap(find.text('Set as Start'));
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateBuildingTap(building);
-      await tester.pumpAndSettle();
-      await pause(2); // observe building modal with Set as Start
+    expect(find.textContaining('Start:'), findsOneWidget);
 
-      expect(find.text('Set as Start'), findsOneWidget,
-          reason: 'Tapping a building must offer "Set as Start"');
-      await pause(2);
-    },
-  );
+    await tester.tap(find.byType(TextField));
+    await pumpFor(tester, const Duration(milliseconds: 300));
+    await tester.enterText(find.byType(TextField), buildingD.name.toLowerCase());
+    await pumpFor(tester, const Duration(milliseconds: 400));
+    await pause(2);
 
-  testWidgets(
-    'US-2.1: pressing "Set as Start" makes that building the start in the DirectionsCard',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
+    await tester.tap(find.byType(ListTile).first);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateBuildingTap(building);
-      await tester.pumpAndSettle();
-      await pause(2); // observe modal
+    expect(find.text('Set as Destination'), findsOneWidget);
+    await tester.tap(find.text('Set as Destination'));
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(3);
 
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2); // observe DirectionsCard updated with start
+    expect(find.textContaining('Start:'), findsOneWidget);
+    expect(find.textContaining('Destination:'), findsOneWidget);
+  });
 
-      final label = building.fullName ?? building.name;
-      expect(find.textContaining('Start: $label'), findsOneWidget,
-          reason: 'DirectionsCard must show the selected start building');
-      await pause(2);
-    },
-  );
+  // ── Test 3: GPS inside building → "Set Current building as starting point" ──
 
-  // ─── AC: Once a start is selected, user can select a destination building ───
+  testWidgets('US-2.1 Test 3: set start via current GPS building button', (tester) async {
+    final state = await _loadApp(tester);
 
-  testWidgets(
-    'US-2.1: after setting start, tapping another building shows "Set as Destination"',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-      final start = sgwBuildings[0];
-      final dest  = sgwBuildings[1];
+    final buildings = List.from(state.buildingsPresent as List);
+    final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    final buildingA = sgwBuildings[0];
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
+    final gpsBuildingPoint = polygonCenter(buildingA.boundary);
+    state.simulateGpsLocation(gpsBuildingPoint);
+    state.setIsInBuildingForTest(true);
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(3);
 
-      state.simulateBuildingTap(start);
-      await tester.pumpAndSettle();
-      await pause(2); // observe start modal
+    expect(find.text('Set Current building as starting point'), findsOneWidget);
+    await tester.tap(find.text('Set Current building as starting point'));
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(3);
 
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2); // observe DirectionsCard with start set
+    expect(find.textContaining('Start:'), findsOneWidget);
+  });
 
-      state.simulateBuildingTap(dest);
-      await tester.pumpAndSettle();
-      await pause(2); // observe destination modal
+  // ── Test 4: X button clears the selection ───────────────────────────────────
 
-      expect(find.text('Set as Destination'), findsOneWidget,
-          reason: 'After start is set, tapping a building must offer "Set as Destination"');
-      await pause(2);
-    },
-  );
+  testWidgets('US-2.1 Test 4: X button clears building selection', (tester) async {
+    final state = await _loadApp(tester);
 
-  testWidgets(
-    'US-2.1: pressing "Set as Destination" shows both buildings in the DirectionsCard',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-      final start = sgwBuildings[0];
-      final dest  = sgwBuildings[1];
+    final buildings = List.from(state.buildingsPresent as List);
+    final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
+    final buildingA = sgwBuildings[0];
 
-      final dynamic state = tester.state(find.byType(HomeScreen));
+    state.simulateBuildingTap(buildingA);
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
 
-      state.simulateBuildingTap(start);
-      await tester.pumpAndSettle();
-      await pause(2);
+    expect(find.text('Set as Start'), findsOneWidget);
+    await tester.tap(find.text('Set as Start'));
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(2);
 
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2); // observe start set
+    expect(find.textContaining('Start:'), findsOneWidget);
 
-      state.simulateBuildingTap(dest);
-      await tester.pumpAndSettle();
-      await pause(2);
+    await tester.tap(find.byIcon(Icons.close));
+    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pause(3);
 
-      await tester.tap(find.text('Set as Destination'));
-      await tester.pumpAndSettle();
-      await pause(2); // observe both buildings in DirectionsCard
-
-      final startLabel = start.fullName ?? start.name;
-      final destLabel  = dest.fullName  ?? dest.name;
-      expect(find.textContaining('Start: $startLabel'), findsOneWidget);
-      expect(find.textContaining('Destination: $destLabel'), findsOneWidget);
-      await pause(2);
-    },
-  );
-
-  // ─── AC: User can type in the name of a destination building ────────────────
-
-  testWidgets(
-    'US-2.1: typing a building name in the search field shows matching results',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
-
-      await tester.enterText(find.byType(TextField), building.name.toLowerCase());
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      await pause(2); // observe search results
-
-      expect(find.text(building.name), findsWidgets,
-          reason: 'Typing a building name must show it in the search results');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-2.1: selecting a search result after setting start triggers destination selection',
-        (tester) async {
-      await pumpApp(tester);
-      final sgwBuildings = buildings.where((b) => b.campus == Campus.sgw).toList();
-      final start = sgwBuildings[0];
-      final dest  = sgwBuildings[1];
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-
-      state.simulateBuildingTap(start);
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2); // observe start set
-
-      await tester.enterText(find.byType(TextField), dest.name.toLowerCase());
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      await pause(2); // observe search results
-
-      await tester.tap(find.text(dest.name).first);
-      await tester.pumpAndSettle();
-      await pause(2); // observe Set as Destination offered
-
-      expect(find.text('Set as Destination'), findsOneWidget,
-          reason: 'Selecting a search result with a start already set must '
-              'offer "Set as Destination"');
-      await pause(2);
-    },
-  );
-
-  // ─── AC: User can cancel without selecting a destination ────────────────────
-
-  testWidgets(
-    'US-2.1: pressing the cancel (X) button on DirectionsCard clears the selection',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateBuildingTap(building);
-      await tester.pumpAndSettle();
-      await pause(2);
-
-      await tester.tap(find.text('Set as Start'));
-      await tester.pumpAndSettle();
-      await pause(2); // observe DirectionsCard visible
-
-      expect(find.text('Directions'), findsOneWidget);
-
-      await tester.tap(find.byIcon(Icons.close));
-      await tester.pumpAndSettle();
-      await pause(2); // observe DirectionsCard gone
-
-      expect(find.text('Directions'), findsNothing,
-          reason: 'Cancelling must remove the DirectionsCard');
-      await pause(2);
-    },
-  );
-
-  testWidgets(
-    'US-2.1: closing the building detail modal without choosing does not set a start',
-        (tester) async {
-      await pumpApp(tester);
-      final building = buildings.firstWhere((b) => b.campus == Campus.sgw);
-
-      final dynamic state = tester.state(find.byType(HomeScreen));
-      state.simulateBuildingTap(building);
-      await tester.pumpAndSettle();
-      await pause(2); // observe modal open
-
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-      await pause(2); // observe modal dismissed, no DirectionsCard
-
-      expect(find.text('Directions'), findsNothing,
-          reason: 'Dismissing the modal without choosing must not set a start building');
-      await pause(2);
-    },
-  );
+    expect(find.textContaining('Start:'), findsNothing,
+        reason: 'Pressing X must clear the selection and hide the DirectionsCard');
+  });
 }

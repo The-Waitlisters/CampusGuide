@@ -4,11 +4,13 @@ import 'package:proj/models/course_schedule_entry.dart';
 class ScheduleResultTile extends StatelessWidget {
   final CourseScheduleEntry entry;
   final VoidCallback onTap;
+  final VoidCallback onAdd;
 
   const ScheduleResultTile({
     super.key,
     required this.entry,
     required this.onTap,
+    required this.onAdd,
   });
 
   @override
@@ -54,6 +56,14 @@ class ScheduleResultTile extends StatelessWidget {
                     color: entry.hasRoom ? Colors.black : Colors.grey,
                   ),
                 ),
+              ),
+              IconButton(
+                key: const Key('add_course_button'),
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Add to schedule',
+                onPressed: onAdd,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ],
           ),

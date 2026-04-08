@@ -112,7 +112,7 @@ abstract class DirectionsClient {
 }
 
 // ---------------------------------------------------------------------------
-// GoogleDirectionsClient
+// GoogleDirectionsClient  (Directions API)
 // ---------------------------------------------------------------------------
 
 class GoogleDirectionsClient implements DirectionsClient {

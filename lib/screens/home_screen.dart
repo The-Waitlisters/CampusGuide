@@ -83,6 +83,14 @@ class HomeScreen extends StatefulWidget {
   /// loading indoor maps for room-to-room navigation.
   final Future<IndoorMap?> Function(CampusBuilding)? testIndoorMapLoader;
 
+  /// For tests: overrides the current time used by [NextClassService] to
+  /// determine which class is "next". Passes through to [ScheduleOverlay].
+  final DateTime? testScheduleCurrentTime;
+
+  /// For tests: overrides the GPS start point used by [_getRouteStartPoint]
+  /// so directions work on emulators that have no location permission.
+  final LatLng? testStartLocation;
+
   const HomeScreen({
     super.key,
     this.role = UserRole.guest,
@@ -94,6 +102,8 @@ class HomeScreen extends StatefulWidget {
     this.testDirectionsController,
     this.testHttpClient,
     this.testIndoorMapLoader,
+    this.testScheduleCurrentTime,
+    this.testStartLocation,
     MarkerImageLoader? markerImageLoader,
   }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
 
@@ -232,6 +242,43 @@ class _HomeScreenState extends HomeScreenState {
     _initDependencies();
     _initDirections();
     _tryInitLocationTracking();
+
+    // When a fixed test location is injected, seed the GPS state and snap
+    // the start to whichever campus building contains that point (so the
+    // starting building is highlighted and directions run building-to-building).
+    // Falls back to a custom blue marker if the point isn't inside any building.
+    if (widget.testStartLocation != null) {
+      _lastKnownPosition = widget.testStartLocation;
+      locationPoint = widget.testStartLocation!;
+
+      _buildingsFuture.then((buildings) {
+        if (!mounted) return;
+        final CampusBuilding? startBuilding =
+            buildings.cast<CampusBuilding?>().firstWhere(
+              (b) => isPointInPolygon(widget.testStartLocation!, b!.boundary),
+              orElse: () => null,
+            );
+        if (startBuilding != null) {
+          setState(() {
+            _startBuilding = startBuilding;
+            _startFromCurrentLocation = false;
+            // Rebuild polygons so the start building lights up immediately.
+            _polygons = _buildPolygons(buildings);
+          });
+        } else {
+          // Point isn't inside any building — fall back to a blue pin marker.
+          setState(() {
+            _markers.add(Marker(
+              markerId: const MarkerId('__test_user_location__'),
+              position: widget.testStartLocation!,
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueBlue),
+              infoWindow: const InfoWindow(title: 'Your location (test)'),
+            ));
+          });
+        }
+      });
+    }
   }
 
   void resetFilters() {
@@ -301,17 +348,26 @@ class _HomeScreenState extends HomeScreenState {
   void _initDirections() {
     // On web the REST Directions API is blocked by CORS; use the JS SDK client.
     // On mobile/desktop use the standard HTTP client.
+    String apiKey = '';
+    try {
+      apiKey = Secrets.directionsApiKey;
+    } catch (_) {
+      // dotenv not loaded (e.g. integration tests) — directions disabled
+    }
+
     final client = kIsWeb
         ? WebDirectionsClient() // coverage:ignore-line
-        : GoogleDirectionsClient(apiKey: Secrets.directionsApiKey);
+        : GoogleDirectionsClient(apiKey: apiKey);
 
     _directions = widget.testDirectionsController ??
         DirectionsController(client: client);
     // coverage:ignore-line
     assert(() {
-      if (!kIsWeb && Secrets.directionsApiKey.isEmpty) {
+      if (!kIsWeb && apiKey.isEmpty) {
         debugPrint(
             'Directions API key is missing (DIRECTIONS_API_KEY not set).');
+      } else {
+        debugPrint('[Directions] Key loaded: ${apiKey.substring(0, 8)}...'); // coverage:ignore-line
       }
       return true;
     }());
@@ -337,7 +393,7 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _tryInitLocationTracking() async {
-    if (isE2EMode) {
+    if (isE2EMode || widget.testMapControllerCompleter != null) {
       return;
     }
 
@@ -791,6 +847,7 @@ class _HomeScreenState extends HomeScreenState {
     if (_startBuilding != null) {
       return polygonCenter(_startBuilding!.boundary);
     }
+    if (widget.testStartLocation != null) return widget.testStartLocation;
     if (!_startFromCurrentLocation) return null;
     try {
       final permission = await _checkAndMaybeRequestLocationPermission(
@@ -884,11 +941,60 @@ class _HomeScreenState extends HomeScreenState {
     debugPrint('Set as Start: ${building.name}');
     setState(() {
       _startBuilding = building;
-      _endBuilding = null;
       _startFromCurrentLocation = false;
       _locationRequiredMessage = null;
     });
     await _updateDirectionsIfReady();
+  }
+
+  /// Called when the user taps "Get Directions to Next Class".
+  /// Awaits [_buildingsFuture] so the lookup works even if buildings
+  /// haven't finished loading yet when the button is tapped.
+  Future<void> _navigateToNextClass(CourseScheduleEntry entry) async {
+    try {
+      debugPrint('[NavNextClass] entry.buildingCode=${entry.buildingCode} buildingsPresent.length=${buildingsPresent.length}');
+      List<CampusBuilding> buildings = buildingsPresent;
+      if (buildings.isEmpty) {
+        debugPrint('[NavNextClass] awaiting _buildingsFuture...');
+        buildings = await _buildingsFuture;
+        debugPrint('[NavNextClass] _buildingsFuture resolved, buildings.length=${buildings.length}');
+      }
+
+      if (!mounted) return;
+
+      final building = buildings.cast<CampusBuilding?>().firstWhere(
+        (b) => b!.name.toUpperCase() == entry.buildingCode.toUpperCase(),
+        orElse: () => null,
+      );
+
+      debugPrint('[NavNextClass] lookup result: ${building?.name ?? "NULL — not found"}');
+
+      if (building == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Building "${entry.buildingCode}" not found '
+                'for classroom ${entry.room}.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      await _handleSetAsDestination(building);
+    } catch (e, st) {
+      debugPrint('[NavNextClass] ERROR: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error navigating to next class: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handleSetAsDestination(CampusBuilding building) async {
@@ -897,6 +1003,10 @@ class _HomeScreenState extends HomeScreenState {
       _endBuilding = building;
       if (_startBuilding == null && _startPoi == null) {
         _startFromCurrentLocation = true;
+      }
+      // Rebuild polygons so the destination building is outlined in blue.
+      if (buildingsPresent.isNotEmpty) {
+        _polygons = _buildPolygons(buildingsPresent);
       }
     });
     await _updateDirectionsIfReady();
@@ -925,12 +1035,9 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _zoomToRoute(LatLng a, LatLng b) async {
-    final controller = widget.testMapControllerCompleter != null
-        ? await widget.testMapControllerCompleter!.future // coverage:ignore-line
-        : _mapController;
+    final controller = _mapController;
     if (controller == null) return;
     final bounds = boundsForRoute(a, b);
-
     await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
   }
 
@@ -1124,15 +1231,21 @@ class _HomeScreenState extends HomeScreenState {
         isInBuilding =
             isActiveGps; // As soon as there's a building we are in, global variable is set to true
       }
+      final bool isDestination = _endBuilding?.id == e.id;
+      final bool isStartBuilding = _startBuilding?.id == e.id;
       return Polygon(
         polygonId: pid,
         points: e.boundary,
         consumeTapEvents: true,
-        fillColor: isActiveGps
+        fillColor: isActiveGps || isStartBuilding
             ? const Color(0x803197F6)
-            : const Color(0x80912338),
-        strokeColor: isActiveGps ? Colors.blue : const Color(0xFF741C2C),
-        strokeWidth: isActiveGps ? 3 : 2,
+            : isDestination
+                ? const Color(0x800056B3)
+                : const Color(0x80912338),
+        strokeColor: isActiveGps || isStartBuilding || isDestination
+            ? Colors.blue
+            : const Color(0xFF741C2C),
+        strokeWidth: (isActiveGps || isStartBuilding || isDestination) ? 3 : 2,
         onTap: () {
           _cursorBuilding = e;
           _updateOnTap(pid);
@@ -1413,7 +1526,7 @@ class _HomeScreenState extends HomeScreenState {
 
       body: Stack(
         children: [
-          if (!isE2EMode) _buildMapLayer(),
+          _buildMapLayer(),
           // On Flutter Web, google_maps_flutter_web silently drops all
           // polylines. RoutePolylineOverlay draws them with CustomPaint
           // using synchronous Mercator projection — no platform channel.
@@ -1512,10 +1625,20 @@ class _HomeScreenState extends HomeScreenState {
               },
               onRoomSelected: (CourseScheduleEntry entry) {
                 debugPrint('Selected room: ${entry.room}');
-
+              },
+              onNextClassNavigation: (CourseScheduleEntry entry) {
                 setState(() {
                   _showScheduleOverlay = false;
                 });
+                _navigateToNextClass(entry);
+              },
+              onNextClassError: (String message) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(message),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
               },
               lookupService: ScheduleLookupService(
                 api: ConcordiaApiService(
@@ -1523,6 +1646,7 @@ class _HomeScreenState extends HomeScreenState {
                   apiKey: dotenv.env['CONCORDIA_API_KEY'] ?? '',
                 ),
               ),
+              testCurrentTime: widget.testScheduleCurrentTime,
             ),
 
           if (showResults)
@@ -1580,7 +1704,7 @@ class _HomeScreenState extends HomeScreenState {
       polygons: _polygons,
       polylines: _directions.state.polylines,
       markers: Set<Marker>.of(_markers),
-      myLocationEnabled: !isE2EMode,
+      myLocationEnabled: !isE2EMode && widget.testMapControllerCompleter == null,
       myLocationButtonEnabled: false,
       onMapCreated: (GoogleMapController controller) {
         // coverage:ignore-start
@@ -1721,6 +1845,10 @@ class _HomeScreenState extends HomeScreenState {
           _endIndoorMap = null;
           _startRoomId = null;
           _endRoomId = null;
+          // Rebuild polygons to remove the blue destination highlight.
+          if (buildingsPresent.isNotEmpty) {
+            _polygons = _buildPolygons(buildingsPresent);
+          }
         });
         _directions.updateRoute(start: null, end: null);
         debugPrint('Directions cancelled');

@@ -5,11 +5,13 @@ import 'package:proj/widgets/schedule/schedule_result_tile.dart';
 class ScheduleResultsList extends StatelessWidget {
   final List<CourseScheduleEntry> results;
   final ValueChanged<CourseScheduleEntry> onResultTap;
+  final ValueChanged<CourseScheduleEntry> onResultAdd;
 
   const ScheduleResultsList({
     super.key,
     required this.results,
     required this.onResultTap,
+    required this.onResultAdd,
   });
 
   @override
@@ -87,9 +89,8 @@ class ScheduleResultsList extends StatelessWidget {
 
                   return ScheduleResultTile(
                     entry: entry,
-                    onTap: () {
-                      onResultTap(entry);
-                    },
+                    onTap: () => onResultTap(entry),
+                    onAdd: () => onResultAdd(entry),
                   );
                 },
               ),
