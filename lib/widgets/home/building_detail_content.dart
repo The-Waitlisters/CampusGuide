@@ -76,14 +76,17 @@ class BuildingDetailContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSection(String title, List<String> items) {
+    Widget _buildSection(
+        String title,
+        List<String> items, {
+          TextStyle? itemStyle,
+        }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
-        ...items.map((e) => Text(e == '-' ? 'None' : e)),
-        const SizedBox(height: 12),
+        ...items.map((e) => Text(e == '-' ? 'None' : e, style: itemStyle)),        const SizedBox(height: 12),
       ],
     );
   }
@@ -202,6 +205,29 @@ Widget _buildPhotoGallery() {
             ),
           ],
         ),
+<<<<<<< HEAD
+        const SizedBox(height: 12),
+        _buildAccessibilityIcons(),
+        const SizedBox(height: 12),
+        Text(building.description ?? ''),
+        const SizedBox(height: 12),
+        _buildSection(
+          'Opening Hours:',
+          building!.openingHours,
+          itemStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF8B0000), //Dark Red
+          ),
+        ),        _buildSection('Departments:', building.departments),
+        _buildSection('Services:', building.services),
+        if (onViewIndoorMap != null) ...[
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const Key('view_indoor_map_button'),
+            icon: const Icon(Icons.map),
+            label: const Text('View indoor map'),
+            onPressed: onViewIndoorMap,
+=======
         if (!isPoi) ...<Widget>[
           const SizedBox(height: 12),
           _buildAccessibilityIcons(),
@@ -228,6 +254,7 @@ Widget _buildPhotoGallery() {
           const Text(
             'Opening Hours',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+>>>>>>> 21b40a6c7e6cefe8fd13a45d63e397277f9f6269
           ),
           const SizedBox(height: 12),
           for (final String hour in poi?.openingHours ?? <String>[]) Text(hour),
