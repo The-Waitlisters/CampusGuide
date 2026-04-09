@@ -227,13 +227,15 @@ class _MultiBuildingRouteScreenState extends State<MultiBuildingRouteScreen> {
                   onPressed: () => Navigator.pop(context),
                   tooltip: 'Exit navigation',
                 ),
-                const Spacer(),
-                Text(
-                  _phaseTitle,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    _phaseTitle,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
                 const SizedBox(width: 48),
               ],
             ),

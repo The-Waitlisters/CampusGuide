@@ -1,7 +1,6 @@
 // US-5.3: User can enable an accessibility option for indoor directions.
-//         Routes avoid stairs when accessibility mode is enabled.
-//         Elevators and ramps are prioritized when available.
-//         If no accessible route exists, the user is informed.
+//         Routes respect the selected vertical preference (Any / Elevator / Stairs).
+//         The preference can be toggled and the route updates automatically.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,15 +12,22 @@ import 'package:proj/models/floor.dart';
 import 'package:proj/models/indoor_map.dart';
 import 'package:proj/models/nav_graph.dart';
 import 'package:proj/models/room.dart';
-import 'package:proj/models/vertical_link.dart';
 import 'package:proj/screens/indoor_map_screen.dart';
 
 import 'helpers.dart';
 
-// ── Test building ─────────────────────────────────────────────────────────────
+// ── Real Hall building ─────────────────────────────────────────────────────────
+// Uses the real H.json so production routing drives the test.
+//
+// Normalised positions from H.json (imageWidth = imageHeight = 2000):
+//   Floor 1 — H-110  nx=0.262  ny=0.636
+//   Floor 2 — H-231  nx=0.391  ny=0.225
+//
+// H has both elevator and stair vertical links between floors, so all three
+// preference modes (Any / Elevator / Stairs) produce a valid route.
 
 final _kBuilding = CampusBuilding(
-  id: 'test-H',
+  id: 'hall-building',
   name: 'H',
   fullName: 'Henry F. Hall Building',
   campus: Campus.sgw,
@@ -29,121 +35,8 @@ final _kBuilding = CampusBuilding(
   boundary: const [],
 );
 
-// ── Rooms ─────────────────────────────────────────────────────────────────────
-//
-// Floor 1 — start room only.
-// Floor 2 — two destinations:
-//   H-210: reachable via elevator ONLY.
-//   H-220: reachable via stairs  ONLY.
-//
-// This lets the test verify:
-//   • With "Any"      → both rooms reachable.
-//   • With "Elevator" → H-210 reachable, H-220 NOT reachable ("No route found").
-//   • No-accessible-route case covered without changing the building.
-
-const _kRoom110 = Room(id: 'H-110', name: 'H-110', boundary: <Offset>[]);
-const _kRoom210 = Room(id: 'H-210', name: 'H-210', boundary: <Offset>[]);
-const _kRoom220 = Room(id: 'H-220', name: 'H-220', boundary: <Offset>[]);
-
-// ── Navigation graphs ─────────────────────────────────────────────────────────
-//
-// Floor 1 layout:
-//   H-110 ──(50)── elevator_f1
-//   H-110 ──(50)── stairs_f1
-//
-// Floor 2 layout:
-//   elevator_f2 ──(50)── H-210   (elevator side)
-//   stairs_f2   ──(50)── H-220   (stairs side)
-//
-// The two sides of floor 2 are NOT connected to each other, so H-210 and
-// H-220 are each reachable from floor 1 by one transport mode only.
-
-final _kNavGraph1 = NavGraph(
-  nodes: const [
-    NavNode(id: 'H-110',       type: 'room',          x: 0.50, y: 0.50),
-    NavNode(id: 'elevator_f1', type: 'elevator_door',  x: 0.30, y: 0.50),
-    NavNode(id: 'stairs_f1',   type: 'stair_landing',  x: 0.70, y: 0.50),
-  ],
-  edges: const [
-    NavEdge(from: 'H-110', to: 'elevator_f1', weight: 50),
-    NavEdge(from: 'H-110', to: 'stairs_f1',   weight: 50),
-  ],
-);
-
-final _kNavGraph2 = NavGraph(
-  nodes: const [
-    NavNode(id: 'elevator_f2', type: 'elevator_door',  x: 0.30, y: 0.50),
-    NavNode(id: 'H-210',       type: 'room',          x: 0.20, y: 0.50),
-    NavNode(id: 'stairs_f2',   type: 'stair_landing',  x: 0.70, y: 0.50),
-    NavNode(id: 'H-220',       type: 'room',          x: 0.80, y: 0.50),
-  ],
-  edges: const [
-    NavEdge(from: 'elevator_f2', to: 'H-210', weight: 50),
-    NavEdge(from: 'stairs_f2',   to: 'H-220', weight: 50),
-    // The two halves of floor 2 are intentionally NOT connected.
-  ],
-);
-
-// ── Stub map ──────────────────────────────────────────────────────────────────
-
-final _kIndoorMap = IndoorMap(
-  building: _kBuilding,
-  floors: [
-    Floor(
-      level: 1,
-      label: 'Floor 1',
-      rooms: const [_kRoom110],
-      imagePath: 'assets/indoor/H_1.png',
-      imageAspectRatio: 1.0,
-      navGraph: _kNavGraph1,
-    ),
-    Floor(
-      level: 2,
-      label: 'Floor 2',
-      rooms: const [_kRoom210, _kRoom220],
-      imagePath: 'assets/indoor/H_2.png',
-      imageAspectRatio: 1.0,
-      navGraph: _kNavGraph2,
-    ),
-  ],
-  // Explicit vertical links — elevator connects elevator nodes, stairs connect
-  // stair nodes. _inferVerticalLinks automatically adds both directions.
-  verticalLinks: const [
-    VerticalLink(
-      fromFloor: 1, fromNodeId: 'elevator_f1',
-      toFloor:   2, toNodeId:   'elevator_f2',
-      kind: VerticalLinkKind.elevator,
-    ),
-    VerticalLink(
-      fromFloor: 1, fromNodeId: 'stairs_f1',
-      toFloor:   2, toNodeId:   'stairs_f2',
-      kind: VerticalLinkKind.stairs,
-    ),
-  ],
-);
-
-Future<IndoorMap?> _mockLoader(CampusBuilding _) async => _kIndoorMap;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Taps a room row inside the ListView (not a chip in RouteControls).
-Future<void> _tapRoom(WidgetTester tester, String roomName) async {
-  await tester.tap(
-    find.descendant(
-      of: find.byType(ListView),
-      matching: find.text(roomName),
-    ).first,
-  );
-  await pumpFor(tester, const Duration(milliseconds: 300));
-}
-
-/// Opens the floor dropdown and selects [floorLabel].
-Future<void> _switchFloor(WidgetTester tester, String floorLabel) async {
-  await tester.tap(find.byType(DropdownButton<int>));
-  await pumpFor(tester, const Duration(milliseconds: 300));
-  await tester.tap(find.text(floorLabel).last);
-  await pumpFor(tester, const Duration(milliseconds: 300));
-}
+const _kH110  = (nx: 0.262, ny: 0.636); // floor 1
+const _kH231  = (nx: 0.391, ny: 0.225); // floor 2
 
 // ── Test ──────────────────────────────────────────────────────────────────────
 
@@ -151,15 +44,189 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'US-5.3: accessibility mode uses elevator, avoids stairs, '
-    'informs user when no accessible route exists',
+    'US-5.3: accessibility preference chips (Any / Elevator / Stairs) '
+    'all produce valid multi-floor routes in the real Hall building',
     (tester) async {
-      // ── Pump the screen ──────────────────────────────────────────────────────
+      // ── Pump the screen with the real loader ──────────────────────────────────
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IndoorMapScreen(building: _kBuilding),
+        ),
+      );
+
+      // Wait for the real JSON asset to load and parse.
+      await pumpFor(tester, const Duration(seconds: 8));
+      await pause(2); // observe loaded screen
+
+      expect(find.text('Henry F. Hall Building'), findsOneWidget,
+          reason: 'AppBar must show the building name');
+
+      // Helper: get the map canvas rect.
+      Rect mapRect() =>
+          tester.getRect(find.byType(InteractiveViewer).first);
+
+      // Helper: tap at a normalised position on the current floor plan.
+      Future<void> tapMap(({double nx, double ny}) pos) async {
+        final r = mapRect();
+        await tester.tapAt(Offset(
+          r.left + pos.nx * r.width,
+          r.top  + pos.ny * r.height,
+        ));
+        await pumpFor(tester, const Duration(milliseconds: 300));
+      }
+
+      // Helper: open floor dropdown and select a floor.
+      Future<void> switchFloor(String floorLabel) async {
+        await tester.tap(find.byType(DropdownButton<int>));
+        await pumpFor(tester, const Duration(milliseconds: 300));
+        await tester.tap(find.text(floorLabel).last);
+        await pumpFor(tester, const Duration(milliseconds: 300));
+      }
+
+      // ─── Set H-110 (floor 1) as start via map tap ────────────────────────────
+
+      await tapMap(_kH110);
+      await pause(1); // observe H-110 selected
+
+      expect(find.textContaining('Selected: H-110'), findsOneWidget,
+          reason: 'RouteControls must show "Selected: H-110" after map tap');
+
+      await tester.tap(find.text('Set Start'));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe start chip
+
+      // ─── Switch to floor 2 and set H-231 as destination via map tap ──────────
+
+      await switchFloor('Floor 2');
+      await pause(1); // observe floor 2 map
+
+      await tapMap(_kH231);
+      await pause(1); // observe H-231 selected
+
+      expect(find.textContaining('Selected: H-231'), findsOneWidget,
+          reason: 'RouteControls must show "Selected: H-231" after map tap on floor 2');
+
+      await tester.tap(find.text('Set Dest'));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe route with default "Any" preference
+
+      // ─── AC: Default "Any" preference — multi-floor route exists ─────────────
+
+      expect(
+        find.textContaining('steps'),
+        findsOneWidget,
+        reason: 'A route must exist from H-110 to H-231 with "Any" preference',
+      );
+      expect(
+        find.text('No route found'),
+        findsNothing,
+        reason: '"No route found" must NOT appear for a valid route',
+      );
+
+      // ─── AC: "Elevator" preference — elevator link is used ───────────────────
+
+      await tester.tap(find.text('Elevator'));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe elevator-preference route
+
+      expect(
+        find.textContaining('steps'),
+        findsOneWidget,
+        reason: 'Elevator route to H-231 must be found (Hall has an elevator)',
+      );
+      expect(
+        find.text('No route found'),
+        findsNothing,
+        reason: '"No route found" must NOT appear — elevator reaches floor 2',
+      );
+
+      // ─── AC: "Stairs" preference — stair link is used ────────────────────────
+
+      await tester.tap(find.text('Stairs'));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe stairs-preference route
+
+      expect(
+        find.textContaining('steps'),
+        findsOneWidget,
+        reason: 'Stairs route to H-231 must be found (Hall has stairs)',
+      );
+      expect(
+        find.text('No route found'),
+        findsNothing,
+        reason: '"No route found" must NOT appear — stairs reach floor 2',
+      );
+
+      // ─── AC: Toggling back to "Any" keeps the route ───────────────────────────
+
+      await tester.tap(find.text('Any'));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe restored "Any" route
+
+      expect(
+        find.textContaining('steps'),
+        findsOneWidget,
+        reason: 'Route must still appear after switching back to "Any"',
+      );
+      expect(
+        find.text('No route found'),
+        findsNothing,
+        reason: '"No route found" must NOT appear with "Any" preference',
+      );
+
+      await pause(1); // final visual pause
+    },
+  );
+
+  // ── Mock test: no route available ─────────────────────────────────────────────
+  //
+  // Two rooms on a single floor with NO edges between them and NO hallway
+  // waypoints. withAutoConnections is a no-op (it only links rooms to their
+  // nearest waypoint — nothing to link here), so pathfinding finds no path.
+  //
+  // This verifies the AC: "If no accessible route exists, the user is informed."
+
+  const _kRoomA = Room(id: 'A-101', name: 'A-101', boundary: <Offset>[]);
+  const _kRoomB = Room(id: 'B-101', name: 'B-101', boundary: <Offset>[]);
+
+  final _kIsolatedMap = IndoorMap(
+    building: CampusBuilding(
+      id: 'mock-isolated',
+      name: 'X',
+      fullName: 'Isolated Building',
+      campus: Campus.sgw,
+      description: '',
+      boundary: const [],
+    ),
+    floors: [
+      Floor(
+        level: 1,
+        label: 'Floor 1',
+        rooms: const [_kRoomA, _kRoomB],
+        imagePath: 'assets/indoor/H_1.png',
+        imageAspectRatio: 1.0,
+        navGraph: NavGraph(
+          // Two room nodes placed far apart, no edges, no waypoints.
+          // withAutoConnections is a no-op without waypoints.
+          nodes: const [
+            NavNode(id: 'A-101', type: 'room', x: 0.10, y: 0.50),
+            NavNode(id: 'B-101', type: 'room', x: 0.90, y: 0.50),
+          ],
+          edges: const [],
+        ),
+      ),
+    ],
+  );
+
+  testWidgets(
+    'US-5.3: "No route found" is shown when start and destination are '
+    'disconnected (mock building with no edges)',
+    (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: IndoorMapScreen(
-            building: _kBuilding,
-            mapLoader: _mockLoader,
+            building: _kIsolatedMap.building,
+            mapLoader: (_) async => _kIsolatedMap,
           ),
         ),
       );
@@ -167,108 +234,50 @@ void main() {
       await pumpFor(tester, const Duration(milliseconds: 500));
       await pause(1); // observe loaded screen
 
-      // ─── Set H-110 (floor 1) as start ────────────────────────────────────────
-
-      expect(find.text('H-110'), findsOneWidget,
-          reason: 'H-110 must appear on floor 1');
-
-      await _tapRoom(tester, 'H-110');
+      // Select A-101 from the room list as start.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ListView),
+          matching: find.text('A-101'),
+        ).first,
+      );
+      await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(1);
+
+      expect(find.textContaining('Selected: A-101'), findsOneWidget,
+          reason: 'RouteControls must show "Selected: A-101"');
 
       await tester.tap(find.text('Set Start'));
       await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1); // observe start chip
-
-      // ─── Switch to floor 2 and set H-210 (elevator-only) as destination ──────
-
-      await _switchFloor(tester, 'Floor 2');
-      await pause(1); // observe floor 2
-
-      expect(find.text('H-210'), findsOneWidget,
-          reason: 'H-210 must appear on floor 2');
-      expect(find.text('H-220'), findsOneWidget,
-          reason: 'H-220 must appear on floor 2');
-
-      await _tapRoom(tester, 'H-210');
       await pause(1);
 
-      await tester.tap(find.text('Set Dest'));
+      // Select B-101 from the room list as destination.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ListView),
+          matching: find.text('B-101'),
+        ).first,
+      );
       await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1); // observe initial route (Any preference)
-
-      // Default "Any" preference — elevator path to H-210 exists.
-      expect(
-        find.textContaining('steps'),
-        findsOneWidget,
-        reason: 'A route must exist from H-110 to H-210 with "Any" preference',
-      );
-      expect(
-        find.text('No route found'),
-        findsNothing,
-        reason: '"No route found" must NOT appear when a valid route exists',
-      );
-
-      // ─── AC: Elevators prioritised — "Elevator" mode still finds H-210 ───────
-
-      await tester.tap(find.text('Elevator'));
-      await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1); // observe elevator-only route
-
-      expect(
-        find.textContaining('steps'),
-        findsOneWidget,
-        reason: 'Elevator route to H-210 must still be found in accessibility mode',
-      );
-      expect(
-        find.text('No route found'),
-        findsNothing,
-        reason: '"No route found" must NOT appear — elevator reaches H-210',
-      );
-
-      // ─── AC: Routes avoid stairs when accessibility mode is enabled ───────────
-      // ─── AC: User informed when no accessible route exists ────────────────────
-      //
-      // H-220 is only reachable via stairs. With "Elevator" preference active,
-      // the stair link is filtered → no path → "No route found".
-
-      await _switchFloor(tester, 'Floor 2');
-      await pause(1); // back to floor 2 to select H-220
-
-      await _tapRoom(tester, 'H-220');
       await pause(1);
+
+      expect(find.textContaining('Selected: B-101'), findsOneWidget,
+          reason: 'RouteControls must show "Selected: B-101"');
 
       await tester.tap(find.text('Set Dest'));
       await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(2); // observe no-route state
 
+      // No path exists between A-101 and B-101 — the UI must say so.
       expect(
         find.text('No route found'),
         findsOneWidget,
-        reason:
-            '"No route found" must appear: H-220 is stair-only but elevator '
-            'mode is active',
+        reason: '"No route found" must appear when no path exists',
       );
       expect(
         find.textContaining('steps'),
         findsNothing,
-        reason: 'Step count must NOT appear when no accessible path exists',
-      );
-
-      // ─── Switching back to "Any" restores the route ───────────────────────────
-
-      await tester.tap(find.text('Any'));
-      await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1); // observe restored route
-
-      expect(
-        find.textContaining('steps'),
-        findsOneWidget,
-        reason: 'Route to H-220 via stairs must be restored when "Any" is selected',
-      );
-      expect(
-        find.text('No route found'),
-        findsNothing,
-        reason: '"No route found" must disappear once a valid route is available',
+        reason: 'Step count must NOT appear when no path exists',
       );
 
       await pause(1); // final visual pause

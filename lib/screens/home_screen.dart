@@ -91,6 +91,11 @@ class HomeScreen extends StatefulWidget {
   /// so directions work on emulators that have no location permission.
   final LatLng? testStartLocation;
 
+  /// For tests: when true, real Geolocator tracking is started even in E2E
+  /// mode, so the device's actual GPS position drives the GPS status card and
+  /// routing start point (requires location permission on the device).
+  final bool testEnableRealLocation;
+
   const HomeScreen({
     super.key,
     this.role = UserRole.guest,
@@ -104,6 +109,7 @@ class HomeScreen extends StatefulWidget {
     this.testIndoorMapLoader,
     this.testScheduleCurrentTime,
     this.testStartLocation,
+    this.testEnableRealLocation = false,
     MarkerImageLoader? markerImageLoader,
   }) : markerImageLoader = markerImageLoader ?? defaultMarkerImageLoader;
 
@@ -393,7 +399,8 @@ class _HomeScreenState extends HomeScreenState {
   }
 
   Future<void> _tryInitLocationTracking() async {
-    if (isE2EMode || widget.testMapControllerCompleter != null) {
+    if ((isE2EMode || widget.testMapControllerCompleter != null) &&
+        !widget.testEnableRealLocation) {
       return;
     }
 
@@ -628,7 +635,7 @@ class _HomeScreenState extends HomeScreenState {
 
       String? primaryType = place['primaryType'] as String?;
       primaryType = primaryType!.replaceAll('_', ' ').capitalize();
-      final rating = place['rating'].toDouble() ?? 0;
+      final rating = (place['rating'] as num?)?.toDouble() ?? 0.0;
       final address = place['shortFormattedAddress'];
 
       final photos = (place['photos'] as List?) ?? [];
@@ -719,7 +726,7 @@ class _HomeScreenState extends HomeScreenState {
       },
       body: jsonEncode({
         'includedPrimaryTypes': includedTypes,
-        'maxResultCount': maxResultCount,
+        'maxResultCount': maxResultCount.toInt(),
         'rankPreference': rankPreference.toUpperCase(),
         'locationRestriction': {
           'circle': {

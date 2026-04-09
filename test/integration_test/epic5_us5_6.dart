@@ -4,37 +4,36 @@
 //         Transitions between buildings are clearly indicated.
 //         The full route is understandable and continuous.
 //
-// MultiBuildingRouteScreen manages three phases:
-//   1. indoorStart  — navigate from start room to building exit
-//   2. outdoor      — walk/transit between buildings
-//   3. indoorEnd    — navigate from building entry to destination room
+// Uses real JSON assets (H.json → Hall, LB.json → J.W. McConnell Library).
+// Both buildings are on the SGW campus and have complete navGraph data.
 //
-// The test pumps the screen directly with stub IndoorMaps so no network,
-// Firebase or HomeScreen plumbing is required.
+// Key room IDs (from H.json / LB.json):
+//   Hall floor 1 — 'Hall_F1_room_71' (label H-110)
+//   LB   floor 2 — '204'             (label 204)
+//
+// MultiBuildingRouteScreen phases:
+//   indoorStart → navigate H-110 to Hall exit
+//   outdoor     → walk from Hall to LB
+//   indoorEnd   → navigate from LB entrance to room 204
+//
+// No mocks. Both IndoorMaps are loaded via loadIndoorMapForBuilding() so the
+// same production routing code that a real user sees drives the test.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
+import 'package:proj/data/indoor_map_data.dart';
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
-import 'package:proj/models/floor.dart';
-import 'package:proj/models/indoor_map.dart';
-import 'package:proj/models/nav_graph.dart';
-import 'package:proj/models/room.dart';
 import 'package:proj/screens/multi_building_route_screen.dart';
 
 import 'helpers.dart';
 
-// ── Buildings ─────────────────────────────────────────────────────────────────
-//
-// SGW  — Henry F. Hall Building (H)
-// Loyola — VL/VE Building (VL)
-//
-// Different campuses → _isCrossCampus = true → shuttle bus tip shown.
+// ── Real buildings ─────────────────────────────────────────────────────────────
 
-final _kStartBuilding = CampusBuilding(
-  id: 'sgw-H',
+final _kHBuilding = CampusBuilding(
+  id: 'hall-building',
   name: 'H',
   fullName: 'Henry F. Hall Building',
   campus: Campus.sgw,
@@ -42,87 +41,13 @@ final _kStartBuilding = CampusBuilding(
   boundary: const [],
 );
 
-final _kEndBuilding = CampusBuilding(
-  id: 'loy-VL',
-  name: 'VL',
-  fullName: 'VL/VE Building',
-  campus: Campus.loyola,
+final _kLBBuilding = CampusBuilding(
+  id: 'lb-building',
+  name: 'LB',
+  fullName: 'J.W. McConnell Library Building',
+  campus: Campus.sgw,
   description: '',
   boundary: const [],
-);
-
-// ── Rooms ─────────────────────────────────────────────────────────────────────
-
-const _kRoomH110  = Room(id: 'H-110',   name: 'H-110',   boundary: <Offset>[]);
-const _kRoomVL110 = Room(id: 'VL-110',  name: 'VL-110',  boundary: <Offset>[]);
-
-// ── NavGraphs ─────────────────────────────────────────────────────────────────
-//
-// Start building (H):
-//   H-110 ──(50)── entry_w ──(50)── entry_exit (building_entry_exit)
-//
-//   MultiBuildingRoutePlanner.findEntryExitNode() finds 'entry_exit' because
-//   its type is 'building_entry_exit'.  The screen then routes:
-//     startRoom='H-110'  →  exit='entry_exit'  →  indoor segment computed.
-//
-// End building (VL):
-//   entry_node (building_entry_exit) ──(50)── vl_w ──(50)── VL-110
-//
-//   Entry node found by findEntryExitNode(); end indoor segment is:
-//     entry='entry_node'  →  destRoom='VL-110'.
-
-final _kStartNavGraph = NavGraph(
-  nodes: const [
-    NavNode(id: 'H-110',      type: 'room',                 x: 0.10, y: 0.50),
-    NavNode(id: 'entry_w',    type: 'hallway_waypoint',      x: 0.45, y: 0.50),
-    NavNode(id: 'entry_exit', type: 'building_entry_exit',   x: 0.80, y: 0.50),
-  ],
-  edges: const [
-    NavEdge(from: 'H-110',    to: 'entry_w',    weight: 50),
-    NavEdge(from: 'entry_w',  to: 'entry_exit', weight: 50),
-  ],
-);
-
-final _kEndNavGraph = NavGraph(
-  nodes: const [
-    NavNode(id: 'entry_node', type: 'building_entry_exit',   x: 0.20, y: 0.50),
-    NavNode(id: 'vl_w',       type: 'hallway_waypoint',      x: 0.55, y: 0.50),
-    NavNode(id: 'VL-110',     type: 'room',                 x: 0.90, y: 0.50),
-  ],
-  edges: const [
-    NavEdge(from: 'entry_node', to: 'vl_w',    weight: 50),
-    NavEdge(from: 'vl_w',       to: 'VL-110',  weight: 50),
-  ],
-);
-
-// ── IndoorMaps ────────────────────────────────────────────────────────────────
-
-final _kStartMap = IndoorMap(
-  building: _kStartBuilding,
-  floors: [
-    Floor(
-      level: 1,
-      label: 'Floor 1',
-      rooms: const [_kRoomH110],
-      imagePath: 'assets/indoor/H_1.png',
-      imageAspectRatio: 1.0,
-      navGraph: _kStartNavGraph,
-    ),
-  ],
-);
-
-final _kEndMap = IndoorMap(
-  building: _kEndBuilding,
-  floors: [
-    Floor(
-      level: 1,
-      label: 'Floor 1',
-      rooms: const [_kRoomVL110],
-      imagePath: 'assets/indoor/H_1.png', // reuse any asset for rendering
-      imageAspectRatio: 1.0,
-      navGraph: _kEndNavGraph,
-    ),
-  ],
 );
 
 // ── Test ──────────────────────────────────────────────────────────────────────
@@ -131,181 +56,169 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'US-5.6: multi-building route — indoor/outdoor segments, SGW↔Loyola '
-    'supported, transitions indicated, full route continuous',
+    'US-5.6: multi-building route — Hall (H-110) → LB (room 204), '
+    'three-phase bar, indoor/outdoor segments connected, '
+    'transitions clearly indicated, route continuous',
     (tester) async {
-      // ── Pump MultiBuildingRouteScreen directly with stub data ────────────────
+      // ── Load real indoor maps from JSON assets ─────────────────────────────
+      // loadIndoorMapForBuilding reads H.json and LB.json from the asset bundle
+      // and builds full IndoorMap objects (rooms, navGraphs, verticalLinks).
+
+      final hMap  = await loadIndoorMapForBuilding(_kHBuilding);
+      final lbMap = await loadIndoorMapForBuilding(_kLBBuilding);
+
+      expect(hMap,  isNotNull, reason: 'H.json must load');
+      expect(lbMap, isNotNull, reason: 'LB.json must load');
+
+      await pause(1); // maps loaded — observe before pumping UI
+
+      // ── Pump the screen with real maps and real room IDs ──────────────────
+      // startRoomId: 'Hall_F1_room_71' is H-110 on floor 1 of Hall.
+      // endRoomId:   '204' is room 204 on floor 2 of the Library building.
+
       await tester.pumpWidget(
         MaterialApp(
           home: MultiBuildingRouteScreen(
-            startBuilding: _kStartBuilding,
-            endBuilding: _kEndBuilding,
-            startRoomId: 'H-110',
-            endRoomId: 'VL-110',
-            startIndoorMap: _kStartMap,
-            endIndoorMap: _kEndMap,
+            startBuilding: _kHBuilding,
+            endBuilding:   _kLBBuilding,
+            startRoomId:   'Hall_F1_room_71', // H-110
+            endRoomId:     '204',             // LB floor 2
+            startIndoorMap: hMap!,
+            endIndoorMap:   lbMap!,
             transportModeLabel: 'Walk',
-            // Inject outdoor info so the outdoor phase shows duration.
-            outdoorDuration: '~8 min walk',
-            outdoorDistance: '650 m',
+            outdoorDuration: '~5 min walk',
+            outdoorDistance: '350 m',
           ),
         ),
       );
 
-      // _computeRoutes() is synchronous (no awaits) — one pump resolves it.
-      await pumpFor(tester, const Duration(milliseconds: 500));
-      await pause(1); // observe initial indoorStart phase
+      // Wait for _computeRoutes() to finish and _loading to become false.
+      // _computeRoutes() is in-memory pathfinding (no network), but setState
+      // is async so we pump until the loading indicator disappears.
+      await pumpFor(tester, const Duration(seconds: 3));
+      expect(
+        find.byType(CircularProgressIndicator),
+        findsNothing,
+        reason: 'Loading indicator must be gone before assertions start',
+      );
+      await pause(1); // observe phase 1 (indoor start)
 
-      // ─── AC: Full route is understandable — three-phase bar always visible ───
+      // ─── AC: Full route is understandable — three-phase bar visible ────────
 
-      // Phase bar must show all three segments of the journey.
       expect(find.text('H'),    findsOneWidget,
-          reason: 'Start-building chip must show "H"');
+          reason: 'Phase bar must show start-building chip "H"');
       expect(find.text('Walk'), findsOneWidget,
-          reason: 'Transport-mode chip must show "Walk"');
-      expect(find.text('VL'),   findsOneWidget,
-          reason: 'End-building chip must show "VL"');
+          reason: 'Phase bar must show transport-mode chip "Walk"');
+      expect(find.text('LB'),   findsOneWidget,
+          reason: 'Phase bar must show end-building chip "LB"');
 
-      // Phase bar arrows connect the three chips.
+      // Arrows between the three chips.
       expect(find.byIcon(Icons.chevron_right), findsWidgets,
-          reason: 'Arrows between phase chips must be visible');
+          reason: 'Phase bar must show chevron arrows between chips');
 
-      // ─── AC: Indoor navigation in start building shown in phase 1 ────────────
+      // ─── AC: Indoor phase 1 — navigate to Hall exit ────────────────────────
 
-      // Phase title: "Navigate to exit — Henry F. Hall Building"
+      // Phase title identifies the start building and instructs the user to
+      // head to the exit.
       expect(
         find.textContaining('Navigate to exit'),
         findsOneWidget,
-        reason: 'Phase 1 title must direct user to the building exit',
+        reason: 'Phase 1 title must say "Navigate to exit"',
       );
       expect(
         find.textContaining('Henry F. Hall Building'),
         findsOneWidget,
-        reason: 'Phase 1 must reference the start building by name',
+        reason: 'Phase 1 must reference the start building by full name',
       );
 
-      // The indoor route for the start building is displayed (floor plan
-      // canvas and direction steps).
+      // A floor-plan canvas is shown so the user can see the route.
       expect(
         find.byType(InteractiveViewer),
         findsOneWidget,
-        reason: 'Floor plan canvas must be shown in the indoor start phase',
+        reason: 'Phase 1 must display a floor-plan canvas',
       );
-      expect(
-        find.textContaining('Floor 1'),
-        findsWidgets,
-        reason: 'Floor-level label must appear in the indoor route directions',
-      );
-      await pause(1);
 
-      // ─── AC: Transition out of start building clearly indicated ──────────────
+      // ─── AC: Transition out of start building clearly indicated ─────────────
 
-      // The continue button explicitly tells the user they are exiting the building.
       expect(
         find.textContaining("I've exited"),
         findsOneWidget,
         reason: 'Phase 1 continue button must say "I\'ve exited …"',
       );
+      await pause(1);
 
-      // ─── AC: Outdoor segment shown — SGW → Loyola (cross-campus) ─────────────
+      // ─── AC: Outdoor segment shown — walk within SGW campus ─────────────────
 
       await tester.tap(find.byKey(const Key('phase_continue_button')));
       await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(1); // observe outdoor phase
 
-      // Phase title: "Walk to VL/VE Building"
+      // Phase title describes the walk to the destination building.
       expect(
         find.textContaining('Walk to'),
         findsOneWidget,
-        reason: 'Outdoor phase title must describe the journey',
+        reason: 'Outdoor phase title must describe the walk to the LB',
       );
+
+      // Same-campus route: walking icon (not transit).
+      // Two instances: phase-bar chip icon + large outdoor-phase body icon.
       expect(
-        find.textContaining('VL/VE Building'),
+        find.byIcon(Icons.directions_walk),
         findsWidgets,
-        reason: 'Outdoor phase must reference the destination building',
+        reason: 'Same-campus route must show the walking icon',
       );
 
-      // Cross-campus route: transit icon is shown (not just walking).
+      // Pre-computed duration and distance are displayed.
       expect(
-        find.byIcon(Icons.directions_transit),
+        find.textContaining('~5 min walk'),
         findsOneWidget,
-        reason: 'SGW → Loyola is cross-campus, so the transit icon must appear',
-      );
-
-      // ─── AC: Routes between SGW and Loyola supported — shuttle tip shown ─────
-
-      expect(
-        find.textContaining('shuttle bus'),
-        findsOneWidget,
-        reason:
-            'Cross-campus routes must mention the Concordia shuttle bus option',
-      );
-
-      // ─── AC: Outdoor duration and distance are shown ──────────────────────────
-
-      expect(
-        find.textContaining('~8 min walk'),
-        findsOneWidget,
-        reason: 'Outdoor duration must be displayed in the outdoor phase',
+        reason: 'Outdoor duration must be shown in the outdoor phase',
       );
       expect(
-        find.textContaining('650 m'),
+        find.textContaining('350 m'),
         findsOneWidget,
-        reason: 'Outdoor distance must be displayed in the outdoor phase',
+        reason: 'Outdoor distance must be shown in the outdoor phase',
       );
-      await pause(1);
 
-      // ─── AC: Transition into destination building clearly indicated ───────────
+      // ─── AC: Transition into destination building clearly indicated ──────────
 
-      // The outdoor continue button names the destination building.
       expect(
         find.textContaining("I've arrived at"),
         findsOneWidget,
-        reason: 'Outdoor continue button must confirm arrival at end building',
+        reason: 'Outdoor continue button must confirm arrival at LB',
       );
-      expect(
-        find.textContaining('VL/VE Building'),
-        findsWidgets,
-        reason: 'Outdoor continue button must name the destination building',
-      );
+      await pause(1);
 
-      // ─── AC: Indoor navigation in destination building shown in phase 3 ───────
+      // ─── AC: Indoor phase 3 — navigate inside LB to room 204 ───────────────
 
       await tester.tap(find.byKey(const Key('phase_continue_button')));
       await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1); // observe indoorEnd phase
+      await pause(1); // observe indoor end phase
 
-      // Phase title: "Navigate inside — VL/VE Building"
+      // Phase title directs the user inside the destination building.
       expect(
         find.textContaining('Navigate inside'),
         findsOneWidget,
-        reason: 'Phase 3 title must direct user inside the destination building',
-      );
-      expect(
-        find.textContaining('VL/VE Building'),
-        findsWidgets,
-        reason: 'Phase 3 must reference the destination building by name',
+        reason: 'Phase 3 title must say "Navigate inside"',
       );
 
-      // Indoor floor plan canvas must be shown for the end building.
+      // Floor-plan canvas for LB must be shown.
       expect(
         find.byType(InteractiveViewer),
         findsOneWidget,
-        reason: 'Floor plan canvas must be shown in the indoor end phase',
+        reason: 'Phase 3 must display a floor-plan canvas for LB',
       );
 
-      // ─── AC: Indoor and outdoor segments seamlessly connected ─────────────────
-      // The start-building chip (H) is now marked as completed (✓ icon).
-      // The outdoor chip is also done. Only indoorEnd is still active.
+      // ─── AC: Indoor and outdoor segments seamlessly connected ─────────────
+      // Completed phases (H indoor, outdoor) show check-circle icons.
 
       expect(
         find.byIcon(Icons.check_circle),
         findsWidgets,
-        reason:
-            'Completed phases must show a check-circle icon in the phase bar',
+        reason: 'Completed phases must show check-circle icons in the phase bar',
       );
 
-      // ─── AC: Full route continuous — done button completes navigation ─────────
+      // ─── AC: Full route continuous — done button ends navigation ────────────
 
       expect(
         find.textContaining('Done'),

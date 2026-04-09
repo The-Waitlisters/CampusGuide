@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:proj/firebase_options.dart';
 import 'package:proj/main.dart';
 import 'package:proj/screens/home_screen.dart';
 import 'package:proj/widgets/schedule/schedule_overlay.dart';
@@ -21,6 +23,9 @@ void main() {
 
   setUpAll(() async {
     await loadEnv();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   });
 
   Future<void> pumpApp(WidgetTester tester) async {

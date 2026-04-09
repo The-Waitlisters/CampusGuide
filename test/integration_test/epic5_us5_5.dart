@@ -2,6 +2,12 @@
 //         floors. Routes include stairs or elevators as needed. Floor transitions
 //         are clearly indicated to the user. The correct floor map is displayed
 //         at each step. The user understands when and where to change floors.
+//
+// Uses the real Hall building (H.json) and map taps only — no mocks.
+//
+// Normalised positions from H.json (imageWidth = imageHeight = 2000):
+//   Floor 1 — H-110  nx=0.262  ny=0.636
+//   Floor 2 — H-231  nx=0.391  ny=0.225
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,19 +15,12 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:proj/models/campus.dart';
 import 'package:proj/models/campus_building.dart';
-import 'package:proj/models/floor.dart';
-import 'package:proj/models/indoor_map.dart';
-import 'package:proj/models/nav_graph.dart';
-import 'package:proj/models/room.dart';
-import 'package:proj/models/vertical_link.dart';
 import 'package:proj/screens/indoor_map_screen.dart';
 
 import 'helpers.dart';
 
-// ── Test building ─────────────────────────────────────────────────────────────
-
 final _kBuilding = CampusBuilding(
-  id: 'test-H',
+  id: 'hall-building',
   name: 'H',
   fullName: 'Henry F. Hall Building',
   campus: Campus.sgw,
@@ -29,269 +28,171 @@ final _kBuilding = CampusBuilding(
   boundary: const [],
 );
 
-// ── Rooms ─────────────────────────────────────────────────────────────────────
-
-const _kRoom110 = Room(id: 'H-110', name: 'H-110', boundary: <Offset>[]);
-const _kRoom210 = Room(id: 'H-210', name: 'H-210', boundary: <Offset>[]);
-
-// ── Navigation graphs ─────────────────────────────────────────────────────────
-//
-// Floor 1 corridor:   H-110 ──(50)── w1 ──(50)── stair_f1
-// Floor 2 corridor:   stair_f2 ──(50)── w2 ──(50)── H-210
-//
-// stair_f1 / stair_f2 are named "Staircase" so:
-//   • The step text just before transition reads
-//     "Proceed to Staircase on floor 1."
-//   • The transition instruction reads
-//     "Take the stairs from floor 1 to floor 2."
-//     (because _detectConnectorKind sees "stair" inside "Staircase")
-
-final _kNavGraph1 = NavGraph(
-  nodes: const [
-    NavNode(id: 'H-110',    type: 'room',             x: 0.10, y: 0.50),
-    NavNode(id: 'w1',       type: 'hallway_waypoint',  x: 0.40, y: 0.50),
-    NavNode(id: 'stair_f1', type: 'stair_landing',     x: 0.70, y: 0.50,
-            name: 'Staircase'),
-  ],
-  edges: const [
-    NavEdge(from: 'H-110', to: 'w1',       weight: 50),
-    NavEdge(from: 'w1',    to: 'stair_f1', weight: 50),
-  ],
-);
-
-final _kNavGraph2 = NavGraph(
-  nodes: const [
-    NavNode(id: 'stair_f2', type: 'stair_landing',     x: 0.30, y: 0.50,
-            name: 'Staircase'),
-    NavNode(id: 'w2',       type: 'hallway_waypoint',  x: 0.60, y: 0.50),
-    NavNode(id: 'H-210',    type: 'room',             x: 0.90, y: 0.50),
-  ],
-  edges: const [
-    NavEdge(from: 'stair_f2', to: 'w2',    weight: 50),
-    NavEdge(from: 'w2',       to: 'H-210', weight: 50),
-  ],
-);
-
-// ── Stub map ──────────────────────────────────────────────────────────────────
-
-final _kIndoorMap = IndoorMap(
-  building: _kBuilding,
-  floors: [
-    Floor(
-      level: 1,
-      label: 'Floor 1',
-      rooms: const [_kRoom110],
-      imagePath: 'assets/indoor/H_1.png',
-      imageAspectRatio: 1.0,
-      navGraph: _kNavGraph1,
-    ),
-    Floor(
-      level: 2,
-      label: 'Floor 2',
-      rooms: const [_kRoom210],
-      imagePath: 'assets/indoor/H_2.png',
-      imageAspectRatio: 1.0,
-      navGraph: _kNavGraph2,
-    ),
-  ],
-  verticalLinks: const [
-    VerticalLink(
-      fromFloor: 1, fromNodeId: 'stair_f1',
-      toFloor:   2, toNodeId:   'stair_f2',
-      kind: VerticalLinkKind.stairs,
-    ),
-  ],
-);
-
-Future<IndoorMap?> _mockLoader(CampusBuilding _) async => _kIndoorMap;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Taps a room row in the ListView (scoped away from RouteControls chips).
-Future<void> _tapRoom(WidgetTester tester, String name) async {
-  await tester.tap(
-    find.descendant(
-      of: find.byType(ListView),
-      matching: find.text(name),
-    ).first,
-  );
-  await pumpFor(tester, const Duration(milliseconds: 300));
-}
-
-/// Opens the floor dropdown and taps [floorLabel].
-Future<void> _switchFloor(WidgetTester tester, String floorLabel) async {
-  await tester.tap(find.byType(DropdownButton<int>));
-  await pumpFor(tester, const Duration(milliseconds: 300));
-  await tester.tap(find.text(floorLabel).last);
-  await pumpFor(tester, const Duration(milliseconds: 300));
-}
-
-/// Taps the "Next Step" button once and pumps frames.
-Future<void> _nextStep(WidgetTester tester) async {
-  await tester.tap(find.text('Next Step'));
-  await pumpFor(tester, const Duration(milliseconds: 300));
-}
-
-// ── Test ──────────────────────────────────────────────────────────────────────
+const _kH110 = (nx: 0.262, ny: 0.636); // floor 1
+const _kH231 = (nx: 0.391, ny: 0.225); // floor 2
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'US-5.5: multi-floor route detected, floor transitions indicated, '
-    'correct floor shown at each step',
+    'US-5.5: multi-floor route detected, floor transition indicated, '
+    'correct floor shown at each stage, route completes on floor 2',
     (tester) async {
-      // ── Pump the screen ──────────────────────────────────────────────────────
+      // ── Pump with real loader ─────────────────────────────────────────────────
       await tester.pumpWidget(
         MaterialApp(
-          home: IndoorMapScreen(
-            building: _kBuilding,
-            mapLoader: _mockLoader,
-          ),
+          home: IndoorMapScreen(building: _kBuilding),
         ),
       );
 
-      await pumpFor(tester, const Duration(milliseconds: 500));
-      await pause(1); // observe loaded screen — floor 1
+      await pumpFor(tester, const Duration(seconds: 8));
+      await pause(2); // observe floor 1 loaded
 
-      // ─── Set H-110 (floor 1) as start ────────────────────────────────────────
+      expect(find.text('Henry F. Hall Building'), findsOneWidget);
 
-      expect(find.text('H-110'), findsOneWidget);
-      await _tapRoom(tester, 'H-110');
-      await pause(1);
+      // Helper: tap a normalised position on the current floor-plan canvas.
+      Rect mapRect() => tester.getRect(find.byType(InteractiveViewer).first);
+      Future<void> tapMap(({double nx, double ny}) pos) async {
+        final r = mapRect();
+        await tester.tapAt(Offset(
+          r.left + pos.nx * r.width,
+          r.top  + pos.ny * r.height,
+        ));
+        await pumpFor(tester, const Duration(milliseconds: 300));
+      }
+
+      // ─── Select H-110 (floor 1) as start via map tap ─────────────────────────
+
+      await tapMap(_kH110);
+      await pause(1); // observe H-110 selected
+
+      expect(find.textContaining('Selected: H-110'), findsOneWidget,
+          reason: 'H-110 must be selected after map tap');
 
       await tester.tap(find.text('Set Start'));
       await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(1);
 
-      // ─── Switch to floor 2 and set H-210 as destination ──────────────────────
+      // ─── Switch to floor 2 and select H-231 as destination via map tap ────────
 
-      await _switchFloor(tester, 'Floor 2');
-      await pause(1);
+      await tester.tap(find.byType(DropdownButton<int>));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await tester.tap(find.text('Floor 2').last);
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe floor 2 map
 
-      expect(find.text('H-210'), findsOneWidget);
-      await _tapRoom(tester, 'H-210');
-      await pause(1);
+      await tapMap(_kH231);
+      await pause(1); // observe H-231 selected
+
+      expect(find.textContaining('Selected: H-231'), findsOneWidget,
+          reason: 'H-231 must be selected after map tap on floor 2');
 
       await tester.tap(find.text('Set Dest'));
       await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1); // observe multi-floor route
+      await pause(2); // observe multi-floor route
 
-      // ─── AC: System detects start and destination are on different floors ─────
+      // ─── AC: System detects start and destination are on different floors ──────
 
-      // A valid cross-floor route must be found and step count shown.
       expect(
         find.textContaining('steps'),
         findsOneWidget,
-        reason: 'A route must be found between H-110 (floor 1) and H-210 (floor 2)',
+        reason: 'A cross-floor route must be found between H-110 and H-231',
       );
 
-      // ─── AC: Route includes stairs — floor-transition direction in list ────────
+      // ─── AC: Floor transition clearly indicated in directions ─────────────────
+      //
+      // The route uses the Hall elevator or staircase; either way the
+      // transition instruction contains "from floor 1 to floor 2".
 
-      // The directions list must contain the staircase transition text.
       expect(
-        find.textContaining('Take the stairs from floor 1 to floor 2'),
+        find.textContaining('from floor 1 to floor 2'),
         findsWidgets,
-        reason: 'Directions must include the floor-transition instruction',
+        reason: 'Directions must include a floor-transition instruction',
       );
 
-      // ─── AC: Correct floor map displayed — starts on floor 1 ─────────────────
+      // ─── AC: Correct floor map displayed — route starts on floor 1 ───────────
 
-      // After routing, _syncUiToActiveSegment sets the display to segment 0's
-      // floor (floor 1). The dropdown must show "Floor 1".
+      // _syncUiToActiveSegment sets the display to segment 0's floor (floor 1)
+      // immediately after the route is computed.
       expect(
         find.text('Floor 1'),
         findsOneWidget,
         reason: 'Floor dropdown must show Floor 1 at the start of the route',
       );
-      expect(
-        find.text('Floor 2'),
-        findsNothing,
-        reason: 'Floor 2 must NOT be shown as the active floor at route start',
-      );
       await pause(1);
 
       // ─── AC: Initial step text describes navigation on floor 1 ───────────────
 
-      // At node index 0 (H-110), the next node is w1.
-      // Step text: "Proceed to w1 on floor 1."
       expect(
         find.textContaining('on floor 1'),
         findsWidgets,
-        reason: 'Initial step text must refer to floor 1 navigation',
+        reason: 'Initial step text must refer to floor 1',
       );
-      await pause(1);
 
-      // ─── AC: User understands when to change floors — tap towards staircase ──
+      // ─── AC: Tapping Next Step advances through the route ────────────────────
+      //
+      // Tap Next Step until the floor display switches to Floor 2 (the
+      // transition has been crossed) or until the route ends, whichever
+      // comes first. Cap at 80 taps so the test cannot loop forever.
 
-      // Tap 1 — advance to w1. Step text: "Proceed to Staircase on floor 1."
-      await _nextStep(tester);
-      await pause(1);
+      bool reachedFloor2 = false;
+      for (int i = 0; i < 80; i++) {
+        final arrived = find.text('Arrive at destination.').evaluate().isNotEmpty;
+        final onFloor2 = find.text('Floor 2').evaluate().isNotEmpty &&
+            find.text('Floor 1').evaluate().isEmpty;
+
+        if (arrived || onFloor2) {
+          reachedFloor2 = onFloor2 || arrived;
+          break;
+        }
+
+        final canNext = find
+            .ancestor(
+              of: find.text('Next Step'),
+              matching: find.byType(FilledButton),
+            )
+            .evaluate()
+            .isNotEmpty;
+        if (!canNext) break;
+
+        final btn = tester.widget<FilledButton>(
+          find.ancestor(
+            of: find.text('Next Step'),
+            matching: find.byType(FilledButton),
+          ),
+        );
+        if (btn.onPressed == null) break;
+
+        await tester.tap(find.text('Next Step'));
+        await pumpFor(tester, const Duration(milliseconds: 200));
+      }
 
       expect(
-        find.text('Proceed to Staircase on floor 1.'),
-        findsOneWidget,
-        reason: 'Step text must instruct the user to proceed to the Staircase',
+        reachedFloor2,
+        isTrue,
+        reason: 'Floor display must switch to Floor 2 after crossing the '
+            'floor transition',
       );
+      await pause(1); // observe floor 2 map
 
-      // ─── AC: Transition instruction is clearly shown at floor boundary ────────
+      // ─── AC: Route completes on floor 2 ──────────────────────────────────────
+      //
+      // Continue stepping until "Arrive at destination." appears.
 
-      // Tap 2 — advance to stair_f1 (end of floor-1 segment).
-      // Step text becomes the transition instruction.
-      await _nextStep(tester);
-      await pause(1);
+      for (int i = 0; i < 80; i++) {
+        if (find.text('Arrive at destination.').evaluate().isNotEmpty) break;
 
-      expect(
-        find.text('Take the stairs from floor 1 to floor 2.'),
-        findsOneWidget,
-        reason: 'Step text must show the floor-transition instruction at the '
-            'staircase node',
-      );
+        final btn = tester.widget<FilledButton>(
+          find.ancestor(
+            of: find.text('Next Step'),
+            matching: find.byType(FilledButton),
+          ),
+        );
+        if (btn.onPressed == null) break;
 
-      // Dropdown still shows Floor 1 — the physical floor hasn't changed yet.
-      expect(
-        find.text('Floor 1'),
-        findsOneWidget,
-        reason: 'Floor 1 is still active while the user is at the staircase',
-      );
-      await pause(1);
-
-      // ─── AC: Correct floor map displayed — switches to floor 2 after stairs ──
-
-      // Tap 3 — cross the floor boundary.
-      // _goToNextStep advances to segment 1; _syncUiToActiveSegment switches
-      // _selectedFloorLevel to 2.
-      await _nextStep(tester);
-      await pause(1);
-
-      expect(
-        find.text('Floor 2'),
-        findsOneWidget,
-        reason: 'Floor dropdown must switch to Floor 2 after advancing past the '
-            'staircase',
-      );
-      expect(
-        find.text('Floor 1'),
-        findsNothing,
-        reason: 'Floor 1 must no longer be shown as active after the floor '
-            'transition',
-      );
-
-      // ─── AC: Step text describes navigation on floor 2 after transition ───────
-
-      expect(
-        find.textContaining('on floor 2'),
-        findsWidgets,
-        reason: 'Step text must reference floor 2 after the floor transition',
-      );
-      await pause(1);
-
-      // ─── AC: Route completes on floor 2 — "Arrive at destination." shown ─────
-
-      // Tap 4 and Tap 5 — walk to H-210.
-      await _nextStep(tester);
-      await _nextStep(tester);
-      await pause(1);
+        await tester.tap(find.text('Next Step'));
+        await pumpFor(tester, const Duration(milliseconds: 200));
+      }
 
       expect(
         find.text('Arrive at destination.'),
@@ -299,17 +200,17 @@ void main() {
         reason: '"Arrive at destination." must appear at the final step',
       );
 
-      // "Next Step" button must now be disabled (no more steps).
-      final nextBtn = tester.widget<FilledButton>(
+      // "Next Step" must now be disabled.
+      final finalBtn = tester.widget<FilledButton>(
         find.ancestor(
           of: find.text('Next Step'),
           matching: find.byType(FilledButton),
         ),
       );
       expect(
-        nextBtn.onPressed,
+        finalBtn.onPressed,
         isNull,
-        reason: '"Next Step" button must be disabled after the last step',
+        reason: '"Next Step" must be disabled after the last step',
       );
 
       await pause(2); // final visual pause

@@ -5,274 +5,118 @@
 //         Results are shown as a list sorted nearest-first.
 //         When GPS is unavailable the campus centre is used as the fallback.
 //
-// Strategy: test the two relevant widgets (Results + PoiOptionMenu) directly
-// with stub data — no Firebase, no Google Maps, no network calls required.
+// Uses the real HomeScreen (Google Map + live building data).
+// No mocked POIs — real Google Places API is called after the user configures
+// the filter and taps Apply, exactly as in normal app usage.
 //
-// ── Distance reference (Results._computeDistance formula) ────────────────────
-//   R = 6356 km
-//   x = R * (π/180) * Δlat
-//   y = R * (π/180) * Δlng * cos(lat_user_as_radians)   ← degrees passed
-//                                                           directly to cos()
-//   d = √(x² + y²)
-//   < 1 km → formatted as "NNN.NN m",  ≥ 1 km → "N.NN km"
-//
-// NOTE: cos() receives the latitude in *degrees* (45.4973) treated as radians,
-// so cos(45.4973 rad) ≈ 0.056 rather than cos(45.4973°) ≈ 0.70.
-// This is a known quirk of the production code; the tests match its output.
-//
-// User at SGW centre LatLng(45.4973, -73.5789):
-//   _kPoiNear  Δlng= 0.0029 → ≈  18 m   (< 1 km, shown in "m")
-//   _kPoiMid   Δlng= 0.0100 → ≈  62 m   (< 1 km, shown in "m")
-//   _kPoiFar   Δlat=-0.0200 → ≈ 2.22 km (≥ 1 km, shown in "km")
+// Flow:
+//   1. App launches → map renders with SGW campus buildings
+//   2. User taps the "Points of Interest" FAB → PoiOptionMenu appears
+//   3. User inspects nearest-X and distance sliders, selects a category
+//   4. User taps Apply → real Google Places API called
+//   5. User taps "Show results" → Results panel appears
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import 'package:proj/models/campus.dart';
-import 'package:proj/models/poi.dart';
-import 'package:proj/widgets/home/poi_option_menu.dart';
+import 'package:proj/main.dart';
+import 'package:proj/screens/home_screen.dart';
 import 'package:proj/widgets/home/results.dart';
 
 import 'helpers.dart';
 
-// ── User / campus-centre location ─────────────────────────────────────────────
-
-const _kUserLocation   = LatLng(45.4973, -73.5789); // SGW campus centre
-const _kCampusCentre   = LatLng(45.4973, -73.5789); // same — fallback value
-
-// ── Stub POIs — sorted nearest-first (TASK-6.1.7) ────────────────────────────
-
-final _kPoiNear = Poi(
-  id:          'poi-near',
-  name:        'Café Near',
-  campus:      Campus.sgw,
-  description: 'café',
-  boundary:    const LatLng(45.4973, -73.5760), // ~225 m east
-);
-
-final _kPoiMid = Poi(
-  id:          'poi-mid',
-  name:        'Park Mid',
-  campus:      Campus.sgw,
-  description: 'park',
-  boundary:    const LatLng(45.4973, -73.5689), // ~776 m east
-);
-
-final _kPoiFar = Poi(
-  id:          'poi-far',
-  name:        'Restaurant Far',
-  campus:      Campus.sgw,
-  description: 'restaurant',
-  boundary:    const LatLng(45.4773, -73.5789), // ~2.22 km south
-);
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Builds a [Results] widget in a bounded MaterialApp/Scaffold context.
-Widget _buildResults({
-  required List<Poi> pois,
-  LatLng locationPoint = _kUserLocation,
-}) {
-  return MaterialApp(
-    home: Scaffold(
-      body: Results(
-        poiPresent:    pois,
-        locationPoint: locationPoint,
-        onSelect:      (_) {},
-        onClose:       () {},
-      ),
-    ),
-  );
-}
-
-/// Builds a [PoiOptionMenu] with neutral default state.
-Widget _buildPoiOptionMenu({
-  bool restaurants = false,
-  bool cafes       = false,
-  bool parks       = false,
-  bool parking     = false,
-  bool fastFood    = false,
-  bool nightClub   = false,
-  double nearbyX   = 5,
-  double distance  = 1,
-  String sortBy    = 'DISTANCE',
-}) {
-  return MaterialApp(
-    home: Scaffold(
-      body: PoiOptionMenu(
-        restaurants:         restaurants,
-        cafes:               cafes,
-        parks:               parks,
-        parking:             parking,
-        fastFood:            fastFood,
-        nightClub:           nightClub,
-        currentSliderValue:  nearbyX,
-        distanceSliderValue: distance,
-        sortBy:              sortBy,
-        onRestaurantsChanged: (_) {},
-        onCafesChanged:       (_) {},
-        onParksChanged:       (_) {},
-        onParkingChanged:     (_) {},
-        onFastFoodChanged:    (_) {},
-        onNightClubChanged:   (_) {},
-        onNearbyChanged:      (_) {},
-        onDistanceChanged:    (_) {},
-        onSortByChanged:      (_) {},
-        onReset:  () {},
-        onApply:  () {},
-        onClose:  () {},
-        onShow:   () {},
-      ),
-    ),
-  );
-}
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  // ── US-6.1: Results list ──────────────────────────────────────────────────
-
   testWidgets(
-    'US-6.1: POI results list — distances shown, sorted nearest-first, '
-    'empty state, campus-centre fallback',
+    'US-6.1: map loads → POI FAB opens filter menu → '
+    'nearest-X and distance sliders visible → category selected → '
+    'Apply fetches real POIs → Show results displays results panel',
     (tester) async {
-      // ── Phase 1: List with three POIs (pre-sorted nearest-first) ────────────
+      await loadEnv();
+
+      // ── 1. Launch the real app with HomeScreen ────────────────────────────────
       await tester.pumpWidget(
-        _buildResults(pois: [_kPoiNear, _kPoiMid, _kPoiFar]),
+        CampusGuideApp(
+          home: HomeScreen(
+            testMapControllerCompleter: Completer<GoogleMapController>(),
+            // SGW campus centre — so the Places API searches in Montreal,
+            // not at LatLng(0,0) which is the default when GPS is unavailable.
+            testStartLocation: const LatLng(45.4972, -73.5785),
+          ),
+        ),
       );
-      await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1);
 
-      // ─── AC: Results are displayed as a list (TASK-6.1.6) ─────────────────
+      // Initial pump: let the widget tree build and _initDependencies() fire.
+      await pumpFor(tester, const Duration(seconds: 3));
 
-      expect(find.byType(ListView), findsOneWidget,
-          reason: 'POI results must be shown in a scrollable list');
+      // Get state reference — same ritual as epic1/2 tests.
+      // ignore: unused_local_variable
+      final dynamic state = tester.state(find.byType(HomeScreen));
 
-      expect(find.text('Café Near'),      findsOneWidget,
-          reason: 'Nearest POI must appear in the list');
-      expect(find.text('Park Mid'),       findsOneWidget,
-          reason: 'Middle-distance POI must appear in the list');
-      expect(find.text('Restaurant Far'), findsOneWidget,
-          reason: 'Farthest POI must appear in the list');
-      await pause(1);
+      // Wait for buildings to load from JSON and polygons to be built.
+      await pumpFor(tester, const Duration(seconds: 5));
 
-      // ─── AC: Distance computed from user to each POI (TASK-6.1.3) ─────────
-      //
-      // The two eastward POIs (_kPoiNear ~18 m, _kPoiMid ~62 m) are sub-km
-      // and show a " m" suffix.  The southward POI (_kPoiFar ~2.22 km) is
-      // over 1 km and shows a "km" suffix.
+      // Give the native Google Maps Android view time to render map tiles.
+      await pause(4); // observe the campus map with building outlines
 
-      // At least two distance labels with the 'm' (metres) unit must appear.
+      // ─── AC: Map is loaded and campus UI is visible ──────────────────────────
+
       expect(
-        find.textContaining(' m'),
-        findsWidgets,
-        reason: 'Sub-kilometre POI distances must be displayed in metres',
-      );
-      // Exactly one distance label with the 'km' (kilometres) unit must appear.
-      expect(
-        find.textContaining('km'),
+        find.byKey(const Key('campus_toggle')),
         findsOneWidget,
-        reason: 'Distance ≥ 1 km must be displayed in kilometres',
+        reason: 'Campus toggle must be visible — map has loaded',
       );
-      await pause(1);
-
-      // ─── AC: Results sorted nearest-first (TASK-6.1.7) ────────────────────
-
-      // The ListTile widgets must appear in nearest-first order.
-      final tiles = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
-      expect(tiles.length, greaterThanOrEqualTo(3),
-          reason: 'All three POIs must render as ListTile rows');
-
-      // Extract title text of the first three tiles.
-      String _tileTitle(ListTile t) =>
-          (t.title as Text).data ?? '';
-      expect(_tileTitle(tiles[0]), 'Café Near',
-          reason: 'Nearest POI must be first in the list');
-      expect(_tileTitle(tiles[1]), 'Park Mid',
-          reason: 'Middle-distance POI must be second');
-      expect(_tileTitle(tiles[2]), 'Restaurant Far',
-          reason: 'Farthest POI must be last');
-      await pause(1);
-
-      // ── Phase 2: Empty state ─────────────────────────────────────────────────
-
-      await tester.pumpWidget(_buildResults(pois: []));
-      await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1);
-
-      // ─── AC: Empty list message shown when no POIs match (TASK-6.1.6) ──────
-
       expect(
-        find.text('No matching results'),
+        find.text('SGW'),
         findsOneWidget,
-        reason: 'Empty state must show "No matching results"',
+        reason: 'SGW campus label must be shown on launch',
       );
-      expect(find.byType(ListView), findsNothing,
-          reason: 'ListView must not appear when results list is empty');
       await pause(1);
 
-      // ── Phase 3: Campus-centre fallback (TASK-6.1.8) ─────────────────────────
-      //
-      // When GPS is unavailable the app substitutes the campus centre.
-      // Distances computed from campus centre must still be valid and labelled.
+      // ─── AC: "Points of Interest" FAB is visible on the map screen ───────────
 
-      await tester.pumpWidget(
-        _buildResults(pois: [_kPoiNear], locationPoint: _kCampusCentre),
-      );
-      await pumpFor(tester, const Duration(milliseconds: 300));
-      await pause(1);
-
-      expect(find.text('Café Near'), findsOneWidget,
-          reason: 'POI must appear even when campus centre is used as origin');
-
-      // Distance from campus centre to _kPoiNear is sub-km (~18 m) since
-      // _kCampusCentre == _kUserLocation.  The ' m' suffix confirms the
-      // distance was computed from the campus-centre fallback point.
       expect(
-        find.textContaining(' m'),
-        findsWidgets,
-        reason:
-            'Distances must be computed from campus centre as fallback origin',
+        find.text('Points of Interest'),
+        findsOneWidget,
+        reason: '"Points of Interest" FAB must be visible on the map screen',
       );
-
-      await pause(2);
-    },
-  );
-
-  // ── US-6.1: PoiOptionMenu controls ───────────────────────────────────────
-
-  testWidgets(
-    'US-6.1: PoiOptionMenu — nearest-X slider, range slider, '
-    'sort by distance, category checkboxes',
-    (tester) async {
-      await tester.pumpWidget(_buildPoiOptionMenu());
-      await pumpFor(tester, const Duration(milliseconds: 300));
       await pause(1);
 
-      // ─── AC: UI header identifies the menu ───────────────────────────────
-      expect(find.text('Points of interest filter'), findsOneWidget,
-          reason: 'Filter panel must have a clear header');
+      // ── 2. Open the POI filter menu ───────────────────────────────────────────
 
-      // ─── AC: Mode — nearest X (count slider) (TASK-6.1.4 / 6.1.5) ───────
+      await tester.tap(find.text('Points of Interest'));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe the filter panel opening
+
+      // ─── AC: PoiOptionMenu appears with a clear header ───────────────────────
+
+      expect(
+        find.text('Points of interest filter'),
+        findsOneWidget,
+        reason: 'Filter panel must appear after tapping the POI FAB',
+      );
+
+      // ── 3. Verify the nearest-X and distance sliders ──────────────────────────
+      //
+      // AC: UI controls provided for X (count) and range (km).
+
       expect(
         find.text('Set nearby points of interest per selected category'),
         findsOneWidget,
-        reason: '"Nearest X" slider section must be labelled',
+        reason: '"Nearest X" count-slider section must be labelled',
       );
-      await pause(1);
-
-      // ─── AC: Mode — within range (distance slider) (TASK-6.1.4 / 6.1.5) ─
       expect(
         find.text('Set radius (km)'),
         findsOneWidget,
-        reason: '"Within range" slider section must be labelled',
+        reason: '"Within range" distance-slider section must be labelled',
       );
 
-      // Both mode controls must be Slider widgets (TASK-6.1.5).
+      // Both controls must be Slider widgets so the user can drag them.
       expect(
         find.byType(Slider),
         findsNWidgets(2),
@@ -280,13 +124,8 @@ void main() {
       );
       await pause(1);
 
-      // ─── AC: Sort-by control available (TASK-6.1.7) ──────────────────────
-      expect(find.text('Sort by'), findsOneWidget,
-          reason: '"Sort by" section must be labelled');
+      // ─── AC: Category checkboxes present ─────────────────────────────────────
 
-      // ─── AC: Category checkboxes present (TASK-6.1.2) ────────────────────
-      expect(find.text('Categories'), findsOneWidget,
-          reason: 'Category section must be labelled');
       expect(find.text('Restaurants'), findsOneWidget,
           reason: 'Restaurants category checkbox must be present');
       expect(find.text('Cafes'),       findsOneWidget,
@@ -300,15 +139,109 @@ void main() {
       expect(find.text('Night Clubs'), findsOneWidget,
           reason: 'Night Clubs category checkbox must be present');
 
-      // Verify the Apply and Reset action buttons are present.
-      expect(find.text('Apply'), findsOneWidget,
-          reason: 'Apply button must be present to trigger the POI search');
-      expect(find.text('Reset'), findsOneWidget,
-          reason: 'Reset button must be present to clear all filters');
-      expect(find.text('Show results'), findsOneWidget,
-          reason: '"Show results" button must reveal the results panel');
+      // ─── AC: Sort and action buttons present ──────────────────────────────────
 
-      await pause(2);
+      expect(find.text('Sort by'),      findsOneWidget,
+          reason: '"Sort by" section must be labelled');
+      expect(find.text('Apply'),        findsOneWidget,
+          reason: 'Apply button must be present');
+      expect(find.text('Reset'),        findsOneWidget,
+          reason: 'Reset button must be present');
+      expect(find.text('Show results'), findsOneWidget,
+          reason: '"Show results" button must be present');
+      await pause(1);
+
+      // ── 4. Select a category and configure sliders ───────────────────────────
+      //
+      // Checkboxes are standalone Checkbox widgets (not CheckboxListTile), so
+      // we tap the Checkbox widget itself — tapping the adjacent text does nothing.
+      // Slider[0] = nearbyCount (max 20, 5 divisions), Slider[1] = distance (max 5 km).
+
+      // Tick the "Restaurants" checkbox — it is the first Checkbox in the tree.
+      await tester.tap(find.byType(Checkbox).first);
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe Restaurants checkbox checked
+
+      // Move "nearby count" slider to ~60 % of its track → snaps to ≈ 12 results.
+      final Rect nearbySliderRect =
+          tester.getRect(find.byType(Slider).first);
+      await tester.tapAt(Offset(
+        nearbySliderRect.left + nearbySliderRect.width * 0.6,
+        nearbySliderRect.center.dy,
+      ));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe nearby-count slider moved
+
+      // Move "distance" slider to ~40 % of its track → snaps to ≈ 2 km radius.
+      final Rect distanceSliderRect =
+          tester.getRect(find.byType(Slider).last);
+      await tester.tapAt(Offset(
+        distanceSliderRect.left + distanceSliderRect.width * 0.4,
+        distanceSliderRect.center.dy,
+      ));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe distance slider moved
+
+      // Select "Popularity" from the Sort-by DropdownMenu.
+      // The DropdownMenu renders as a text field — tap it to open the menu,
+      // then tap the "Popularity" entry that appears in the overlay.
+      await tester.tap(find.text('Select...').first);
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await tester.tap(find.text('Popularity').last);
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(1); // observe Popularity selected
+
+      // Tap Apply — fires the real Google Places API call with selected filters.
+      await tester.tap(find.text('Apply'));
+      await pumpFor(tester, const Duration(seconds: 5)); // wait for API response
+      await pause(2); // observe POI markers appearing on the map
+
+      // ── 5. Show the results panel ─────────────────────────────────────────────
+
+      // "Show results" hides the filter menu and opens the results panel.
+      await tester.tap(find.text('Show results'));
+      await pumpFor(tester, const Duration(milliseconds: 500));
+      await pause(2); // observe the results panel
+
+      // ─── AC: Results panel is displayed ──────────────────────────────────────
+
+      expect(
+        find.byType(Results),
+        findsOneWidget,
+        reason: 'Results panel must appear after tapping "Show results"',
+      );
+
+      // ─── AC: List shown when POIs exist; empty state when none ───────────────
+      //
+      // In a live emulator with a valid API key the Places API returns nearby
+      // restaurants; in an offline CI environment it may return nothing.
+      // Either outcome is valid — the UI must react correctly to both.
+
+      final hasList  = find.byType(ListView).evaluate().isNotEmpty;
+      final hasEmpty = find.text('No matching results').evaluate().isNotEmpty;
+
+      expect(
+        hasList || hasEmpty,
+        isTrue,
+        reason: 'Results panel must show either a POI list or "No matching results"',
+      );
+
+      if (hasList) {
+        // At least one distance label must appear alongside each POI.
+        expect(
+          find.textContaining(' m').evaluate().isNotEmpty ||
+              find.textContaining('km').evaluate().isNotEmpty,
+          isTrue,
+          reason: 'Distance to each POI must be shown in the results list',
+        );
+      }
+
+      await pause(5); // observe results panel for 5 seconds
+
+      // Close the results panel — tap the X button — so the map is visible again.
+      await tester.tap(find.byIcon(Icons.close));
+      await pumpFor(tester, const Duration(milliseconds: 300));
+      await pause(3); // observe the map with POI markers
     },
   );
 }

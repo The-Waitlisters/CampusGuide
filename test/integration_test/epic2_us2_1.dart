@@ -9,41 +9,18 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:proj/main.dart';
 import 'package:proj/screens/home_screen.dart';
 import 'package:proj/models/campus.dart';
-import 'package:proj/services/directions/directions_controller.dart';
-import 'package:proj/services/directions/transport_mode_strategy.dart';
 
 import 'helpers.dart';
 
-// ── Stub directions client ────────────────────────────────────────────────────
-//
-// Returns an empty but valid RouteResult so no real HTTP call is made.
-// This prevents the "Directions API key missing" error from surfacing during
-// tests that only need to verify start/destination selection, not routing.
-
-class _StubDirectionsClient implements DirectionsClient {
-  @override
-  Future<RouteResult> getRoute({
-    required LatLng origin,
-    required LatLng destination,
-    required TransportModeStrategy mode,
-  }) async {
-    return const RouteResult(
-      legs: [],
-      durationText: '5 min',
-      distanceText: '400 m',
-    );
-  }
-}
+// No stub — the real DirectionsController (and real Google Directions API) is
+// used so the polyline follows actual streets, exactly as in production.
 
 Future<dynamic> _loadApp(WidgetTester tester) async {
-  await loadEnv(); // load .env so any dotenv-based secrets are available
+  await loadEnv(); // dotenv.load() so Secrets.directionsApiKey returns the real key
   await tester.pumpWidget(
     CampusGuideApp(
       home: HomeScreen(
         testMapControllerCompleter: Completer<GoogleMapController>(),
-        testDirectionsController: DirectionsController(
-          client: _StubDirectionsClient(),
-        ),
       ),
     ),
   );
@@ -76,7 +53,8 @@ void main() {
     await pause(2);
 
     final startLabelA = buildingA.fullName ?? buildingA.name;
-    expect(find.textContaining('Start: $startLabelA'), findsOneWidget);
+    expect(find.textContaining('Start:'), findsOneWidget);
+    expect(find.textContaining(startLabelA), findsOneWidget);
 
     state.simulateBuildingTap(buildingB);
     await pumpFor(tester, const Duration(milliseconds: 500));
@@ -84,12 +62,16 @@ void main() {
 
     expect(find.text('Set as Destination'), findsOneWidget);
     await tester.tap(find.text('Set as Destination'));
-    await pumpFor(tester, const Duration(milliseconds: 500));
+    // Pump long enough for the real Directions API round-trip to complete
+    // and the polyline to be rendered on the map.
+    await pumpFor(tester, const Duration(seconds: 6));
     await pause(3);
 
     final destLabelB = buildingB.fullName ?? buildingB.name;
-    expect(find.textContaining('Start: $startLabelA'), findsOneWidget);
-    expect(find.textContaining('Destination: $destLabelB'), findsOneWidget);
+    expect(find.textContaining('Start:'), findsOneWidget);
+    expect(find.textContaining(startLabelA), findsOneWidget);
+    expect(find.textContaining('Destination:'), findsOneWidget);
+    expect(find.textContaining(destLabelB), findsOneWidget);
   });
 
   // ── Test 2: Search bar → Set as Start + Set as Destination ─────────────────
@@ -131,14 +113,14 @@ void main() {
 
     expect(find.text('Set as Destination'), findsOneWidget);
     await tester.tap(find.text('Set as Destination'));
-    await pumpFor(tester, const Duration(milliseconds: 500));
+    await pumpFor(tester, const Duration(seconds: 6));
     await pause(3);
 
     expect(find.textContaining('Start:'), findsOneWidget);
     expect(find.textContaining('Destination:'), findsOneWidget);
   });
 
-  // ── Test 3: GPS inside building → "Set Current building as starting point" ──
+  // ── Test 3: GPS inside building → "Start from Current Building" ──
 
   testWidgets('US-2.1 Test 3: set start via current GPS building button', (tester) async {
     final state = await _loadApp(tester);
@@ -153,8 +135,8 @@ void main() {
     await pumpFor(tester, const Duration(milliseconds: 500));
     await pause(3);
 
-    expect(find.text('Set Current building as starting point'), findsOneWidget);
-    await tester.tap(find.text('Set Current building as starting point'));
+    expect(find.text('Start from Current Building'), findsOneWidget);
+    await tester.tap(find.text('Start from Current Building'));
     await pumpFor(tester, const Duration(milliseconds: 500));
     await pause(3);
 

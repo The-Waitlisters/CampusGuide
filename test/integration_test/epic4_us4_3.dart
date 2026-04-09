@@ -22,11 +22,11 @@ const String _kEmail    = 'hugo.moslener@gmail.com';
 const String _kPassword = 'Test123';
 
 // ── Time constants ────────────────────────────────────────────────────────────
-// Monday 7 Apr 2026 at 16:00 — just before the 16:15 SOEN 343 lecture.
-final DateTime _kNextClassTime = DateTime(2026, 4, 7, 16, 0);
+// Monday 6 Apr 2026 at 16:00 — just before the 16:15 SOEN 343 lecture.
+final DateTime _kNextClassTime = DateTime(2026, 4, 6, 16, 0);
 
-// Monday 7 Apr 2026 at 23:59 — after all classes; "no upcoming class" case.
-final DateTime _kAfterClassTime = DateTime(2026, 4, 7, 23, 59);
+// Monday 6 Apr 2026 at 23:59 — after all classes; "no upcoming class" case.
+final DateTime _kAfterClassTime = DateTime(2026, 4, 6, 23, 59);
 
 // ── Seed entry ────────────────────────────────────────────────────────────────
 // SOEN 343 Monday 16:15 — used to pre-populate Firestore for the test user.
@@ -104,13 +104,14 @@ void main() {
         home: HomeScreen(
           testMapControllerCompleter: Completer<GoogleMapController>(),
           testScheduleCurrentTime: scheduleTime,
-          // EV building centre — inside a real SGW building so the start
-          // building polygon lights up and directions run building-to-building.
-          testStartLocation: const LatLng(45.4955, -73.5780),
+          // Use the device's real GPS so the building is detected and routing
+          // start is set from the emulator's configured location.
+          testEnableRealLocation: true,
         ),
       ),
     );
-    await pumpFor(tester, const Duration(seconds: 5));
+    // Allow time for location permission dialog + first GPS fix.
+    await pumpFor(tester, const Duration(seconds: 8));
     await pause(2);
 
     // Open the schedule overlay via the test hook.
